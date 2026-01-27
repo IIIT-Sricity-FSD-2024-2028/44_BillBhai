@@ -1,0 +1,183 @@
+# Domain: Retail Inventory and Operations
+# Problem Statement: Order Processing and Billing Systems
+# Last Updated: 2026-01-27
+
+Order:
+  definition: 
+    A formal request created when a customer selects products or services to be purchased from the store.
+  examples:
+    - A customer orders two burgers and one soft drink at the counter.
+  aliases:
+    - Sales Order
+    - Purchase Order
+
+Order Line Item:
+  definition:
+    A single product or service entry within an order, including quantity and price.
+  examples:
+    - 2 units of Veg Burger in an order.
+  aliases:
+    - Item Entry
+    - Order Item
+
+Bill:
+  definition:
+    A financial document generated after order confirmation that shows payable amount before payment.
+  examples:
+    - The counter generates a bill of ₹350 for a customer.
+  aliases:
+    - Check
+    - Draft Invoice
+
+Invoice:
+  definition:
+    A finalized billing document issued after payment that records transaction details for accounting and tax purposes.
+  examples:
+    - GST invoice printed after completing a card payment.
+  aliases:
+    - Tax Invoice
+    - Final Bill
+
+Payment:
+  definition:
+    The act of settling the payable amount using a selected payment method.
+  examples:
+    - Customer pays ₹500 using UPI.
+  aliases:
+    - Settlement
+    - Transaction
+
+Payment Method:
+  definition:
+    The mode selected by the customer to complete the payment.
+  examples:
+    - Cash, Card, UPI, Wallet.
+  aliases:
+    - Mode of Payment
+    - Tender Type
+
+Receipt:
+  definition:
+    A proof of payment issued to the customer after successful transaction completion.
+  examples:
+    - Printed receipt handed to the customer after billing.
+  aliases:
+    - Payment Slip
+    - Acknowledgement
+
+Inventory Item:
+  definition:
+    A sellable product or raw material tracked by the store for stock availability.
+  examples:
+    - 50 units of cold drink available in stock.
+  aliases:
+    - Stock Item
+    - Product Unit
+
+Stock Level:
+  definition:
+    The current quantity of an inventory item available in the store.
+  examples:
+    - Only 5 burger buns left in inventory.
+  aliases:
+    - Available Quantity
+    - On-hand Stock
+
+Stock Deduction:
+  definition:
+    The reduction of inventory quantity when an order is confirmed or billed.
+  examples:
+    - Deducting 2 bottles from stock after a sale.
+  aliases:
+    - Inventory Reduction
+    - Stock Update
+
+Warehouse:
+  definition:
+    A physical facility used to store inventory items before they are moved to stores or dispatched for delivery.
+  examples:
+    - Central warehouse storing packaged food items for multiple outlets.
+  aliases:
+    - Storage Facility
+    - Distribution Center
+
+Storage Location:
+  definition:
+    A specific area or shelf within a warehouse where inventory items are placed and tracked.
+  examples:
+    - Rack A3 storing bottled beverages.
+  aliases:
+    - Bin Location
+    - Shelf Location
+
+Dispatch:
+  definition:
+    The process of preparing and sending ordered items from the store or warehouse for delivery.
+  examples:
+    - Order packed and dispatched for home delivery.
+  aliases:
+    - Shipment
+    - Outbound Movement
+
+Delivery Order:
+  definition:
+    An order that is scheduled to be delivered to the customer at a specified address.
+  examples:
+    - Online food order marked for home delivery.
+  aliases:
+    - Home Delivery Order
+    - Online Order
+
+Delivery Assignment:
+  definition:
+    The allocation of a delivery order to a delivery agent for fulfillment.
+  examples:
+    - Order assigned to a delivery partner for doorstep delivery.
+  aliases:
+    - Rider Allocation
+    - Delivery Allocation
+
+Delivery Status:
+  definition:
+    The current stage of a delivery order in the delivery lifecycle.
+  examples:
+    - Order marked as Out for Delivery or Delivered.
+  aliases:
+    - Order Status
+    - Shipment Status
+
+Discount Rule:
+  definition:
+    A predefined condition that reduces the payable amount based on offers or promotions.
+  examples:
+    - 10% off on orders above ₹500.
+  aliases:
+    - Offer Rule
+    - Promotion Policy
+
+Tax Component:
+  definition:
+    A mandatory charge added to the bill based on applicable government tax regulations.
+  examples:
+    - 5% GST added to food items.
+  aliases:
+    - GST
+    - Tax Charge
+
+Return:
+  definition:
+    A process where sold items are brought back and the billed amount is adjusted or refunded.
+  examples:
+    - Customer returns a wrongly billed item.
+  aliases:
+    - Refund Order
+    - Reversal
+
+Settlement Report:
+  definition:
+    A summary of all payments collected during a period, categorized by payment methods.
+  examples:
+    - Report showing cash ₹5000 and UPI ₹7000 collected today.
+  aliases:
+    - Collection Summary
+    - Payment Summary
