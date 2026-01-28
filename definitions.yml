@@ -243,7 +243,7 @@ Discount Rule:
 
 Tax Component:
   definition:
-    A mandatory charge added based on applicable government tax regulations.
+    A mandatory charge is added based on applicable government tax regulations.
   examples:
     - 12% GST added to clothing bill.
   aliases:
@@ -258,3 +258,14 @@ Operational Log:
   aliases:
     - Activity Log
     - Audit Trail
+
+Report:
+  definition:
+    A structured summary generated from operational records to support monitoring, analysis, and decision-making.
+  examples:
+    - Daily sales report generated at store closing.
+    - Inventory stock report reviewed by the manager.
+  aliases:
+    - Operational Report
+    - Summary Statement
+
