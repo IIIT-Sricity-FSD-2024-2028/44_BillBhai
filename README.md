@@ -2,5 +2,5 @@
 - Mohit Madhu
 - Sarthak Suvan Chowdhary
 - Adiya Gupta
-- Satyman Kumar
+- Satyam Kumar
 - Chirag Sharma
