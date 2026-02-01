@@ -1,4 +1,4 @@
-#  Retail -- Order Processing & Billing System
+#  Retail Order Processing & Billing System
 
 ##  Problem Statement
 
