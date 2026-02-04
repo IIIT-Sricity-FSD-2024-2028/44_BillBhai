@@ -63,18 +63,18 @@ Price Catalog:
 
 Order:
   definition:
-    A formal request created when a customer selects products to be purchased from the store.
+    A formal request is created when a customer selects products to be purchased from the store.
   examples:
     - Customer places an order for two shirts.
   aliases:
     - Sales Order
-    - Purchase Order
+    - Customer Order
 
 Order Item:
   definition:
     A single product entry within an order, including quantity and price.
   examples:
-    - 2 units of black T-shirt in an order.
+    - 2 units of black T-shirts in an order.
   aliases:
     - Order Line Item
     - Item Entry
@@ -153,7 +153,7 @@ Supplier:
 
 Purchase Order:
   definition:
-    A formal request issued to a supplier specifying products and quantities to be procured.
+    A request to a supplier specifying the products and quantities of products we require.
   examples:
     - Order placed for 200 shirts from the supplier.
   aliases:
