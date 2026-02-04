@@ -16,9 +16,9 @@ Customer Profile:
     - Client Profile
     - Customer Record
 
-Loyalty Account:
+Loyalty Member:
   definition:
-    An account that tracks reward points or benefits earned by a customer through purchases.
+    A feature that tracks reward points or benefits earned by a customer through purchases.
   examples:
     - Customer earns loyalty points after shopping.
   aliases:
@@ -70,13 +70,13 @@ Order:
     - Sales Order
     - Purchase Order
 
-Order Line Item:
+Order Item:
   definition:
     A single product entry within an order, including quantity and price.
   examples:
     - 2 units of black T-shirt in an order.
   aliases:
-    - Order Item
+    - Order Line Item
     - Item Entry
 
 Bill:
@@ -155,7 +155,7 @@ Purchase Order:
   definition:
     A formal request issued to a supplier specifying products and quantities to be procured.
   examples:
-    - Order placed for 200 shirts from supplier.
+    - Order placed for 200 shirts from the supplier.
   aliases:
     - Procurement Order
     - Supply Order
@@ -269,3 +269,12 @@ Report:
     - Operational Report
     - Summary Statement
 
+Self Checkout:
+  definition:
+    A feature that allows customers to scan products, review the bill, and complete payment on their own without cashier assistance.
+  examples:
+    - Customer scans items at a self-checkout kiosk and pays using card/UPI.
+    - Shopper uses a mobile self-checkout app to scan barcodes and pay before exiting.
+  aliases:
+    - Self-Service Checkout
+    - Automated Checkout
