@@ -47,8 +47,7 @@ Store staff responsible for order creation and billing at the point of sale.
 
 ---
 
-### Return Handler ✅ (Added)
-
+### Return Handler 
 Store staff responsible for managing customer returns, exchanges, and refunds.
 
 **Responsibilities:**
@@ -87,7 +86,7 @@ Responsible for inventory availability and accuracy.
 
 ---
 
-### Branch Manager / Head of Operations
+### Head of Operations
 
 Oversees store-level operations and performance.
 
@@ -134,7 +133,7 @@ Handles secure payment processing.
 
 ---
 
-### Return Handler Features ✅ (Added)
+### Return Handler Features
 
 - Return request verification
 - Return approval/rejection based on store policy
