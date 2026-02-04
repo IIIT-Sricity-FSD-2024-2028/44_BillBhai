@@ -1,156 +1,206 @@
-#  Retail Order Processing & Billing System
+# Retail Order Processing & Billing System
 
-##  Problem Statement
+## Problem Statement
 
-Modern retail operations require a seamless, accurate, and scalable system to manage customer orders, billing, payments, inventory, delivery, and reporting.
+Modern retail operations require a seamless, accurate, and scalable system to manage customer orders, billing, payments, inventory, delivery, returns, and reporting.  
 Manual or loosely integrated processes often lead to billing errors, stock mismatches, delayed deliveries, and poor customer experience.
 
-This project aims to design and implement a *Retail Order Processing and Billing System* that efficiently handles:
+This project aims to design and implement a **Retail Order Processing and Billing System** that efficiently handles:
 
-* End-to-end order lifecycle (from order creation to delivery)
-* Accurate billing, discounts, taxes, and invoicing
-* Inventory monitoring, replenishment, and adjustments
-* Returns, refunds, and exchanges
-* Sales tracking and operational reporting
+- End-to-end order lifecycle (from order creation to delivery)
+- Accurate billing, discounts, taxes, and invoicing
+- Inventory monitoring, replenishment, and adjustments
+- Returns, refunds, and exchanges
+- Sales tracking and operational reporting
 
-The system is designed to support *both in-store and delivery-based retail workflows*, ensuring transparency, auditability, and operational efficiency.
+The system is designed to support **both in-store and delivery-based retail workflows**, ensuring transparency, auditability, and operational efficiency.
 
+---
 
-##  Identified Actors in this domain
+## Identified Actors in this Domain
 
-###  Customer
+### Customer
 
 An individual who purchases products or requests services from the store.
 
-*Responsibilities:*
+**Responsibilities:**
 
-* Select products for purchase
-* Avail discounts and loyalty benefits
-* Make payments
-* Receive bills, invoices, and receipts
-* Request returns, refunds, or exchanges
+- Select products for purchase
+- Avail discounts and loyalty benefits
+- Make payments
+- Receive bills, invoices, and receipts
+- Request returns, refunds, or exchanges
 
+---
 
-###  Cashier
+### Cashier
 
 Store staff responsible for order creation and billing at the point of sale.
 
-*Responsibilities:*
+**Responsibilities:**
 
-* Scan and verify product barcodes
-* Create and update orders
-* Generate bills and invoices
-* Apply discounts, loyalty benefits, and taxes
-* Collect and confirm payments
+- Scan and verify product barcodes
+- Create and update orders
+- Generate bills and invoices
+- Apply discounts, loyalty benefits, and taxes
+- Collect and confirm payments
 
+---
 
-###  Delivery Operations Manager
+### Return Handler ✅ (Added)
+
+Store staff responsible for managing customer returns, exchanges, and refunds.
+
+**Responsibilities:**
+
+- Verify returned items and eligibility
+- Approve or reject return requests based on policy
+- Process refunds and exchanges
+- Coordinate with inventory updates after returns
+- Ensure return records are properly logged for audit
+
+---
+
+### Delivery Operations Manager
 
 Manages order dispatch and delivery lifecycle.
 
-*Responsibilities:*
+**Responsibilities:**
 
-* Confirm delivery orders
-* Assign delivery partners
-* Track dispatch and delivery status
-* Update delivery milestones
+- Confirm delivery orders
+- Assign delivery partners
+- Track dispatch and delivery status
+- Update delivery milestones
 
+---
 
-###  Inventory Manager
+### Inventory Manager
 
 Responsible for inventory availability and accuracy.
 
-*Responsibilities:*
+**Responsibilities:**
 
-* Monitor stock levels
-* Update inventory after sales, returns, and receipts
-* Manage stock adjustments
-* Trigger reorders when stock falls below reorder level
+- Monitor stock levels
+- Update inventory after sales, returns, and receipts
+- Manage stock adjustments
+- Trigger reorders when stock falls below reorder level
 
+---
 
-###  Branch Manager / Head of Operations
+### Branch Manager / Head of Operations
 
 Oversees store-level operations and performance.
 
-*Responsibilities:*
+**Responsibilities:**
 
-* Review sales and inventory reports
-* Approve stock adjustments
-* Monitor operational logs
-* Analyze business performance
+- Review sales and inventory reports
+- Approve stock adjustments
+- Monitor operational logs
+- Analyze business performance
 
+---
 
-###  Payment Gateway (External System)
+### Payment Gateway (External System)
 
 Handles secure payment processing.
 
-*Responsibilities:*
+**Responsibilities:**
 
-* Process digital payments (UPI, card, etc.)
-* Confirm transaction status
+- Process digital payments (UPI, card, etc.)
+- Confirm transaction status
 
+---
 
-##   Planned Features (Actor-wise)
+## Planned Features (Actor-wise)
 
-###  Customer Features
+### Customer Features
 
-* Product selection and order placement
-* Loyalty account integration
-* Discount and offer application
-* Multiple payment options
-* Order delivery tracking
-* Return, refund, and exchange requests
+- Product selection and order placement
+- Loyalty account integration
+- Discount and offer application
+- Multiple payment options
+- Order delivery tracking
+- Return, refund, and exchange requests
 
+---
 
-###  Cashier Features
+### Cashier Features
 
-* Barcode scanning and order verification
-* Bill generation and modification
-* Discount rule and tax component application
-* Invoice generation post-payment
-* Receipt issuance
+- Barcode scanning and order verification
+- Bill generation and modification
+- Discount rule and tax component application
+- Invoice generation post-payment
+- Receipt issuance
 
+---
 
-###  Delivery Operations Features
+### Return Handler Features ✅ (Added)
 
-* Delivery order creation
-* Dispatch record generation
-* Delivery partner assignment
-* Delivery status updates (Out for Delivery, Delivered)
+- Return request verification
+- Return approval/rejection based on store policy
+- Refund processing (cash / digital)
+- Exchange handling (product swap / adjustment)
+- Return record creation and tracking
+- Return-related inventory update coordination
 
+---
 
-###  Inventory Management Features
+### Delivery Operations Features
 
-* Inventory item and stock level tracking
-* Automatic stock updates after sales and returns
-* Reorder level monitoring
-* Goods receipt processing
-* Stock adjustment handling
+- Delivery order creation
+- Dispatch record generation
+- Delivery partner assignment
+- Delivery status updates (Out for Delivery, Delivered)
 
+---
 
-###  Management & Reporting Features
+### Inventory Management Features
 
-* Sales tracking and analysis
-* Inventory status and reorder reports
-* Operational logs and audit trails
-* Exportable and shareable reports
+- Inventory item and stock level tracking
+- Automatic stock updates after sales and returns
+- Reorder level monitoring
+- Goods receipt processing
+- Stock adjustment handling
 
+---
 
-##  Core System Modules
+### Management & Reporting Features
 
-* Order Processing
-* Billing & Invoicing
-* Payment Handling
-* Delivery Management
-* Inventory Monitoring & Replenishment
-* Returns & Refunds
-* Sales & Operational Reporting
+- Sales tracking and analysis
+- Inventory status and reorder reports
+- Operational logs and audit trails
+- Exportable and shareable reports
 
+---
 
-##  Key Highlights
+## Core System Modules
 
-* End-to-end retail workflow coverage
-* Clear separation of actor responsibilities
-* Audit-friendly operational logs
-* Scalable design for multi-branch retail
-* Supports both walk-in and delivery orders
+- Order Processing
+- Billing & Invoicing
+- Payment Handling
+- Delivery Management
+- Inventory Monitoring & Replenishment
+- Returns & Refunds
+- Sales & Operational Reporting
+
+---
+
+The system supports the following key use cases:
+
+- Order Creation
+- Billing and Invoice
+- Return and Refund
+- Process Order to Delivery Partner
+- Sales Tracking & Report Analysis
+- Inventory Monitoring, Update, and Reorder
+
+---
+
+## Key Highlights
+
+- End-to-end retail workflow coverage
+- Clear separation of actor responsibilities
+- Return and refund flow handled by a dedicated Return Handler actor
+- Audit-friendly operational logs
+- Scalable design for multi-branch retail
+- Supports both walk-in and delivery orders
