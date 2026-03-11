@@ -16,13 +16,6 @@ CREATE TABLE STAFF (
     role VARCHAR(50) NOT NULL,
     email VARCHAR(100) UNIQUE,
     mobile_no VARCHAR(15) UNIQUE,
-    company_id INT NOT NULL,
-
-    CONSTRAINT fk_staff_company
-    FOREIGN KEY (company_id)
-    REFERENCES COMPANY(company_id)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
 );
 
 CREATE TABLE CUSTOMER (
@@ -114,27 +107,24 @@ CREATE TABLE ORDERS (
     ON UPDATE CASCADE
 );
 
-CREATE TABLE ORDERS (
-    order_id INT AUTO_INCREMENT PRIMARY KEY,
-    customer_id INT NOT NULL,
-    staff_id INT NOT NULL,
-    order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    order_type VARCHAR(50),
-    checkout_mode VARCHAR(50),
-    total_amount DECIMAL(10,2),
-    discount_amount DECIMAL(10,2) DEFAULT 0,
-    status VARCHAR(50),
+CREATE TABLE ORDER_ITEM (
+    order_item_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL,
+    item_price DECIMAL(10,2) NOT NULL,
+    subtotal DECIMAL(10,2),
 
-    CONSTRAINT fk_order_customer
-    FOREIGN KEY (customer_id)
-    REFERENCES CUSTOMER(customer_id)
-    ON DELETE RESTRICT
+    CONSTRAINT fk_orderitem_order
+    FOREIGN KEY (order_id)
+    REFERENCES ORDERS(order_id)
+    ON DELETE CASCADE
     ON UPDATE CASCADE,
 
-    CONSTRAINT fk_order_staff
-    FOREIGN KEY (staff_id)
-    REFERENCES STAFF(staff_id)
-    ON DELETE SET NULL
+    CONSTRAINT fk_orderitem_product
+    FOREIGN KEY (product_id)
+    REFERENCES PRODUCT(product_id)
+    ON DELETE RESTRICT
     ON UPDATE CASCADE
 );
 
@@ -210,5 +200,20 @@ CREATE TABLE INVOICE (
     FOREIGN KEY (bill_no)
     REFERENCES BILL(bill_no)
     ON DELETE CASCADE
+    ON UPDATE CASCADE
+);
+
+CREATE TABLE REPORT (
+    report_id INT AUTO_INCREMENT PRIMARY KEY,
+    report_type VARCHAR(50),
+    generated_by INT,
+    generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    period_from DATE,
+    period_to DATE,
+
+    CONSTRAINT fk_report_staff
+    FOREIGN KEY (generated_by)
+    REFERENCES STAFF(staff_id)
+    ON DELETE SET NULL
     ON UPDATE CASCADE
 );
