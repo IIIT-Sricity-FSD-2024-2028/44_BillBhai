@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillBhai - Users</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/dashboard.css">
+</head>
+<body data-page="users">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><img src="../public/logo.png" alt="BillBhai" class="sidebar-brand-img"></div>
+        <nav class="sidebar-nav" id="sidebarNav">
+            <div class="nav-section-label">Main</div>
+            <a href="dashboard.html" class="nav-item" data-page="dashboard"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+            <a href="orders.html" class="nav-item" data-page="orders"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span>Orders & Billing</span></a>
+            <a href="inventory.html" class="nav-item" data-page="inventory"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>Inventory</span></a>
+            <a href="delivery.html" class="nav-item" data-page="delivery"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Delivery</span></a>
+            <div class="nav-section-label">Management</div>
+            <a href="returns.html" class="nav-item" data-page="returns"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span>Returns & Refunds</span></a>
+            <a href="reports.html" class="nav-item" data-page="reports"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Reports</span></a>
+            <a href="users.html" class="nav-item active" data-page="users"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Users</span></a>
+        </nav>
+        <div class="sidebar-footer"><a href="login.html" class="nav-item nav-logout"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Logout</span></a></div>
+    </aside>
+    <main class="main-content" id="mainContent">
+        <header class="top-header">
+            <div class="header-left"><button class="menu-toggle" id="menuToggle" aria-label="Toggle menu"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="breadcrumb"><span class="bc-app">BillBhai</span><span class="bc-sep">/</span><span class="bc-page" id="bcPage">Users</span></div></div>
+            <div class="header-right">
+                <div class="header-search"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" placeholder="Search..." id="globalSearch"></div>
+
+                <div class="dropdown-container" id="notifContainer"><button class="icon-btn notif-btn" id="notifBtn" aria-label="Notifications"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-dot"></span></button><div class="dropdown-menu" id="notifDropdown" style="width:260px"><div class="dropdown-header"><strong>Notifications</strong></div><div class="dropdown-divider"></div><a href="notifications.html" class="dropdown-item nav-item" data-page="notifications" style="justify-content:center;font-weight:500;color:var(--accent);">View all</a></div></div>
+                <div class="dropdown-container" id="userContainer"><div class="header-user" id="userMenuBtn"><div class="user-avatar">A</div><div class="user-info"><span class="user-name">Admin</span><span class="user-role">Head of Ops</span></div></div><div class="dropdown-menu" id="userDropdown"><div class="dropdown-header"><strong>Admin</strong><div class="text-sm text-muted">admindemo@billbhai.com</div></div><a href="profile.html" class="dropdown-item nav-item" data-page="profile"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> My Profile</a><a href="settings.html" class="dropdown-item nav-item" data-page="settings"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg> Settings</a><div class="dropdown-divider"></div><a href="login.html" class="dropdown-item text-danger"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a></div></div>
+            </div>
+        </header>
+        <div class="content-area" id="contentArea">
+            <div class="page-header"><h2>Users</h2><div class="page-header-actions"><button class="btn btn-primary" id="addUserBtn">+ Add User</button></div></div>
+            <section class="card">
+                <div class="card-hd"><h3>All Users</h3></div>
+                <div class="card-bd"><div class="tbl-wrap"><table class="dt">
+                    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody id="usersTableBody">
+                        <tr><td class="cell-main">Admin</td><td>admin@billbhai.com</td><td>Ops Head</td><td>Just now</td><td><span class="badge b-active">Active</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.renderUserProfile('Admin')">View</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editUser('Admin')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteUser('Admin')">Delete</button></td></tr>
+                        <tr><td class="cell-main">Ramesh Gupta</td><td>ramesh.g@billbhai.com</td><td>Cashier</td><td>10 min ago</td><td><span class="badge b-active">Active</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.renderUserProfile('Ramesh Gupta')">View</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editUser('Ramesh Gupta')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteUser('Ramesh Gupta')">Delete</button></td></tr>
+                        <tr><td class="cell-main">Sunita Verma</td><td>sunita.v@billbhai.com</td><td>Cashier</td><td>25 min ago</td><td><span class="badge b-active">Active</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.renderUserProfile('Sunita Verma')">View</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editUser('Sunita Verma')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteUser('Sunita Verma')">Delete</button></td></tr>
+                    </tbody>
+                </table></div></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Add User Modal -->
+    <div class="modal-overlay" id="addUserModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add New User</h3>
+                <button class="modal-close" id="userModalClose">&times;</button>
+            </div>
+            <form id="addUserForm" novalidate>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label" for="userName">Full Name *</label>
+                        <input type="text" class="form-control" id="userName" placeholder="e.g. Rahul Sharma" required>
+                        <div class="form-error">Full name is required</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="userEmail">Email *</label>
+                        <input type="email" class="form-control" id="userEmail" placeholder="e.g. rahul.s@billbhai.com" required>
+                        <div class="form-error">Valid email is required</div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="userRole">Role *</label>
+                            <select class="form-control" id="userRole" required>
+                                <option value="">Select role</option>
+                                <option value="Ops Head">Ops Head</option>
+                                <option value="Store Manager">Store Manager</option>
+                                <option value="Cashier">Cashier</option>
+                                <option value="Delivery Driver">Delivery Driver</option>
+                                <option value="Inventory Manager">Inventory Manager</option>
+                                <option value="Accountant">Accountant</option>
+                                <option value="Support Agent">Support Agent</option>
+                            </select>
+                            <div class="form-error">Please select a role</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="userPhone">Phone</label>
+                            <input type="tel" class="form-control" id="userPhone" placeholder="e.g. 9876543210">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="userStatus">Status</label>
+                        <select class="form-control" id="userStatus">
+                            <option value="Active">Active</option>
+                            <option value="Offline">Offline</option>
+                            <option value="Suspended">Suspended</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="userModalCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="successToast">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span id="toastMessage">User added successfully!</span>
+    </div>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="../scripts/dashboard.js"></script>
+</body>
+</html>

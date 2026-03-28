@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillBhai — Smart Billing & Inventory for Modern Businesses</title>
+    <meta name="description" content="BillBhai is the all-in-one billing, inventory, and order management platform built for Indian businesses. Fast invoices, real-time stock tracking, and powerful analytics.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/landing.css">
+</head>
+<body>
+
+    <!-- Ambient Background -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+    <div class="ambient-glow glow-3"></div>
+    <div class="grid-pattern"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <a href="#" class="nav-brand">
+                <img src="public/logo.png" alt="BillBhai" class="nav-logo-img">
+            </a>
+            <div class="nav-links" id="navLinks">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#how-it-works" class="nav-link">How It Works</a>
+                <a href="#stats" class="nav-link">Impact</a>
+                <a href="#testimonials" class="nav-link">Testimonials</a>
+            </div>
+            <div class="nav-actions">
+                <a href="pages/login.html" class="btn btn-ghost">Sign In</a>
+                <a href="#cta" class="btn btn-primary">Get Started Free</a>
+            </div>
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">
+                <span class="badge-dot"></span>
+                <span>Trusted by 500+ businesses across India</span>
+            </div>
+            <h1 class="hero-title">
+                <span class="hero-line">Billing Made</span>
+                <span class="hero-line hero-accent">Effortless.</span>
+            </h1>
+            <p class="hero-subtitle">
+                BillBhai is the all-in-one platform for invoicing, inventory tracking, 
+                and order management — designed for speed, built for Indian businesses.
+            </p>
+            <div class="hero-cta">
+                <a href="pages/register-business.html" class="btn btn-primary btn-lg">
+                    Start Free Trial
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </a>
+                <a href="#how-it-works" class="btn btn-outline btn-lg">See How It Works</a>
+            </div>
+            <div class="hero-visual">
+                <div class="dashboard-preview">
+                    <div class="preview-topbar">
+                        <div class="preview-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <span class="preview-url">billbhai.vercel.app/dashboard</span>
+                    </div>
+                    <div class="preview-body">
+                        <div class="preview-sidebar">
+                            <div class="ps-item active"></div>
+                            <div class="ps-item"></div>
+                            <div class="ps-item"></div>
+                            <div class="ps-item"></div>
+                            <div class="ps-item"></div>
+                        </div>
+                        <div class="preview-content">
+                            <div class="pc-stat-row">
+                                <div class="pc-stat"><div class="pc-stat-icon green"></div><div class="pc-stat-text"><span class="pc-label"></span><span class="pc-val">₹58,680</span></div></div>
+                                <div class="pc-stat"><div class="pc-stat-icon blue"></div><div class="pc-stat-text"><span class="pc-label"></span><span class="pc-val">124</span></div></div>
+                                <div class="pc-stat"><div class="pc-stat-icon amber"></div><div class="pc-stat-text"><span class="pc-label"></span><span class="pc-val">98.2%</span></div></div>
+                            </div>
+                            <div class="pc-chart">
+                                <svg viewBox="0 0 300 80" class="chart-line">
+                                    <defs>
+                                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stop-color="rgba(220,53,69,0.3)"/>
+                                            <stop offset="100%" stop-color="rgba(220,53,69,0)"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M0,60 Q30,55 60,45 T120,30 T180,35 T240,15 T300,20" fill="none" stroke="#dc3545" stroke-width="2"/>
+                                    <path d="M0,60 Q30,55 60,45 T120,30 T180,35 T240,15 T300,20 L300,80 L0,80 Z" fill="url(#chartGrad)"/>
+                                </svg>
+                            </div>
+                            <div class="pc-table">
+                                <div class="pc-row"><span></span><span></span><span class="pc-badge green"></span></div>
+                                <div class="pc-row"><span></span><span></span><span class="pc-badge blue"></span></div>
+                                <div class="pc-row"><span></span><span></span><span class="pc-badge amber"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="float-card float-card-1">
+                    <div class="fc-icon green">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    </div>
+                    <div class="fc-text">
+                        <span class="fc-label">Revenue Today</span>
+                        <span class="fc-value">₹12,450</span>
+                    </div>
+                </div>
+                <div class="float-card float-card-2">
+                    <div class="fc-icon blue">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div class="fc-text">
+                        <span class="fc-label">Order Completed</span>
+                        <span class="fc-value">#4821</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Features</span>
+                <h2 class="section-title">Everything your business needs</h2>
+                <p class="section-desc">From lightning-fast invoicing to granular inventory control — BillBhai packs enterprise power into a beautifully simple interface.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </div>
+                    <h3>Instant Invoicing</h3>
+                    <p>Generate professional GST-compliant invoices in seconds. Auto-calculate taxes, discounts, and totals with zero errors.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                    </div>
+                    <h3>Real-Time Inventory</h3>
+                    <p>Track stock levels across locations with real-time updates. Get low-stock alerts before you run out, never miss a sale.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    </div>
+                    <h3>Delivery Tracking</h3>
+                    <p>Monitor deliveries from dispatch to doorstep. Real-time status updates keep you and your customers in the loop.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    </div>
+                    <h3>Smart Analytics</h3>
+                    <p>Understand your business with interactive charts, revenue trends, and category breakdowns — all updated in real time.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <h3>Multi-User Access</h3>
+                    <p>Add team members with role-based permissions. Admins, managers, and staff each see exactly what they need.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    </div>
+                    <h3>Returns & Refunds</h3>
+                    <p>Handle product returns and issue refunds seamlessly. Automatic stock updates and customer communication built in.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats" id="stats">
+        <div class="container">
+            <div class="stats-row">
+                <div class="stat-item">
+                    <span class="stat-number" data-target="500">0</span>
+                    <span class="stat-suffix">+</span>
+                    <span class="stat-label">Active Businesses</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number" data-target="1200000">0</span>
+                    <span class="stat-suffix"></span>
+                    <span class="stat-label">Invoices Generated</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number" data-target="99">0</span>
+                    <span class="stat-suffix">.9%</span>
+                    <span class="stat-label">Uptime Guarantee</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number" data-target="4">0</span>
+                    <span class="stat-suffix">sec</span>
+                    <span class="stat-label">Avg. Invoice Time</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">How It Works</span>
+                <h2 class="section-title">Up and running in minutes</h2>
+                <p class="section-desc">No complex setup. No training needed. Just sign up and start billing.</p>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">01</div>
+                    <div class="step-content">
+                        <h3>Create Your Account</h3>
+                        <p>Sign up in 30 seconds with just your email. No credit card required to start your free trial.</p>
+                    </div>
+                    <div class="step-connector"></div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">02</div>
+                    <div class="step-content">
+                        <h3>Add Your Products</h3>
+                        <p>Import your catalog via CSV or add items manually. Set prices, categories, and stock levels in one go.</p>
+                    </div>
+                    <div class="step-connector"></div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">03</div>
+                    <div class="step-content">
+                        <h3>Start Billing</h3>
+                        <p>Create invoices, track orders, and manage inventory — all from a single beautiful dashboard.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="testimonials" id="testimonials">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Testimonials</span>
+                <h2 class="section-title">Loved by businesses</h2>
+                <p class="section-desc">See what our users have to say about BillBhai.</p>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-text">"BillBhai transformed how we handle billing. What used to take 15 minutes per invoice now takes seconds. The inventory tracking alone saved us lakhs."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">RS</div>
+                        <div class="author-info">
+                            <span class="author-name">Rahul Sharma</span>
+                            <span class="author-role">Owner, Sharma Electronics</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card featured">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-text">"We switched from paper billing to BillBhai and saw a 40% increase in order accuracy. The analytics dashboard gives me insights I never had before."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">PP</div>
+                        <div class="author-info">
+                            <span class="author-name">Priya Patel</span>
+                            <span class="author-role">Manager, FreshMart Groceries</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-text">"The delivery tracking feature is a game-changer. Our customers love the real-time updates, and returns handling has become completely painless."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">AK</div>
+                        <div class="author-info">
+                            <span class="author-name">Amit Kumar</span>
+                            <span class="author-role">Founder, QuickDrop Logistics</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section" id="cta">
+        <div class="container">
+            <div class="cta-card">
+                <div class="cta-glow"></div>
+                <h2 class="cta-title">Ready to simplify your business?</h2>
+                <p class="cta-desc">Join 500+ businesses already using BillBhai. Start your free trial today — no credit card required.</p>
+                <div class="cta-actions">
+                    <a href="pages/register-business.html" class="btn btn-primary btn-lg">
+                        Get Started Free
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </a>
+                </div>
+                <p class="cta-note">Free 14-day trial · No credit card · Cancel anytime</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <img src="public/logo.png" alt="BillBhai" class="footer-logo-img">
+                    <p class="footer-tagline">Smart billing & inventory management for modern Indian businesses.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Product</h4>
+                    <a href="#features">Features</a>
+                    <a href="#how-it-works">How It Works</a>
+                    <a href="#">Pricing</a>
+                    <a href="#">Integrations</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <a href="#">About Us</a>
+                    <a href="#">Careers</a>
+                    <a href="#">Blog</a>
+                    <a href="#">Contact</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Support</h4>
+                    <a href="#">Help Center</a>
+                    <a href="#">Documentation</a>
+                    <a href="#">API Reference</a>
+                    <a href="#">Status</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 BillBhai Systems. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="#">Privacy</a>
+                    <a href="#">Terms</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="scripts/landing.js"></script>
+</body>
+</html>

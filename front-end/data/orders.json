@@ -1,0 +1,5 @@
+[
+  { "id": "ORD-4821", "customer": "Rahul Sharma", "items": 3, "total": 1250, "payment": "UPI", "status": "Delivered", "date": "17 Feb 14:32" },
+  { "id": "ORD-4820", "customer": "Priya Patel", "items": 1, "total": 450, "payment": "Cash", "status": "Processing", "date": "17 Feb 13:45" },
+  { "id": "ORD-4819", "customer": "Amit Kumar", "items": 5, "total": 3200, "payment": "Card", "status": "Delivered", "date": "17 Feb 12:10" }
+]
