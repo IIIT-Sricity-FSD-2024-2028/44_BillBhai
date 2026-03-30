@@ -1,0 +1,122 @@
+[
+  {
+    "id": "DEL-901",
+    "oid": "ORD-4821",
+    "customer": "Rahul Sharma",
+    "address": "12, MG Road, Sector 14",
+    "partner": "Rajesh K.",
+    "status": "Delivered",
+    "etaMin": 0,
+    "updatedAt": "17 Feb 14:10"
+  },
+  {
+    "id": "DEL-900",
+    "oid": "ORD-4820",
+    "customer": "Priya Patel",
+    "address": "A-204, Green Park",
+    "partner": "Sunil M.",
+    "status": "In Transit",
+    "etaMin": 18,
+    "updatedAt": "17 Feb 13:50"
+  },
+  {
+    "id": "DEL-899",
+    "oid": "ORD-4819",
+    "customer": "Amit Kumar",
+    "address": "Plot 7, Industrial Area",
+    "partner": "Rajesh K.",
+    "status": "Delivered",
+    "etaMin": 0,
+    "updatedAt": "17 Feb 12:58"
+  },
+  {
+    "id": "DEL-898",
+    "oid": "ORD-4818",
+    "customer": "Sneha Gupta",
+    "address": "302, Lotus Tower",
+    "partner": "Unassigned",
+    "status": "Pending",
+    "etaMin": 30,
+    "updatedAt": "17 Feb 12:40"
+  },
+  {
+    "id": "DEL-897",
+    "oid": "ORD-4817",
+    "customer": "Vikram Joshi",
+    "address": "H.No 15, Civil Lines",
+    "partner": "Deepak R.",
+    "status": "Delivered",
+    "etaMin": 0,
+    "updatedAt": "17 Feb 11:35"
+  },
+  {
+    "id": "DEL-896",
+    "oid": "ORD-4816",
+    "customer": "Neha Reddy",
+    "address": "F-3, Paradise Colony",
+    "partner": "Sunil M.",
+    "status": "Failed",
+    "etaMin": 0,
+    "updatedAt": "17 Feb 11:10"
+  },
+  {
+    "id": "DEL-895",
+    "oid": "ORD-4815",
+    "customer": "Karan Mehta",
+    "address": "5th Cross, Jayanagar",
+    "partner": "Sunil M.",
+    "status": "In Transit",
+    "etaMin": 25,
+    "updatedAt": "17 Feb 10:55"
+  },
+  {
+    "id": "DEL-894",
+    "oid": "ORD-4814",
+    "customer": "Anjali Desai",
+    "address": "B-12, Shanti Nagar",
+    "partner": "Rajesh K.",
+    "status": "Delivered",
+    "etaMin": 0,
+    "updatedAt": "17 Feb 10:22"
+  },
+  {
+    "id": "DEL-893",
+    "oid": "ORD-4813",
+    "customer": "Rohan Verma",
+    "address": "Flat 6A, Sunrise Apts",
+    "partner": "Deepak R.",
+    "status": "Delivered",
+    "etaMin": 0,
+    "updatedAt": "17 Feb 09:58"
+  },
+  {
+    "id": "DEL-892",
+    "oid": "ORD-4812",
+    "customer": "Suresh Iyer",
+    "address": "42, Lake View Road",
+    "partner": "Rajesh K.",
+    "status": "In Transit",
+    "etaMin": 10,
+    "updatedAt": "17 Feb 09:40"
+  },
+  {
+    "id": "DEL-891",
+    "oid": "ORD-4811",
+    "customer": "Meera Krishnan",
+    "address": "101, Sapphire Towers",
+    "partner": "Deepak R.",
+    "status": "Delivered",
+    "etaMin": 0,
+    "updatedAt": "17 Feb 09:05"
+  },
+  {
+    "id": "DEL-890",
+    "oid": "ORD-4810",
+    "customer": "Arjun Singh",
+    "address": "House 23, Ram Nagar",
+    "partner": "Unassigned",
+    "status": "Pending",
+    "etaMin": 45,
+    "updatedAt": "17 Feb 08:50"
+  }
+]

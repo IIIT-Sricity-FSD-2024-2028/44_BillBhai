@@ -60,6 +60,47 @@ body {
     transition: background var(--t), color var(--t)
 }
 
+/* Ensure the HTML `hidden` attribute always hides elements (used for role-based nav). */
+[hidden] {
+    display: none !important
+}
+
+/* Prevent brief "role flash" (admin UI) before dashboard.js applies permissions */
+body:not([data-app-ready="true"]) > * {
+    visibility: hidden
+}
+
+body:not([data-app-ready="true"])::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 10000
+}
+
+body:not([data-app-ready="true"])::after {
+    content: '';
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 36px;
+    height: 36px;
+    margin-left: -18px;
+    margin-top: -18px;
+    border: 3px solid rgba(255, 255, 255, 0.14);
+    border-top-color: var(--accent);
+    border-right-color: var(--amber);
+    border-radius: 50%;
+    animation: bb-spin 0.8s linear infinite;
+    z-index: 10001
+}
+
+@keyframes bb-spin {
+    to {
+        transform: rotate(360deg)
+    }
+}
+
 .sidebar {
     position: fixed;
     top: 0;

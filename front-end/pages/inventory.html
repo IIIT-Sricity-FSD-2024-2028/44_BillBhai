@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -7,13 +7,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../styles/dashboard.css">
+    <link rel="stylesheet" href="styles/dashboard.css">
 </head>
 <body data-page="inventory">
 
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <img src="../public/logo.png" alt="BillBhai" class="sidebar-brand-img">
+            <img src="public/logo.png" alt="BillBhai" class="sidebar-brand-img">
         </div>
         <nav class="sidebar-nav" id="sidebarNav">
             <div class="nav-section-label">Main</div>
@@ -62,11 +62,11 @@
                 <div class="card-bd">
                     <div class="tbl-wrap">
                         <table class="dt">
-                            <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th>Supplier</th><th>Stock</th><th>Unit Price</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th>Supplier</th><th>Supplier Contact</th><th>Lead Time</th><th>Stock</th><th>Unit Price</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody id="inventoryTableBody">
-                                <tr><td class="cell-main">SKU-01</td><td>Basmati Rice</td><td>Grocery</td><td>Agarwal Traders</td><td>145</td><td>₹380</td><td><span class="badge b-active">In Stock</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editProduct('SKU-01')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteProduct('SKU-01')">Delete</button></td></tr>
-                                <tr><td class="cell-main">SKU-02</td><td>Toor Dal</td><td>Grocery</td><td>Sharma Wholesale</td><td>230</td><td>₹120</td><td><span class="badge b-active">In Stock</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editProduct('SKU-02')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteProduct('SKU-02')">Delete</button></td></tr>
-                                <tr><td class="cell-main">SKU-03</td><td>Refined Oil</td><td>Grocery</td><td>Fortune Dist.</td><td>18</td><td>₹155</td><td><span class="badge b-pending">Low Stock</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editProduct('SKU-03')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteProduct('SKU-03')">Delete</button></td></tr>
+                                <tr><td class="cell-main">SKU-01</td><td>Basmati Rice</td><td>Grocery</td><td>Agarwal Traders</td><td>Sanjay Agarwal (+91 98115 44101)</td><td>2 days</td><td>145</td><td>₹380</td><td><span class="badge b-active">In Stock</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editProduct('SKU-01')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteProduct('SKU-01')">Delete</button></td></tr>
+                                <tr><td class="cell-main">SKU-02</td><td>Toor Dal</td><td>Grocery</td><td>Sharma Wholesale</td><td>Neha Sharma (+91 98917 22055)</td><td>3 days</td><td>230</td><td>₹120</td><td><span class="badge b-active">In Stock</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editProduct('SKU-02')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteProduct('SKU-02')">Delete</button></td></tr>
+                                <tr><td class="cell-main">SKU-03</td><td>Refined Oil</td><td>Grocery</td><td>Fortune Dist.</td><td>Ritesh Jain (+91 99004 11233)</td><td>4 days</td><td>18</td><td>₹155</td><td><span class="badge b-pending">Low Stock</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editProduct('SKU-03')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteProduct('SKU-03')">Delete</button></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -116,6 +116,24 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
+                            <label class="form-label" for="prodSupplierPhone">Supplier Phone</label>
+                            <input type="text" class="form-control" id="prodSupplierPhone" placeholder="+91 98xxxxxx">
+                            <div class="form-error">Enter a valid supplier phone</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="prodSupplierEmail">Supplier Email</label>
+                            <input type="email" class="form-control" id="prodSupplierEmail" placeholder="supplier@domain.com">
+                            <div class="form-error">Enter a valid supplier email</div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="prodLeadTime">Lead Time (Days)</label>
+                        <input type="number" class="form-control" id="prodLeadTime" placeholder="e.g. 3" min="1" step="1">
+                        <div class="form-hint">How many days this supplier usually takes to deliver.</div>
+                        <div class="form-error">Lead time should be at least 1 day</div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
                             <label class="form-label" for="prodPrice">Unit Price (₹) *</label>
                             <input type="number" class="form-control" id="prodPrice" placeholder="0.00" min="0" step="0.01" required>
                             <div class="form-error">Enter a valid price</div>
@@ -153,6 +171,7 @@
 
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-    <script src="../scripts/dashboard.js"></script>
+    <script src="scripts/dashboard.js"></script>
 </body>
 </html>
+

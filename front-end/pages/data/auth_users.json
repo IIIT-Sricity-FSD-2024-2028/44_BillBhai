@@ -1,0 +1,59 @@
+{
+  "users": {
+    "superuser": {
+      "password": "super123",
+      "role": "Admin",
+      "name": "Legacy Admin Account"
+    },
+    "admin": {
+      "password": "admin123",
+      "role": "Admin",
+      "name": "Store Admin"
+    },
+    "cashier": {
+      "password": "cashier123",
+      "role": "Cashier",
+      "name": "POS Cashier"
+    },
+    "returnhandler": {
+      "password": "return123",
+      "role": "Return Handler",
+      "name": "Returns Desk"
+    },
+    "inventorymanager": {
+      "password": "inventory123",
+      "role": "Inventory Manager",
+      "name": "Inventory Lead"
+    },
+    "deliveryops": {
+      "password": "delivery123",
+      "role": "Delivery Ops",
+      "name": "Delivery Manager"
+    },
+    "customer": {
+      "password": "customer123",
+      "role": "Customer",
+      "name": "Self Checkout User"
+    },
+    "chirag": {
+      "password": "chirag1234",
+      "role": "Super User",
+      "name": "Chirag"
+    }
+  },
+  "aliases": {
+    "super": "superuser",
+    "superuser@billbhai.com": "superuser",
+    "admin@billbhai.com": "admin",
+    "cashier@billbhai.com": "cashier",
+    "returns": "returnhandler",
+    "returnhandler@billbhai.com": "returnhandler",
+    "inventory": "inventorymanager",
+    "inventorymanager@billbhai.com": "inventorymanager",
+    "delivery": "deliveryops",
+    "deliveryops@billbhai.com": "deliveryops",
+    "user": "customer",
+    "customer@billbhai.com": "customer",
+    "chirag@billbhai.com": "chirag"
+  }
+}

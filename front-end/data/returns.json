@@ -1,4 +1,0 @@
-[
-  { "id": "RET-201", "oid": "ORD-4810", "reason": "Damaged", "amount": 420, "status": "Approved", "requestedBy": "Walk-in", "updatedAt": "17 Feb 11:10" },
-  { "id": "RET-200", "oid": "ORD-4805", "reason": "Wrong Item", "amount": 155, "status": "Refunded", "requestedBy": "Walk-in", "updatedAt": "16 Feb 15:30" }
-]

@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BillBhai — Smart Billing & Inventory for Modern Businesses</title>
+    <title>BillBhai - Smart Billing and Inventory for Modern Businesses</title>
     <meta name="description" content="BillBhai is the all-in-one billing, inventory, and order management platform built for Indian businesses. Fast invoices, real-time stock tracking, and powerful analytics.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,8 +31,8 @@
                 <a href="#testimonials" class="nav-link">Testimonials</a>
             </div>
             <div class="nav-actions">
-                <a href="pages/login.html" class="btn btn-ghost">Sign In</a>
-                <a href="#cta" class="btn btn-primary">Get Started Free</a>
+                <a href="login.html" class="btn btn-ghost" id="navSignInBtn">Sign In</a>
+                <a href="#cta" class="btn btn-primary" id="navPrimaryBtn">Get Started Free</a>
             </div>
             <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
                 <span></span><span></span><span></span>
@@ -45,22 +45,22 @@
         <div class="container">
             <div class="hero-badge">
                 <span class="badge-dot"></span>
-                <span>Trusted by 500+ businesses across India</span>
+                <span id="heroBadgeText">Trusted by 500+ businesses across India</span>
             </div>
             <h1 class="hero-title">
-                <span class="hero-line">Billing Made</span>
-                <span class="hero-line hero-accent">Effortless.</span>
+                <span class="hero-line" id="heroTitleLine1">Billing Made</span>
+                <span class="hero-line hero-accent" id="heroTitleLine2">Effortless.</span>
             </h1>
-            <p class="hero-subtitle">
+            <p class="hero-subtitle" id="heroSubtitle">
                 BillBhai is the all-in-one platform for invoicing, inventory tracking, 
                 and order management — designed for speed, built for Indian businesses.
             </p>
             <div class="hero-cta">
-                <a href="pages/register-business.html" class="btn btn-primary btn-lg">
+                <a href="register-business.html" class="btn btn-primary btn-lg" id="heroPrimaryBtn">
                     Start Free Trial
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </a>
-                <a href="#how-it-works" class="btn btn-outline btn-lg">See How It Works</a>
+                <a href="#how-it-works" class="btn btn-outline btn-lg" id="heroSecondaryBtn">See How It Works</a>
             </div>
             <div class="hero-visual">
                 <div class="dashboard-preview">
@@ -68,7 +68,7 @@
                         <div class="preview-dots">
                             <span></span><span></span><span></span>
                         </div>
-                        <span class="preview-url">billbhai.vercel.app/dashboard</span>
+                        <span class="preview-url" id="previewUrl">billbhai.vercel.app/dashboard</span>
                     </div>
                     <div class="preview-body">
                         <div class="preview-sidebar">
@@ -80,9 +80,9 @@
                         </div>
                         <div class="preview-content">
                             <div class="pc-stat-row">
-                                <div class="pc-stat"><div class="pc-stat-icon green"></div><div class="pc-stat-text"><span class="pc-label"></span><span class="pc-val">₹58,680</span></div></div>
-                                <div class="pc-stat"><div class="pc-stat-icon blue"></div><div class="pc-stat-text"><span class="pc-label"></span><span class="pc-val">124</span></div></div>
-                                <div class="pc-stat"><div class="pc-stat-icon amber"></div><div class="pc-stat-text"><span class="pc-label"></span><span class="pc-val">98.2%</span></div></div>
+                                <div class="pc-stat"><div class="pc-stat-icon green"></div><div class="pc-stat-text"><span class="pc-label" id="previewStatLabel1">Revenue</span><span class="pc-val" id="previewStatValue1">₹58,680</span></div></div>
+                                <div class="pc-stat"><div class="pc-stat-icon blue"></div><div class="pc-stat-text"><span class="pc-label" id="previewStatLabel2">Orders</span><span class="pc-val" id="previewStatValue2">124</span></div></div>
+                                <div class="pc-stat"><div class="pc-stat-icon amber"></div><div class="pc-stat-text"><span class="pc-label" id="previewStatLabel3">Accuracy</span><span class="pc-val" id="previewStatValue3">98.2%</span></div></div>
                             </div>
                             <div class="pc-chart">
                                 <svg viewBox="0 0 300 80" class="chart-line">
@@ -105,21 +105,21 @@
                     </div>
                 </div>
                 <div class="float-card float-card-1">
-                    <div class="fc-icon green">
+                    <div class="fc-icon green" id="floatCardIcon1">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                     </div>
                     <div class="fc-text">
-                        <span class="fc-label">Revenue Today</span>
-                        <span class="fc-value">₹12,450</span>
+                        <span class="fc-label" id="floatCardLabel1">Revenue Today</span>
+                        <span class="fc-value" id="floatCardValue1">₹12,450</span>
                     </div>
                 </div>
                 <div class="float-card float-card-2">
-                    <div class="fc-icon blue">
+                    <div class="fc-icon blue" id="floatCardIcon2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     </div>
                     <div class="fc-text">
-                        <span class="fc-label">Order Completed</span>
-                        <span class="fc-value">#4821</span>
+                        <span class="fc-label" id="floatCardLabel2">Order Completed</span>
+                        <span class="fc-value" id="floatCardValue2">#4821</span>
                     </div>
                 </div>
             </div>
@@ -130,11 +130,11 @@
     <section class="features" id="features">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">Features</span>
-                <h2 class="section-title">Everything your business needs</h2>
-                <p class="section-desc">From lightning-fast invoicing to granular inventory control — BillBhai packs enterprise power into a beautifully simple interface.</p>
+                <span class="section-tag" id="featuresTag">Features</span>
+                <h2 class="section-title" id="featuresTitle">Everything your business needs</h2>
+                <p class="section-desc" id="featuresDesc">From lightning-fast invoicing to granular inventory control — BillBhai packs enterprise power into a beautifully simple interface.</p>
             </div>
-            <div class="features-grid">
+            <div class="features-grid" id="featuresGrid">
                 <div class="feature-card">
                     <div class="feature-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -184,7 +184,7 @@
     <!-- Stats Section -->
     <section class="stats" id="stats">
         <div class="container">
-            <div class="stats-row">
+            <div class="stats-row" id="statsRow">
                 <div class="stat-item">
                     <span class="stat-number" data-target="500">0</span>
                     <span class="stat-suffix">+</span>
@@ -216,11 +216,11 @@
     <section class="how-it-works" id="how-it-works">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">How It Works</span>
-                <h2 class="section-title">Up and running in minutes</h2>
-                <p class="section-desc">No complex setup. No training needed. Just sign up and start billing.</p>
+                <span class="section-tag" id="howTag">How It Works</span>
+                <h2 class="section-title" id="howTitle">Up and running in minutes</h2>
+                <p class="section-desc" id="howDesc">No complex setup. No training needed. Just sign up and start billing.</p>
             </div>
-            <div class="steps-grid">
+            <div class="steps-grid" id="stepsGrid">
                 <div class="step-card">
                     <div class="step-number">01</div>
                     <div class="step-content">
@@ -252,11 +252,11 @@
     <section class="testimonials" id="testimonials">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">Testimonials</span>
-                <h2 class="section-title">Loved by businesses</h2>
-                <p class="section-desc">See what our users have to say about BillBhai.</p>
+                <span class="section-tag" id="testimonialsTag">Testimonials</span>
+                <h2 class="section-title" id="testimonialsTitle">Loved by businesses</h2>
+                <p class="section-desc" id="testimonialsDesc">See what our users have to say about BillBhai.</p>
             </div>
-            <div class="testimonials-grid">
+            <div class="testimonials-grid" id="testimonialsGrid">
                 <div class="testimonial-card">
                     <div class="testimonial-stars">★★★★★</div>
                     <p class="testimonial-text">"BillBhai transformed how we handle billing. What used to take 15 minutes per invoice now takes seconds. The inventory tracking alone saved us lakhs."</p>
@@ -299,15 +299,15 @@
         <div class="container">
             <div class="cta-card">
                 <div class="cta-glow"></div>
-                <h2 class="cta-title">Ready to simplify your business?</h2>
-                <p class="cta-desc">Join 500+ businesses already using BillBhai. Start your free trial today — no credit card required.</p>
+                <h2 class="cta-title" id="ctaTitle">Ready to simplify your business?</h2>
+                <p class="cta-desc" id="ctaDesc">Join 500+ businesses already using BillBhai. Start your free trial today — no credit card required.</p>
                 <div class="cta-actions">
-                    <a href="pages/register-business.html" class="btn btn-primary btn-lg">
+                    <a href="register-business.html" class="btn btn-primary btn-lg" id="ctaPrimaryBtn">
                         Get Started Free
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                     </a>
                 </div>
-                <p class="cta-note">Free 14-day trial · No credit card · Cancel anytime</p>
+                <p class="cta-note" id="ctaNote">Free 14-day trial · No credit card · Cancel anytime</p>
             </div>
         </div>
     </section>
@@ -318,33 +318,35 @@
             <div class="footer-grid">
                 <div class="footer-brand">
                     <img src="public/logo.png" alt="BillBhai" class="footer-logo-img">
-                    <p class="footer-tagline">Smart billing & inventory management for modern Indian businesses.</p>
+                    <p class="footer-tagline" id="footerTagline">Smart billing & inventory management for modern Indian businesses.</p>
                 </div>
-                <div class="footer-col">
+                <div class="footer-col" id="footerColumns">
+                    <div class="footer-col">
                     <h4>Product</h4>
                     <a href="#features">Features</a>
                     <a href="#how-it-works">How It Works</a>
                     <a href="#">Pricing</a>
                     <a href="#">Integrations</a>
                 </div>
-                <div class="footer-col">
-                    <h4>Company</h4>
-                    <a href="#">About Us</a>
-                    <a href="#">Careers</a>
-                    <a href="#">Blog</a>
-                    <a href="#">Contact</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Support</h4>
-                    <a href="#">Help Center</a>
-                    <a href="#">Documentation</a>
-                    <a href="#">API Reference</a>
-                    <a href="#">Status</a>
+                    <div class="footer-col">
+                        <h4>Company</h4>
+                        <a href="#">About Us</a>
+                        <a href="#">Careers</a>
+                        <a href="#">Blog</a>
+                        <a href="#">Contact</a>
+                    </div>
+                    <div class="footer-col">
+                        <h4>Support</h4>
+                        <a href="#">Help Center</a>
+                        <a href="#">Documentation</a>
+                        <a href="#">API Reference</a>
+                        <a href="#">Status</a>
+                    </div>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 BillBhai Systems. All rights reserved.</p>
-                <div class="footer-links">
+                <p id="footerBottomText">&copy; 2026 BillBhai Systems. All rights reserved.</p>
+                <div class="footer-links" id="footerLegalLinks">
                     <a href="#">Privacy</a>
                     <a href="#">Terms</a>
                 </div>
@@ -355,3 +357,4 @@
     <script src="scripts/landing.js"></script>
 </body>
 </html>
+

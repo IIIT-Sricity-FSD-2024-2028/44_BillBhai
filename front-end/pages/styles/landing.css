@@ -1058,6 +1058,10 @@ img {
     gap: 10px;
 }
 
+#footerColumns {
+    display: contents;
+}
+
 .footer-col h4 {
     font-size: 0.8rem;
     font-weight: 600;

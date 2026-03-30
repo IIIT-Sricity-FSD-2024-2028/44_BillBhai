@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillBhai - POS Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Load base dashboard styles first, then POS-specific overrides -->
+    <link rel="stylesheet" href="styles/dashboard.css">
+    <link rel="stylesheet" href="styles/cashier.css">
+</head>
+<body data-page="cashier" data-app-ready="true" class="no-sidebar">
+
+    <main class="main-content" id="mainContent">
+        <header class="top-header">
+            <div class="header-left">
+                <a href="index.html" class="header-logo-link">
+                    <img src="public/logo.png" alt="BillBhai" class="header-logo-img">
+                </a>
+                <div class="breadcrumb">
+                    <span class="bc-app">Terminal 1</span>
+                    <span class="bc-sep">/</span>
+                    <span class="bc-page" id="bcPage">Active Customer</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <!-- Profile dropdown -->
+                <div class="dropdown-container" id="userContainer">
+                    <div class="header-user" id="userMenuBtn">
+                        <div class="user-avatar">C</div>
+                        <div class="user-info">
+                            <span class="user-name">Cashier</span>
+                            <span class="user-role">Online</span>
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:4px; color: var(--text-muted);"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                    <div class="dropdown-menu" id="userDropdown">
+                        <div class="dropdown-header">
+                            <strong>Cashier</strong>
+                            <div class="text-sm text-muted">Counter Terminal 1</div>
+                        </div>
+
+                        <a href="login.html" class="dropdown-item text-danger">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-area" id="contentArea">
+            
+            <!-- STEP 1: Customer Info -->
+            <div id="step-1-customer" class="step-container active">
+                <div class="wizard-centered">
+                    <h3>Start New Order</h3>
+                    <p class="text-muted" style="margin-bottom:20px; font-size: 0.9rem;">Capture customer details first. Existing customers auto-fill when you enter their phone number.</p>
+                    <form id="customerForm" novalidate>
+                        <div id="customerLookupHint" class="text-sm text-muted" style="margin-bottom:12px;">Enter a 10-digit phone number to check existing customer records.</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="cName">Customer Name *</label>
+                                <input type="text" class="form-control" id="cName" placeholder="Enter full name">
+                                <div class="form-error" id="errName" style="display:block; color:var(--red); font-size:0.8rem; margin-top:4px;"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="cPhone">Phone Number *</label>
+                                <input type="text" class="form-control" id="cPhone" placeholder="10-digit number">
+                                <div class="form-error" id="errPhone" style="display:block; color:var(--red); font-size:0.8rem; margin-top:4px;"></div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="cEmail">Email</label>
+                                <input type="email" class="form-control" id="cEmail" placeholder="customer@email.com">
+                                <div class="form-error" id="errEmail" style="display:block; color:var(--red); font-size:0.8rem; margin-top:4px;"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="cDeliveryOption">Delivery Option *</label>
+                                <select class="form-control" id="cDeliveryOption">
+                                    <option value="pickup" selected>Pickup (Counter)</option>
+                                    <option value="delivery">Home Delivery</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="cAddress">Address</label>
+                            <textarea class="form-control" id="cAddress" rows="2" placeholder="Required for delivery"></textarea>
+                            <div class="form-error" id="errAddress" style="display:block; color:var(--red); font-size:0.8rem; margin-top:4px;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="cNotes">Customer Notes (Optional)</label>
+                            <input type="text" class="form-control" id="cNotes" placeholder="Preferences, landmark, etc.">
+                        </div>
+                        <div id="deliveryPartnerFields" style="display:none;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="cDeliveryPartner">Delivery Partner / Boy</label>
+                                    <input type="text" class="form-control" id="cDeliveryPartner" placeholder="Optional assignment">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="cDeliveryPartnerPhone">Delivery Contact</label>
+                                    <input type="text" class="form-control" id="cDeliveryPartnerPhone" placeholder="+91 98xxxxxx">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Begin Scanning / Manual Entry</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- STEP 2: POS Terminal Grid -->
+            <div id="step-2-pos" class="step-container">
+                <div class="pos-layout">
+                    
+                    <!-- Products Area -->
+                    <div class="pos-main">
+                        <div class="pos-controls">
+                            <div class="pos-search">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input type="text" id="posSearch" placeholder="Fuzzy Search products... (e.g. 'Dal', 'L')">
+                            </div>
+                            <div class="category-filters" id="categoryFilters">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                        <div class="product-grid" id="productGrid">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Cart Sidebar Area -->
+                    <div class="pos-sidebar">
+                        <div class="cart-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                            Active Cart
+                        </div>
+                        
+                        <div class="cart-body" id="cartItemsList">
+                            <!-- Populated dynamically -->
+                        </div>
+
+                        <div class="cart-footer">
+                            <div class="promo-block" id="promoInputBlock">
+                                <input type="text" id="promoCode" class="promo-input" placeholder="Promo Code (e.g. WELCOME10)">
+                                <button class="btn btn-outline" id="applyPromoBtn" style="padding: 4px 10px; font-size: 0.8rem;">Apply</button>
+                            </div>
+                            <div class="promo-applied" id="promoAppliedTag" style="display:none;">
+                                <span class="promo-badge">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span id="promoAppliedCode"></span>
+                                </span>
+                                <button class="promo-remove" id="removePromoBtn" title="Remove discount code">&times; Remove</button>
+                            </div>
+                            <div id="promoError" style="color:var(--red); font-size:0.8rem; margin-bottom:10px;"></div>
+
+                            <div class="cf-row">
+                                <span>Subtotal</span>
+                                <span id="subSpan">₹0.00</span>
+                            </div>
+                            <div class="cf-row">
+                                <span>Discount</span>
+                                <span id="discSpan" style="color:var(--green);">- ₹0.00</span>
+                            </div>
+                            <div class="cf-tot">
+                                <span>Grand Total</span>
+                                <span id="totSpan">₹0.00</span>
+                            </div>
+                            <br>
+                            <button id="btnCheckout" class="btn btn-primary" style="width:100%; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.1);" disabled>
+                                Proceed to Payment Gateway
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- STEP 3: Payment Mock Flow -->
+            <div id="step-3-payment" class="step-container">
+                <div class="wizard-centered success-block">
+                    <div class="success-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <h3>Routing to Gateway...</h3>
+                    <p class="text-muted" style="margin-bottom:30px; font-size: 0.95rem;">
+                        The payload has been sent successfully. The user chooses Card, UPI, etc., on their device/interface. Webhook triggers upon completion.
+                    </p>
+                    <button class="btn btn-primary" id="btnResetFlow" style="justify-content:center;">
+                        Next Customer (Reset POS)
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="scripts/data.js"></script>
+    <script src="scripts/validation.js"></script>
+    <script src="scripts/ui.js"></script>
+    <script src="scripts/app.js"></script>
+    <script>
+        // Profile dropdown toggle
+        const userMenuBtn = document.getElementById('userMenuBtn');
+        const userDropdown = document.getElementById('userDropdown');
+        if (userMenuBtn) {
+            userMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userDropdown.classList.toggle('show');
+            });
+        }
+        document.addEventListener('click', () => {
+            if (userDropdown) userDropdown.classList.remove('show');
+        });
+    </script>
+    <div class="context-menu" id="contextMenu" style="display:none;"></div>
+</body>
+</html>
