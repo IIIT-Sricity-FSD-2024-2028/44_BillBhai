@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const dir = __dirname;
-const files = ['inventory.html', 'delivery.html', 'returns.html', 'reports.html', 'users.html', 'profile.html', 'settings.html', 'notifications.html'];
+const files = ['inventory.html', 'delivery.html', 'returns.html', 'reports.html', 'users.html', 'profile.html', 'notifications.html'];
 files.forEach(function (f) {
     var fp = path.join(dir, f);
     var c = fs.readFileSync(fp, 'utf8');

@@ -38,8 +38,8 @@
                     </div>
                     <div class="dropdown-menu" id="userDropdown">
                         <div class="dropdown-header">
-                            <strong>Cashier</strong>
-                            <div class="text-sm text-muted">Counter Terminal 1</div>
+                            <strong id="terminalDropdownTitle">Cashier</strong>
+                            <div class="text-sm text-muted" id="terminalDropdownSubtitle">Counter Terminal 1</div>
                         </div>
 
                         <a href="login.html" class="dropdown-item text-danger">
@@ -56,8 +56,8 @@
             <!-- STEP 1: Customer Info -->
             <div id="step-1-customer" class="step-container active">
                 <div class="wizard-centered">
-                    <h3>Start New Order</h3>
-                    <p class="text-muted" style="margin-bottom:20px; font-size: 0.9rem;">Capture customer details first. Existing customers auto-fill when you enter their phone number.</p>
+                    <h3 id="checkoutStepTitle">Start New Order</h3>
+                    <p class="text-muted" id="checkoutStepSubtitle" style="margin-bottom:20px; font-size: 0.9rem;">Capture customer details first. Existing customers auto-fill when you enter their phone number.</p>
                     <form id="customerForm" novalidate>
                         <div id="customerLookupHint" class="text-sm text-muted" style="margin-bottom:12px;">Enter a 10-digit phone number to check existing customer records.</div>
                         <div class="form-row">
@@ -78,36 +78,12 @@
                                 <input type="email" class="form-control" id="cEmail" placeholder="customer@email.com">
                                 <div class="form-error" id="errEmail" style="display:block; color:var(--red); font-size:0.8rem; margin-top:4px;"></div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label" for="cDeliveryOption">Delivery Option *</label>
-                                <select class="form-control" id="cDeliveryOption">
-                                    <option value="pickup" selected>Pickup (Counter)</option>
-                                    <option value="delivery">Home Delivery</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="cAddress">Address</label>
-                            <textarea class="form-control" id="cAddress" rows="2" placeholder="Required for delivery"></textarea>
-                            <div class="form-error" id="errAddress" style="display:block; color:var(--red); font-size:0.8rem; margin-top:4px;"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="cNotes">Customer Notes (Optional)</label>
                             <input type="text" class="form-control" id="cNotes" placeholder="Preferences, landmark, etc.">
                         </div>
-                        <div id="deliveryPartnerFields" style="display:none;">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="cDeliveryPartner">Delivery Partner / Boy</label>
-                                    <input type="text" class="form-control" id="cDeliveryPartner" placeholder="Optional assignment">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="cDeliveryPartnerPhone">Delivery Contact</label>
-                                    <input type="text" class="form-control" id="cDeliveryPartnerPhone" placeholder="+91 98xxxxxx">
-                                </div>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Begin Scanning / Manual Entry</button>
+                        <button type="submit" class="btn btn-primary" id="customerStepSubmitBtn" style="width:100%; justify-content:center;">Begin Scanning / Manual Entry</button>
                     </form>
                 </div>
             </div>
@@ -170,8 +146,8 @@
                                 <span id="totSpan">₹0.00</span>
                             </div>
                             <br>
-                            <button id="btnCheckout" class="btn btn-primary" style="width:100%; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.1);" disabled>
-                                Proceed to Payment Gateway
+                            <button id="btnGoFulfillment" class="btn btn-primary" style="width:100%; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.1);" disabled>
+                                Continue to Fulfillment &amp; Payment
                             </button>
                         </div>
                     </div>
@@ -179,16 +155,77 @@
                 </div>
             </div>
 
-            <!-- STEP 3: Payment Mock Flow -->
-            <div id="step-3-payment" class="step-container">
+            <!-- STEP 3: Fulfillment + Delivery Details -->
+            <div id="step-3-fulfillment" class="step-container">
+                <div class="wizard-centered fulfillment-centered">
+                    <h3 id="checkoutModeHeading">How should this order go out?</h3>
+                    <p class="text-muted" style="margin-bottom:16px; font-size:0.9rem;">
+                        Choose fulfillment, add delivery details if required, then proceed to payment.
+                    </p>
+
+                    <div class="checkout-summary-card" id="fulfillmentSummary" style="margin-bottom:16px;">
+                        <div class="checkout-summary-row"><span>Subtotal</span><strong id="fulfillmentSubSpan">₹0.00</strong></div>
+                        <div class="checkout-summary-row"><span>Discount</span><strong id="fulfillmentDiscSpan">- ₹0.00</strong></div>
+                        <div class="checkout-summary-row"><span>Delivery Charges</span><strong id="fulfillmentDeliverySpan">₹0.00</strong></div>
+                        <div class="checkout-summary-row"><span>Amount Payable</span><strong id="fulfillmentTotSpan">₹0.00</strong></div>
+                    </div>
+
+                    <div class="checkout-mode-block" style="margin-top:0; padding-top:0; border-top:none;">
+                        <div class="checkout-mode-grid" id="checkoutModeGrid">
+                            <label class="checkout-mode-card active">
+                                <input type="radio" name="checkoutMode" value="takeaway_now" checked>
+                                <span class="checkout-mode-title">Take Away Now</span>
+                                <span class="checkout-mode-copy">Hand over immediately at the counter.</span>
+                            </label>
+                            <label class="checkout-mode-card">
+                                <input type="radio" name="checkoutMode" value="prepaid_delivery">
+                                <span class="checkout-mode-title">Delivery + Pay Upfront</span>
+                                <span class="checkout-mode-copy">Collect payment now and dispatch for delivery.</span>
+                            </label>
+                            <label class="checkout-mode-card">
+                                <input type="radio" name="checkoutMode" value="cod_delivery">
+                                <span class="checkout-mode-title">Delivery + COD</span>
+                                <span class="checkout-mode-copy">Dispatch now and collect cash on delivery.</span>
+                            </label>
+                        </div>
+
+                        <div id="deliveryPartnerFields" class="delivery-details-block" style="display:none; margin-top:12px;">
+                            <label class="form-label" for="cAddress">Delivery Address *</label>
+                            <textarea class="form-control" id="cAddress" rows="2" placeholder="Required for delivery"></textarea>
+                            <div class="form-error" id="errAddress" style="display:block; color:var(--red); font-size:0.8rem; margin-top:4px;"></div>
+                            <div class="form-row delivery-contact-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="cDeliveryPartner">Delivery Partner / Boy</label>
+                                    <input type="text" class="form-control" id="cDeliveryPartner" placeholder="Optional assignment">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="cDeliveryPartnerPhone">Delivery Contact</label>
+                                    <input type="text" class="form-control" id="cDeliveryPartnerPhone" placeholder="+91 98xxxxxx">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="checkoutModeError" class="text-sm" style="color:var(--red); min-height:18px;"></div>
+                    </div>
+
+                    <div class="fulfillment-actions">
+                        <button id="btnBackToCart" class="btn btn-outline" style="justify-content:center;">Back to Cart</button>
+                        <button id="btnCheckout" class="btn btn-primary" style="justify-content:center;">Proceed to Payment Gateway</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: Payment Mock Flow -->
+            <div id="step-4-payment" class="step-container">
                 <div class="wizard-centered success-block">
                     <div class="success-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     </div>
-                    <h3>Routing to Gateway...</h3>
-                    <p class="text-muted" style="margin-bottom:30px; font-size: 0.95rem;">
+                    <h3 id="paymentStepTitle">Routing to Gateway...</h3>
+                    <p class="text-muted" id="paymentStepSubtitle" style="margin-bottom:30px; font-size: 0.95rem;">
                         The payload has been sent successfully. The user chooses Card, UPI, etc., on their device/interface. Webhook triggers upon completion.
                     </p>
+                    <div id="paymentOutcomeSummary" class="checkout-summary-card" style="display:none;"></div>
                     <button class="btn btn-primary" id="btnResetFlow" style="justify-content:center;">
                         Next Customer (Reset POS)
                     </button>

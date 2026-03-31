@@ -1,8 +1,19 @@
 /* POS Grid Style Overrides — base styles loaded via <link> in HTML */
 
+:root {
+    --bg-body: var(--bg, #0c0c10);
+}
+
 /* ── Full-width layout when no sidebar ───── */
 body.no-sidebar .main-content {
     margin-left: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+body.no-sidebar .content-area {
+    width: 100%;
+    max-width: 100%;
 }
 
 /* ── Header logo (replaces sidebar brand) ─── */
@@ -22,6 +33,15 @@ body.no-sidebar .main-content {
 .step-container { display: none; }
 .step-container.active { display: block; animation: fadeIn 0.3s ease; }
 
+#step-1-customer.active,
+#step-3-fulfillment.active,
+#step-4-payment.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 180px);
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -37,6 +57,9 @@ body.no-sidebar .main-content {
     padding: 30px;
 }
 .wizard-centered h3 { margin-bottom: 20px; color: var(--accent); }
+.fulfillment-centered {
+    max-width: 640px;
+}
 .wizard-centered .form-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -61,9 +84,24 @@ body.no-sidebar .main-content {
     padding: 8px 10px;
 }
 #deliveryPartnerFields {
-    border-top: 1px dashed var(--border);
-    margin-top: 8px;
-    padding-top: 12px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.delivery-details-block .form-label {
+    display: block;
+    margin-bottom: 6px;
+}
+
+.delivery-details-block .form-control {
+    width: 100%;
+}
+
+.delivery-contact-row {
+    margin-top: 10px;
 }
 
 /* ── Step 2: POS Split View ───────────── */
@@ -222,6 +260,63 @@ body.no-sidebar .main-content {
 .cf-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
 .cf-tot { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-weight: 700; font-size: 1.2rem; color: var(--accent); }
 
+.checkout-mode-block {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.checkout-mode-header {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.checkout-mode-grid {
+    display: grid;
+    gap: 10px;
+}
+
+.checkout-mode-card {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: border-color var(--t), transform var(--t), background var(--t);
+}
+
+.checkout-mode-card input {
+    display: none;
+}
+
+.checkout-mode-card.active {
+    border-color: var(--accent);
+    background: rgba(220, 53, 69, 0.1);
+    transform: translateY(-1px);
+}
+
+.checkout-mode-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-heading, #fff);
+}
+
+.checkout-mode-copy {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.fulfillment-actions {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
 .promo-block { display: flex; gap: 8px; margin-bottom: 16px; }
 .promo-input { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.8rem; background: var(--bg-body); color: #fff; }
 
@@ -269,6 +364,34 @@ body.no-sidebar .main-content {
 }
 .success-icon {
     width: 60px; height: 60px; border-radius: 50%; background: var(--green-bg); display: flex; align-items: center; justify-content: center; color: var(--green); margin: 0 auto 20px auto;
+}
+
+.checkout-summary-card {
+    display: grid;
+    gap: 10px;
+    margin: 0 auto 24px auto;
+    padding: 16px 18px;
+    max-width: 420px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-body);
+    text-align: left;
+}
+
+.checkout-summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.9rem;
+}
+
+.checkout-summary-row span {
+    color: var(--text-muted);
+}
+
+.checkout-summary-row strong {
+    color: var(--text-heading, #fff);
+    text-align: right;
 }
 
 /* ── Context Menu (Quantity Selection) ── */
@@ -330,7 +453,19 @@ body.no-sidebar .main-content {
         margin: 16px auto;
         padding: 20px;
     }
+
+    #step-1-customer.active,
+    #step-3-fulfillment.active,
+    #step-4-payment.active {
+        min-height: auto;
+        align-items: flex-start;
+    }
+
     .wizard-centered .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .fulfillment-actions {
         grid-template-columns: 1fr;
     }
 }

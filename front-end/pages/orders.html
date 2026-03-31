@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -68,12 +68,7 @@
                 </div>
             </div>
             <div class="header-right">
-                <div class="header-search">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <input type="text" placeholder="Search orders..." id="globalSearch">
-                </div>
-                
-                <div class="dropdown-container" id="notifContainer">
+<div class="dropdown-container" id="notifContainer">
                     <button class="icon-btn notif-btn" id="notifBtn" aria-label="Notifications">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                         <span class="notif-dot"></span>
@@ -92,8 +87,7 @@
                     </div>
                     <div class="dropdown-menu" id="userDropdown">
                         <div class="dropdown-header"><strong>Admin</strong><div class="text-sm text-muted">admindemo@billbhai.com</div></div>
-                        <a href="profile.html" class="dropdown-item nav-item" data-page="profile"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> My Profile</a>
-                        <a href="settings.html" class="dropdown-item nav-item" data-page="settings"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</a>
+                        <a href="profile.html" class="dropdown-item nav-item" data-page="profile"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile & Settings</a>
                         <div class="dropdown-divider"></div>
                         <a href="login.html" class="dropdown-item text-danger"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
                     </div>
@@ -105,7 +99,7 @@
             <div class="page-header"><h2>Orders &amp; Billing</h2><div class="page-header-actions"><button class="btn btn-primary" id="newOrderBtn">+ New Order</button><button class="btn btn-outline">Export CSV</button></div></div>
             <section class="stats-grid">
                 <div class="stat-card"><div class="stat-icon si-blue"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg></div><div class="stat-info"><span class="stat-label">Total Orders</span><span class="stat-value">156</span></div></div>
-                <div class="stat-card"><div class="stat-icon si-green"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-info"><span class="stat-label">Total Revenue</span><span class="stat-value">₹1,24,850</span></div></div>
+                <div class="stat-card"><div class="stat-icon si-green"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-info"><span class="stat-label">Total Revenue</span><span class="stat-value">?1,24,850</span></div></div>
                 <div class="stat-card"><div class="stat-icon si-amber"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-info"><span class="stat-label">Pending</span><span class="stat-value">12</span></div></div>
                 <div class="stat-card"><div class="stat-icon si-red"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="stat-info"><span class="stat-label">Cancelled</span><span class="stat-value">5</span></div></div>
             </section>
@@ -118,9 +112,9 @@
                                 <tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th></tr>
                             </thead>
                             <tbody id="ordersTableBody">
-                                <tr><td class="cell-main">ORD-4821</td><td>Rahul Sharma</td><td>3</td><td>₹1,250</td><td><span class="badge b-upi">UPI</span></td><td><span class="badge b-delivered">Delivered</span></td><td>17 Feb 14:32</td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('ORD-4821')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('ORD-4821')">Delete</button></td></tr>
-                                <tr><td class="cell-main">ORD-4820</td><td>Priya Patel</td><td>1</td><td>₹450</td><td><span class="badge b-cash">Cash</span></td><td><span class="badge b-processing">Processing</span></td><td>17 Feb 13:45</td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('ORD-4820')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('ORD-4820')">Delete</button></td></tr>
-                                <tr><td class="cell-main">ORD-4819</td><td>Amit Kumar</td><td>5</td><td>₹3,200</td><td><span class="badge b-card">Card</span></td><td><span class="badge b-delivered">Delivered</span></td><td>17 Feb 12:10</td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('ORD-4819')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('ORD-4819')">Delete</button></td></tr>
+                                <tr><td class="cell-main">ORD-4821</td><td>Rahul Sharma</td><td>3</td><td>?1,250</td><td><span class="badge b-upi">UPI</span></td><td><span class="badge b-delivered">Delivered</span></td><td>17 Feb 14:32</td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('ORD-4821')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('ORD-4821')">Delete</button></td></tr>
+                                <tr><td class="cell-main">ORD-4820</td><td>Priya Patel</td><td>1</td><td>?450</td><td><span class="badge b-cash">Cash</span></td><td><span class="badge b-processing">Processing</span></td><td>17 Feb 13:45</td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('ORD-4820')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('ORD-4820')">Delete</button></td></tr>
+                                <tr><td class="cell-main">ORD-4819</td><td>Amit Kumar</td><td>5</td><td>?3,200</td><td><span class="badge b-card">Card</span></td><td><span class="badge b-delivered">Delivered</span></td><td>17 Feb 12:10</td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('ORD-4819')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('ORD-4819')">Delete</button></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -157,7 +151,7 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" for="orderTotal">Total Amount (₹) *</label>
+                            <label class="form-label" for="orderTotal">Total Amount (?) *</label>
                             <input type="number" class="form-control" id="orderTotal" placeholder="0.00" min="0" step="0.01" required>
                             <div class="form-error">Enter a valid amount</div>
                         </div>
@@ -201,4 +195,5 @@
     <script src="scripts/dashboard.js"></script>
 </body>
 </html>
+
 

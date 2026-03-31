@@ -9,35 +9,44 @@ const DataStore = (() => {
 
     const STORAGE_KEY = 'bb_pos_orders';
     const CUSTOMER_STORAGE_KEY = 'bb_pos_customers';
+    const CUSTOMER_SESSION_NOTIFICATION_KEY = 'bb_customer_session_notifications';
     const CASHIER_DATA_PATH = 'data/cashier_data.json';
+    const FETCH_TIMEOUT_MS = 7000;
     const LIVE_SYNC_KEY = 'bb_live_sync_event';
     const LIVE_SYNC_CHANNEL = 'bb_live_sync';
     const syncSourceId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    const DEFAULT_CATALOG = [
-        { id: 'P001', name: 'Basmati Rice', category: 'Groceries', image: '🍚', options: [{ label: '1kg', price: 85 }, { label: '2kg', price: 160 }, { label: '5kg', price: 380 }] },
-        { id: 'P002', name: 'Toor Dal', category: 'Groceries', image: '🫘', options: [{ label: '500g', price: 65 }, { label: '1kg', price: 120 }, { label: '2kg', price: 230 }] },
-        { id: 'P003', name: 'Refined Oil', category: 'Groceries', image: '🛢️', options: [{ label: '500ml', price: 80 }, { label: '1L', price: 155 }, { label: '5L', price: 750 }] },
-        { id: 'P004', name: 'Amul Butter', category: 'Dairy', image: '🧈', options: [{ label: '100g', price: 60 }, { label: '500g', price: 275 }] },
-        { id: 'P005', name: 'Milk', category: 'Dairy', image: '🥛', options: [{ label: '500ml', price: 32 }, { label: '1L', price: 60 }] },
-        { id: 'P006', name: 'Bread Loaf', category: 'Snacks', image: '🍞', options: [{ label: 'Regular', price: 45 }, { label: 'Family Pack', price: 80 }] },
-        { id: 'P007', name: 'Maggi Noodles', category: 'Snacks', image: '🍜', options: [{ label: 'Single', price: 14 }, { label: 'Pack of 4', price: 54 }, { label: 'Pack of 12', price: 168 }] },
-        { id: 'P008', name: 'Tea Powder', category: 'Beverages', image: '🍵', options: [{ label: '250g', price: 160 }, { label: '500g', price: 310 }] },
-        { id: 'P009', name: 'Coffee Jar', category: 'Beverages', image: '☕', options: [{ label: '50g', price: 95 }, { label: '100g', price: 180 }] }
-    ];
-
-    const DEFAULT_PROMOS = {
-        WELCOME10: { type: 'percent', value: 10 },
-        FLAT50: { type: 'fixed', value: 50 }
+    const DEFAULT_CATALOG = [];
+    const DEFAULT_PROMOS = {};
+    const DEFAULT_CHECKOUT_SETTINGS = {
+        deliveryCharge: 0
     };
 
     let catalog = clone(DEFAULT_CATALOG);
     let promos = { ...DEFAULT_PROMOS };
+    let checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS };
     let orders = [];
     let customers = {};
 
     function clone(value) {
         return JSON.parse(JSON.stringify(value));
+    }
+
+    function mergeCatalogProducts(preferredRows, fallbackRows) {
+        const map = new Map();
+        (Array.isArray(fallbackRows) ? fallbackRows : []).forEach(item => {
+            if (!item || typeof item !== 'object') return;
+            const key = String(item.id || '').trim();
+            if (!key) return;
+            map.set(key, clone(item));
+        });
+        (Array.isArray(preferredRows) ? preferredRows : []).forEach(item => {
+            if (!item || typeof item !== 'object') return;
+            const key = String(item.id || '').trim();
+            if (!key) return;
+            map.set(key, { ...(map.get(key) || {}), ...clone(item) });
+        });
+        return Array.from(map.values());
     }
 
     function loadStoredValue(key, fallback, expectArray) {
@@ -58,6 +67,10 @@ const DataStore = (() => {
 
     function normalizePhone(value) {
         return String(value || '').replace(/\D/g, '').slice(0, 10);
+    }
+
+    function normalizeRoleKey(role) {
+        return String(role || '').toLowerCase().replace(/\s+/g, '');
     }
 
     function saveCustomers() {
@@ -104,6 +117,84 @@ const DataStore = (() => {
         return `${now.getDate()} ${months[now.getMonth()]} ${hh}:${mm}`;
     }
 
+    function appendCustomerSessionNotifications(order, businessContext) {
+        const roleKey = normalizeRoleKey(localStorage.getItem('userRole'));
+        if (roleKey !== 'customer') return;
+
+        let notifications = [];
+        try {
+            const raw = sessionStorage.getItem(CUSTOMER_SESSION_NOTIFICATION_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                notifications = Array.isArray(parsed) ? parsed : [];
+            }
+        } catch (err) {
+            notifications = [];
+        }
+
+        const timestamp = Date.now();
+        const timeLabel = formatOrderMoment();
+        const safeBusinessName = String(businessContext && businessContext.name || 'BillBhai').trim() || 'BillBhai';
+        const nextNotifications = [
+            {
+                id: `customer-order-${order.id}`,
+                category: 'orders',
+                priority: 'medium',
+                title: `${order.id} created`,
+                desc: `Your self-checkout order at ${safeBusinessName} is set to ${order.checkoutMode === 'takeaway_now' ? 'take away now' : (order.checkoutMode === 'cod_delivery' ? 'cash on delivery' : 'prepaid delivery')}.`,
+                time: timeLabel,
+                sortTimeMs: timestamp,
+                detailRows: [
+                    { label: 'Business', value: safeBusinessName },
+                    { label: 'Order', value: order.id },
+                    { label: 'Customer', value: order.customer || '-' },
+                    { label: 'Total', value: `Rs ${Math.max(0, Number(order.total || 0)).toLocaleString()}` },
+                    { label: 'Delivery Option', value: order.deliveryOption || 'pickup' },
+                    { label: 'Payment', value: order.paymentMethod || 'Pending' }
+                ]
+            },
+            {
+                id: `customer-payment-${order.id}`,
+                category: 'payments',
+                priority: 'high',
+                title: `Payment pending for ${order.id}`,
+                desc: order.paymentMethod === 'COD'
+                    ? `Payment of Rs ${Math.max(0, Number(order.total || 0)).toLocaleString()} will be collected on delivery.`
+                    : `Checkout mode recorded as ${order.paymentMethod || 'Pending'} for Rs ${Math.max(0, Number(order.total || 0)).toLocaleString()}.`,
+                time: timeLabel,
+                sortTimeMs: timestamp - 1,
+                detailRows: [
+                    { label: 'Order', value: order.id },
+                    { label: 'Amount', value: `Rs ${Math.max(0, Number(order.total || 0)).toLocaleString()}` },
+                    { label: 'Status', value: order.paymentMethod || 'Pending' }
+                ]
+            }
+        ];
+
+        if (String(order && order.deliveryOption || '').toLowerCase() === 'delivery') {
+            nextNotifications.push({
+                id: `customer-delivery-${order.id}`,
+                category: 'delivery',
+                priority: 'medium',
+                title: `Delivery queued for ${order.id}`,
+                desc: `${order.deliveryPartner || 'Store team'} will coordinate delivery to ${order.address || 'your saved address'}.`,
+                time: timeLabel,
+                sortTimeMs: timestamp - 2,
+                detailRows: [
+                    { label: 'Order', value: order.id },
+                    { label: 'Delivery Partner', value: order.deliveryPartner || 'Pending assignment' },
+                    { label: 'Partner Phone', value: order.deliveryPartnerPhone || '-' },
+                    { label: 'Address', value: order.address || '-' }
+                ]
+            });
+        }
+
+        sessionStorage.setItem(
+            CUSTOMER_SESSION_NOTIFICATION_KEY,
+            JSON.stringify([...nextNotifications, ...notifications].slice(0, 25))
+        );
+    }
+
     function getNextDeliveryId(rows) {
         const numbers = (Array.isArray(rows) ? rows : [])
             .map(item => parseInt(String(item && item.id || '').replace(/[^\d]/g, ''), 10))
@@ -131,23 +222,52 @@ const DataStore = (() => {
         };
     }
 
-    async function loadCashierDataFromJson() {
+    async function fetchJsonWithTimeout(path) {
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        const requestOptions = { cache: 'no-store' };
+        if (controller) requestOptions.signal = controller.signal;
+
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                if (controller) controller.abort();
+                reject(new Error('Request timed out'));
+            }, FETCH_TIMEOUT_MS);
+        });
+
         try {
-            const response = await fetch(CASHIER_DATA_PATH, { cache: 'no-store' });
-            if (!response.ok) return;
-
-            const parsed = await response.json();
-            if (!parsed || typeof parsed !== 'object') return;
-
-            if (Array.isArray(parsed.catalog) && parsed.catalog.length) {
-                catalog = clone(parsed.catalog);
-            }
-
-            if (parsed.promos && typeof parsed.promos === 'object' && !Array.isArray(parsed.promos)) {
-                promos = { ...parsed.promos };
-            }
+            const response = await Promise.race([
+                fetch(path, requestOptions),
+                timeoutPromise
+            ]);
+            if (!response.ok) return null;
+            return await response.json();
         } catch (err) {
-            // Keep fallback defaults when JSON is unavailable.
+            return null;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    async function loadCashierDataFromJson() {
+        const parsed = await fetchJsonWithTimeout(CASHIER_DATA_PATH);
+        if (!parsed || typeof parsed !== 'object') return;
+
+        if (Array.isArray(parsed.catalog)) {
+            catalog = mergeCatalogProducts(parsed.catalog, DEFAULT_CATALOG);
+        }
+
+        if (parsed.promos && typeof parsed.promos === 'object' && !Array.isArray(parsed.promos)) {
+            promos = { ...parsed.promos };
+        }
+
+        if (parsed.settings && typeof parsed.settings === 'object' && !Array.isArray(parsed.settings)) {
+            const parsedCharge = Number(parsed.settings.deliveryCharge);
+            checkoutSettings = {
+                ...DEFAULT_CHECKOUT_SETTINGS,
+                ...parsed.settings,
+                deliveryCharge: Number.isFinite(parsedCharge) && parsedCharge > 0 ? parsedCharge : 0
+            };
         }
     }
 
@@ -348,9 +468,19 @@ const DataStore = (() => {
     }
 
     function createOrder(customerData, cartItems, discountApplied) {
-        const deliveryOption = String(customerData && customerData.deliveryOption || 'pickup').toLowerCase() === 'delivery'
+        const businessContext = resolveBusinessContext();
+        const checkoutMode = String(customerData && customerData.checkoutMode || '').trim().toLowerCase();
+        const deliveryOption = checkoutMode === 'prepaid_delivery' || checkoutMode === 'cod_delivery'
             ? 'delivery'
-            : 'pickup';
+            : (String(customerData && customerData.deliveryOption || 'pickup').toLowerCase() === 'delivery' ? 'delivery' : 'pickup');
+        const requestedDeliveryCharge = Math.max(0, Number(customerData && customerData.deliveryCharge || 0));
+        const deliveryCharge = deliveryOption === 'delivery' ? requestedDeliveryCharge : 0;
+        const paymentMethod = checkoutMode === 'prepaid_delivery'
+            ? 'Paid Upfront'
+            : (checkoutMode === 'cod_delivery' ? 'COD' : (String(customerData && customerData.paymentMethod || 'Counter Paid').trim() || 'Counter Paid'));
+        const orderStatus = checkoutMode === 'takeaway_now'
+            ? 'Delivered'
+            : (String(customerData && customerData.orderStatus || 'Processing').trim() || 'Processing');
         const order = {
             id: generateId(),
             customer: String(customerData && customerData.name || '').trim(),
@@ -358,6 +488,7 @@ const DataStore = (() => {
             email: String(customerData && customerData.email || '').trim(),
             address: String(customerData && customerData.address || '').trim(),
             notes: String(customerData && customerData.notes || '').trim(),
+            checkoutMode: checkoutMode || (deliveryOption === 'delivery' ? 'prepaid_delivery' : 'takeaway_now'),
             deliveryOption,
             deliveryPartner: String(customerData && customerData.deliveryPartner || '').trim(),
             deliveryPartnerPhone: String(customerData && customerData.deliveryPartnerPhone || '').trim(),
@@ -369,10 +500,11 @@ const DataStore = (() => {
             })),
             subtotal: cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0),
             discount: discountApplied.active ? discountApplied.discount : 0,
+            deliveryCharge,
             promoCode: discountApplied.active ? discountApplied.code : null,
             total: 0,
-            status: 'Processing',
-            paymentMethod: 'Pending',
+            status: orderStatus,
+            paymentMethod,
             date: new Date().toISOString()
         };
 
@@ -381,20 +513,27 @@ const DataStore = (() => {
             order.deliveryPartnerPhone = '';
         }
 
-        order.total = order.subtotal - order.discount;
+        order.total = Math.max(0, order.subtotal - order.discount + order.deliveryCharge);
         orders.unshift(order);
         saveOrders();
         upsertCustomerProfile(order);
         syncOperationalData(order, cartItems);
+        appendCustomerSessionNotifications(order, businessContext);
         return order;
     }
 
     function getSessionContext() {
         const businessContext = resolveBusinessContext();
+        const roleKey = normalizeRoleKey(localStorage.getItem('userRole') || 'cashier') || 'cashier';
+        const isCustomerTerminal = roleKey === 'customer';
+        const storedName = String(localStorage.getItem('userName') || '').trim();
         return {
             businessId: businessContext.id,
             businessName: businessContext.name,
-            userName: String(localStorage.getItem('userName') || 'Cashier').trim() || 'Cashier'
+            userName: storedName || (isCustomerTerminal ? 'Self Checkout' : 'Cashier'),
+            roleKey,
+            roleLabel: isCustomerTerminal ? 'Self Checkout' : (String(localStorage.getItem('userRole') || 'Cashier').trim() || 'Cashier'),
+            isCustomerTerminal
         };
     }
 
@@ -403,6 +542,7 @@ const DataStore = (() => {
         getCategories,
         searchCatalog,
         applyPromo,
+        getCheckoutSettings: () => ({ ...checkoutSettings }),
         getCustomerByPhone,
         createOrder,
         getSessionContext

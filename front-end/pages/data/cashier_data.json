@@ -93,10 +93,125 @@
         { "label": "50g", "price": 95 },
         { "label": "100g", "price": 180 }
       ]
+    },
+    {
+      "id": "P010",
+      "name": "Atta Flour",
+      "category": "Groceries",
+      "image": "🌾",
+      "options": [
+        { "label": "1kg", "price": 52 },
+        { "label": "5kg", "price": 248 },
+        { "label": "10kg", "price": 470 }
+      ]
+    },
+    {
+      "id": "P011",
+      "name": "Sugar",
+      "category": "Groceries",
+      "image": "🧂",
+      "options": [
+        { "label": "1kg", "price": 48 },
+        { "label": "5kg", "price": 232 }
+      ]
+    },
+    {
+      "id": "P012",
+      "name": "Paneer",
+      "category": "Dairy",
+      "image": "🧀",
+      "options": [
+        { "label": "200g", "price": 78 },
+        { "label": "500g", "price": 185 }
+      ]
+    },
+    {
+      "id": "P013",
+      "name": "Curd Cup",
+      "category": "Dairy",
+      "image": "🥣",
+      "options": [
+        { "label": "200g", "price": 26 },
+        { "label": "400g", "price": 48 }
+      ]
+    },
+    {
+      "id": "P014",
+      "name": "Potato Chips",
+      "category": "Snacks",
+      "image": "🍟",
+      "options": [
+        { "label": "Classic", "price": 20 },
+        { "label": "Party Pack", "price": 55 }
+      ]
+    },
+    {
+      "id": "P015",
+      "name": "Biscuits",
+      "category": "Snacks",
+      "image": "🍪",
+      "options": [
+        { "label": "Single Pack", "price": 12 },
+        { "label": "Value Pack", "price": 45 }
+      ]
+    },
+    {
+      "id": "P016",
+      "name": "Orange Juice",
+      "category": "Beverages",
+      "image": "🧃",
+      "options": [
+        { "label": "500ml", "price": 42 },
+        { "label": "1L", "price": 78 }
+      ]
+    },
+    {
+      "id": "P017",
+      "name": "Mineral Water",
+      "category": "Beverages",
+      "image": "💧",
+      "options": [
+        { "label": "1L", "price": 20 },
+        { "label": "2L", "price": 32 },
+        { "label": "Box of 12", "price": 210 }
+      ]
+    },
+    {
+      "id": "P018",
+      "name": "Bath Soap",
+      "category": "Home Care",
+      "image": "🧼",
+      "options": [
+        { "label": "Single", "price": 34 },
+        { "label": "Pack of 4", "price": 128 }
+      ]
+    },
+    {
+      "id": "P019",
+      "name": "Dishwash Liquid",
+      "category": "Home Care",
+      "image": "🧴",
+      "options": [
+        { "label": "250ml", "price": 58 },
+        { "label": "500ml", "price": 105 }
+      ]
+    },
+    {
+      "id": "P020",
+      "name": "Detergent Powder",
+      "category": "Home Care",
+      "image": "🫧",
+      "options": [
+        { "label": "1kg", "price": 96 },
+        { "label": "3kg", "price": 268 }
+      ]
     }
   ],
   "promos": {
     "WELCOME10": { "type": "percent", "value": 10 },
     "FLAT50": { "type": "fixed", "value": 50 }
+  },
+  "settings": {
+    "deliveryCharge": 40
   }
 }

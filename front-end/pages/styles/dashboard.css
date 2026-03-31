@@ -263,14 +263,35 @@ body:not([data-app-ready="true"])::after {
 .main-content {
     flex: 1;
     margin-left: var(--sidebar-w);
+    width: calc(100% - var(--sidebar-w));
+    max-width: calc(100% - var(--sidebar-w));
     transition: margin-left var(--t);
     display: flex;
     flex-direction: column;
+    min-width: 0;
     min-height: 100vh
 }
 
+/* Superuser focused pages (portal/profile/notifications) use a clean full-width canvas. */
+body.no-sidebar-layout .sidebar,
+body.no-sidebar-layout .sidebar-overlay {
+    display: none !important
+}
+
+body.no-sidebar-layout .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important
+}
+
+body.no-sidebar-layout .menu-toggle {
+    display: none !important
+}
+
 .sidebar.collapsed~.main-content {
-    margin-left: var(--sidebar-collapsed)
+    margin-left: var(--sidebar-collapsed);
+    width: calc(100% - var(--sidebar-collapsed));
+    max-width: calc(100% - var(--sidebar-collapsed))
 }
 
 .top-header {
@@ -334,38 +355,149 @@ body:not([data-app-ready="true"])::after {
     gap: 8px
 }
 
-.header-search {
+.table-toolbar {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap
+}
+
+.toolbar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 160px
+}
+
+.toolbar-label {
+    font-size: 0.78rem;
+    color: var(--text-muted)
+}
+
+.toolbar-select {
+    min-width: 160px;
     background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    transition: border-color var(--t)
-}
-
-.header-search:focus-within {
-    border-color: var(--accent)
-}
-
-.header-search svg {
-    color: var(--text-muted);
-    flex-shrink: 0
-}
-
-.header-search input {
-    background: none;
-    border: none;
-    outline: none;
+    padding: 10px 12px;
     color: var(--text-primary);
     font-family: var(--font);
-    font-size: 0.85rem;
-    width: 160px
+    font-size: 0.86rem;
+    transition: border-color var(--t), box-shadow var(--t)
 }
 
-.header-search input::placeholder {
+.toolbar-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow)
+}
+
+.notification-list {
+    display: flex;
+    flex-direction: column
+}
+
+.notification-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+    transition: background var(--t)
+}
+
+.notification-row:hover {
+    background: var(--bg-hover)
+}
+
+.notification-row.unread {
+    background: rgba(220, 53, 69, 0.05)
+}
+
+.notification-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center
+}
+
+.notification-content {
+    min-width: 0
+}
+
+.notification-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center
+}
+
+.notification-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600
+}
+
+.notification-chip.is-unread {
+    background: var(--red-bg);
+    color: var(--red)
+}
+
+.notification-chip.is-read {
+    background: var(--green-bg);
+    color: var(--green)
+}
+
+.notification-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 10px;
+    font-size: 0.78rem;
     color: var(--text-muted)
+}
+
+.notification-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end
+}
+
+.notification-actions .btn {
+    padding: 4px 10px;
+    font-size: 0.75rem
+}
+
+.notification-empty {
+    padding: 28px;
+    text-align: center
+}
+
+.notification-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px
+}
+
+.notification-detail-item {
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-input)
 }
 
 .icon-btn {
@@ -539,7 +671,10 @@ body:not([data-app-ready="true"])::after {
 
 .content-area {
     flex: 1;
+    width: 100%;
     padding: 20px;
+    min-width: 0;
+    overflow-x: hidden;
     overflow-y: auto
 }
 
@@ -607,7 +742,7 @@ body:not([data-app-ready="true"])::after {
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 12px;
     margin-bottom: 20px
 }
@@ -620,6 +755,8 @@ body:not([data-app-ready="true"])::after {
     display: flex;
     align-items: flex-start;
     gap: 14px;
+    min-height: 94px;
+    overflow: hidden;
     transition: border-color var(--t), transform var(--t)
 }
 
@@ -671,7 +808,8 @@ body:not([data-app-ready="true"])::after {
 .stat-info {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 4px;
+    flex: 1;
     min-width: 0
 }
 
@@ -684,9 +822,10 @@ body:not([data-app-ready="true"])::after {
 }
 
 .stat-value {
-    font-size: 1.35rem;
+    font-size: clamp(1.12rem, 1rem + 0.85vw, 1.55rem);
     font-weight: 700;
-    line-height: 1.3
+    line-height: 1.2;
+    word-break: break-word
 }
 
 .stat-trend {
@@ -854,6 +993,17 @@ table.dt .cell-amount {
 .b-card {
     background: var(--amber-glow);
     color: var(--amber)
+}
+
+.b-paidupfront,
+.b-counterpaid {
+    background: var(--green-bg);
+    color: var(--green)
+}
+
+.b-cod {
+    background: var(--orange-bg);
+    color: var(--orange)
 }
 
 .chart-tabs {
@@ -1217,15 +1367,22 @@ input:checked+.slider:before {
     }
 
     .main-content {
-        margin-left: 0 !important
+        margin-left: 0 !important;
+        width: 100%;
+        max-width: 100%
     }
 
     .menu-toggle {
         display: flex
     }
 
-    .header-search {
-        display: none
+    .table-toolbar {
+        align-items: stretch
+    }
+
+    .toolbar-group,
+    .toolbar-select {
+        width: 100%
     }
 
     .user-info {
@@ -1234,6 +1391,18 @@ input:checked+.slider:before {
 
     .content-area {
         padding: 14px
+    }
+
+    .notification-row {
+        grid-template-columns: 1fr
+    }
+
+    .notification-actions {
+        justify-content: flex-start
+    }
+
+    .notification-detail-grid {
+        grid-template-columns: 1fr
     }
 }
 

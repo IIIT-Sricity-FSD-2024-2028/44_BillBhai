@@ -498,6 +498,7 @@ img {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -527,20 +528,23 @@ img {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 0;
 }
 
 .pc-label {
-    display: block;
-    width: 40px;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 3px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text-muted);
+    white-space: nowrap;
 }
 
 .pc-val {
     font-size: 0.95rem;
     font-weight: 700;
+    line-height: 1.25;
     color: var(--text-primary);
+    white-space: nowrap;
 }
 
 .pc-chart {

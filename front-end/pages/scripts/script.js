@@ -36,26 +36,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loginError = document.getElementById('loginError');
     const forgotLink = document.querySelector('.forgot-link');
     const AUTH_OVERRIDE_STORAGE_KEY = 'bb_auth_overrides';
+    const FETCH_TIMEOUT_MS = 7000;
 
     function normalizeRole(role) {
         return String(role || '').toLowerCase().replace(/\s+/g, '');
     }
 
-    function routeByRole(role) {
+    function roleToKey(role) {
         const r = normalizeRole(role);
+        if (r === 'superuser' || r === 'super') return 'superuser';
+        if (r === 'admin' || r === 'opshead' || r === 'storemanager' || r === 'accountant' || r === 'supportagent') return 'admin';
+        if (r === 'cashier') return 'cashier';
+        if (r === 'returnhandler' || r === 'returns') return 'returnhandler';
+        if (r === 'inventorymanager' || r === 'inventory') return 'inventorymanager';
+        if (r === 'deliveryops' || r === 'deliverymanager' || r === 'delivery' || r === 'deliverydriver') return 'deliveryops';
+        if (r === 'customer' || r === 'user') return 'customer';
+        return 'admin';
+    }
+
+    function routeByRole(role) {
+        const r = roleToKey(role);
         if (r === 'superuser' || r === 'super') return 'superuser.html';
         if (r === 'admin') return 'dashboard.html';
         if (r === 'cashier') return 'cashier.html';
         if (r === 'returnhandler') return 'returns.html';
         if (r === 'inventorymanager') return 'inventory.html';
         if (r === 'deliveryops') return 'delivery.html';
-        if (r === 'customer') return 'profile.html';
+        if (r === 'customer') return 'cashier.html';
         return 'dashboard.html';
     }
 
     const DEFAULT_AUTH_CONFIG = {
         users: {
-            superuser: { password: 'super123', role: 'Admin', name: 'Legacy Admin Account' },
+            superuser: { password: 'super123', role: 'Super User', name: 'Legacy Admin Account' },
             admin: { password: 'admin123', role: 'Admin', name: 'Store Admin' },
             cashier: { password: 'cashier123', role: 'Cashier', name: 'POS Cashier' },
             returnhandler: { password: 'return123', role: 'Return Handler', name: 'Returns Desk' },
@@ -86,31 +99,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         aliases: { ...DEFAULT_AUTH_CONFIG.aliases }
     };
 
-    async function loadAuthConfig() {
+    async function fetchJsonWithTimeout(path) {
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        const requestOptions = { cache: 'no-store' };
+        if (controller) requestOptions.signal = controller.signal;
+
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                if (controller) controller.abort();
+                reject(new Error('Request timed out'));
+            }, FETCH_TIMEOUT_MS);
+        });
+
         try {
-            const response = await fetch('data/auth_users.json', { cache: 'no-store' });
-            if (!response.ok) return;
-
-            const parsed = await response.json();
-            if (!parsed || typeof parsed !== 'object') return;
-
-            const users = parsed.users && typeof parsed.users === 'object' && !Array.isArray(parsed.users)
-                ? parsed.users
-                : DEFAULT_AUTH_CONFIG.users;
-            const aliases = parsed.aliases && typeof parsed.aliases === 'object' && !Array.isArray(parsed.aliases)
-                ? parsed.aliases
-                : DEFAULT_AUTH_CONFIG.aliases;
-
-            authConfig = {
-                users: { ...users },
-                aliases: { ...aliases }
-            };
+            const response = await Promise.race([
+                fetch(path, requestOptions),
+                timeoutPromise
+            ]);
+            if (!response.ok) return null;
+            return await response.json();
         } catch (err) {
+            return null;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    async function loadAuthConfig() {
+        const parsed = await fetchJsonWithTimeout('data/auth_users.json');
+        if (!parsed || typeof parsed !== 'object') {
             authConfig = {
                 users: { ...DEFAULT_AUTH_CONFIG.users },
                 aliases: { ...DEFAULT_AUTH_CONFIG.aliases }
             };
+            return;
         }
+
+        const users = parsed.users && typeof parsed.users === 'object' && !Array.isArray(parsed.users)
+            ? parsed.users
+            : DEFAULT_AUTH_CONFIG.users;
+        const aliases = parsed.aliases && typeof parsed.aliases === 'object' && !Array.isArray(parsed.aliases)
+            ? parsed.aliases
+            : DEFAULT_AUTH_CONFIG.aliases;
+
+        authConfig = {
+            users: { ...users },
+            aliases: { ...aliases }
+        };
     }
 
     await loadAuthConfig();
@@ -119,7 +155,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const normalized = String(input || '').trim().toLowerCase();
         if (!normalized) return '';
         if (Object.prototype.hasOwnProperty.call(authConfig.users, normalized)) return normalized;
-        return authConfig.aliases[normalized] || '';
+        const aliasMatch = authConfig.aliases[normalized];
+        if (aliasMatch) return aliasMatch;
+
+        const overrides = loadAuthOverrides();
+        if (Object.prototype.hasOwnProperty.call(overrides, normalized)) return normalized;
+
+        const dynamicMatch = Object.keys(overrides).find(key => {
+            const record = overrides[key] && typeof overrides[key] === 'object' ? overrides[key] : {};
+            const username = String(record.username || '').trim().toLowerCase();
+            const email = String(record.email || '').trim().toLowerCase();
+            return username === normalized || email === normalized;
+        });
+
+        return dynamicMatch || '';
     }
 
     function loadAuthOverrides() {
@@ -138,15 +187,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function resolveUserRecord(userKey) {
-        if (!Object.prototype.hasOwnProperty.call(authConfig.users, userKey)) return null;
-        const baseRecord = authConfig.users[userKey] || {};
         const overrides = loadAuthOverrides();
+        const hasBaseRecord = Object.prototype.hasOwnProperty.call(authConfig.users, userKey);
+        const baseRecord = hasBaseRecord ? (authConfig.users[userKey] || {}) : {};
         const overrideRecord = overrides[userKey] && typeof overrides[userKey] === 'object'
             ? overrides[userKey]
             : {};
+
+        if (!hasBaseRecord && !Object.keys(overrideRecord).length) return null;
+
+        const resolvedRole = String(overrideRecord.role || baseRecord.role || 'Customer').trim();
+        const resolvedName = String(overrideRecord.name || baseRecord.name || userKey).trim() || userKey;
+
         return {
             ...baseRecord,
             ...overrideRecord,
+            role: resolvedRole,
+            name: resolvedName,
+            status: String(overrideRecord.status || baseRecord.status || 'Active').trim() || 'Active',
+            email: String(overrideRecord.email || '').trim(),
+            username: String(overrideRecord.username || userKey).trim() || userKey,
             password: String(overrideRecord.password || baseRecord.password || '').trim()
         };
     }
@@ -194,15 +254,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        const accountStatus = normalizeRole(userRecord.status || 'active');
+        if (accountStatus === 'suspended' || accountStatus === 'inactive') {
+            loginError.textContent = 'This account is currently suspended. Contact an administrator.';
+            return;
+        }
+
         // Store session state
         localStorage.setItem('userRole', userRecord.role);
         localStorage.setItem('userName', userRecord.name);
-        const normalizedRole = normalizeRole(userRecord.role);
+        const normalizedRole = roleToKey(userRecord.role);
 
         // Tenant context:
         // - Operational roles are scoped to exactly one business.
         // - Super User chooses a business from the portal when needed.
-        const businessScopedRoles = ['admin', 'cashier', 'inventorymanager', 'deliveryops', 'returnhandler'];
+        const businessScopedRoles = ['admin', 'cashier', 'inventorymanager', 'deliveryops', 'returnhandler', 'customer'];
         if (businessScopedRoles.includes(normalizedRole)) {
             localStorage.setItem('activeBusinessId', resolveScopedBusinessId());
             localStorage.removeItem('activeBusinessName');
@@ -215,6 +281,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: userRecord.name,
             role: normalizedRole
         }));
+
+        if (normalizedRole === 'customer') {
+            sessionStorage.setItem('bb_customer_session_id', `customer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+            sessionStorage.setItem('bb_customer_session_notifications', '[]');
+        } else {
+            sessionStorage.removeItem('bb_customer_session_id');
+            sessionStorage.removeItem('bb_customer_session_notifications');
+        }
 
         btnLogin.classList.add('loading'); btnLogin.disabled = true;
         setTimeout(() => {

@@ -11,14 +11,53 @@ const UI = (() => {
     let currentCategory = 'All';
     let searchQuery = '';
     let currentCustomerProfile = null;
+    let currentCheckoutMode = 'takeaway_now';
+    let checkoutSettings = { deliveryCharge: 0 };
+    let sessionContext = { roleKey: 'cashier', roleLabel: 'Cashier', isCustomerTerminal: false };
 
     let callbacks = { onCheckout: null };
+
+    const PRODUCT_VISUAL_FALLBACK = {
+        rice: '🍚',
+        dal: '🫘',
+        oil: '🛢️',
+        butter: '🧈',
+        milk: '🥛',
+        bread: '🍞',
+        noodles: '🍜',
+        tea: '🍵',
+        coffee: '☕',
+        atta: '🌾',
+        sugar: '🧂',
+        paneer: '🧀',
+        curd: '🥣',
+        chips: '🍟',
+        biscuits: '🍪',
+        juice: '🧃',
+        water: '💧',
+        soap: '🧼',
+        dishwash: '🧴',
+        detergent: '🫧'
+    };
+
+    function resolveProductVisual(product) {
+        const explicitVisual = String(product && product.image || '').trim();
+        if (explicitVisual && /[^\x00-\x7F]/.test(explicitVisual)) return explicitVisual;
+
+        const key = String(explicitVisual || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (key && PRODUCT_VISUAL_FALLBACK[key]) return PRODUCT_VISUAL_FALLBACK[key];
+
+        const productName = String(product && product.name || '').trim().toLowerCase();
+        const byName = Object.keys(PRODUCT_VISUAL_FALLBACK).find(token => productName.includes(token));
+        return byName ? PRODUCT_VISUAL_FALLBACK[byName] : '🛍️';
+    }
 
     function cacheElements() {
         el = {
             step1: document.getElementById('step-1-customer'),
             step2: document.getElementById('step-2-pos'),
-            step3: document.getElementById('step-3-payment'),
+            step3: document.getElementById('step-3-fulfillment'),
+            step4: document.getElementById('step-4-payment'),
 
             // Step 1 Form
             custForm: document.getElementById('customerForm'),
@@ -27,7 +66,6 @@ const UI = (() => {
             inpEmail: document.getElementById('cEmail'),
             inpAddress: document.getElementById('cAddress'),
             inpNotes: document.getElementById('cNotes'),
-            selDeliveryOption: document.getElementById('cDeliveryOption'),
             inpDeliveryPartner: document.getElementById('cDeliveryPartner'),
             inpDeliveryPartnerPhone: document.getElementById('cDeliveryPartnerPhone'),
             lookupHint: document.getElementById('customerLookupHint'),
@@ -48,7 +86,16 @@ const UI = (() => {
             subSpan: document.getElementById('subSpan'),
             discSpan: document.getElementById('discSpan'),
             totSpan: document.getElementById('totSpan'),
+            btnGoFulfillment: document.getElementById('btnGoFulfillment'),
+            btnBackToCart: document.getElementById('btnBackToCart'),
             btnCheckout: document.getElementById('btnCheckout'),
+            checkoutModeGrid: document.getElementById('checkoutModeGrid'),
+            checkoutModeError: document.getElementById('checkoutModeError'),
+            fulfillmentSubSpan: document.getElementById('fulfillmentSubSpan'),
+            fulfillmentDiscSpan: document.getElementById('fulfillmentDiscSpan'),
+            fulfillmentDeliverySpan: document.getElementById('fulfillmentDeliverySpan'),
+            fulfillmentTotSpan: document.getElementById('fulfillmentTotSpan'),
+            checkoutSummary: document.getElementById('paymentOutcomeSummary'),
 
             // Step 2 Discount
             inpPromo: document.getElementById('promoCode'),
@@ -63,12 +110,97 @@ const UI = (() => {
             menu: document.getElementById('contextMenu'),
 
             // Step 3 Actions
-            btnReset: document.getElementById('btnResetFlow')
+            btnReset: document.getElementById('btnResetFlow'),
+            paymentTitle: document.getElementById('paymentStepTitle'),
+            paymentSubtitle: document.getElementById('paymentStepSubtitle')
         };
     }
 
     function sanitizePhone(value) {
         return String(value || '').replace(/\D/g, '').slice(0, 10);
+    }
+
+    function getTerminalCopy() {
+        if (sessionContext.isCustomerTerminal) {
+            return {
+                lookupInfo: 'Enter your 10-digit phone number to auto-fill saved details.',
+                lookupExisting: (name) => `Welcome back, ${name}. Your saved checkout details are ready.`,
+                lookupNew: 'No saved profile found yet. We will create one after checkout.'
+            };
+        }
+
+        return {
+            lookupInfo: 'Enter a 10-digit phone number to check existing customer records.',
+            lookupExisting: (name) => `Existing customer found: ${name}. Details auto-filled.`,
+            lookupNew: 'No existing profile found. Creating a new customer record after checkout.'
+        };
+    }
+
+    function getCheckoutModeConfig(mode) {
+        const safeMode = String(mode || 'takeaway_now').trim().toLowerCase();
+        const isCustomer = sessionContext.isCustomerTerminal;
+        const titlePrefix = isCustomer ? 'Self-checkout' : 'Order';
+
+        if (safeMode === 'prepaid_delivery') {
+            return {
+                mode: 'prepaid_delivery',
+                deliveryOption: 'delivery',
+                paymentMethod: 'Paid Upfront',
+                orderStatus: 'Processing',
+                buttonLabel: 'Proceed to Payment Gateway',
+                successTitle: 'Payment Gateway Ready',
+                successSubtitle: `${titlePrefix} logged for home delivery. Collect payment now and dispatch once confirmed.`,
+                summaryLabel: 'Prepaid delivery'
+            };
+        }
+
+        if (safeMode === 'cod_delivery') {
+            return {
+                mode: 'cod_delivery',
+                deliveryOption: 'delivery',
+                paymentMethod: 'COD',
+                orderStatus: 'Processing',
+                buttonLabel: isCustomer ? 'Place COD Order' : 'Confirm COD Dispatch',
+                successTitle: 'COD Delivery Booked',
+                successSubtitle: `${titlePrefix} will be sent for delivery and payment will be collected at the doorstep.`,
+                summaryLabel: 'Cash on delivery'
+            };
+        }
+
+        return {
+            mode: 'takeaway_now',
+            deliveryOption: 'pickup',
+            paymentMethod: 'Counter Paid',
+            orderStatus: 'Delivered',
+            buttonLabel: 'Proceed to Payment Gateway',
+            successTitle: 'Takeaway Ready',
+            successSubtitle: `${titlePrefix} is marked for immediate handover from the counter.`,
+            summaryLabel: 'Take away now'
+        };
+    }
+
+    function getDeliveryChargeAmount() {
+        const isDelivery = getCheckoutModeConfig(currentCheckoutMode).deliveryOption === 'delivery';
+        if (!isDelivery) return 0;
+
+        const configured = Number(checkoutSettings && checkoutSettings.deliveryCharge);
+        return Number.isFinite(configured) && configured > 0 ? configured : 0;
+    }
+
+    function getCartTotals() {
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const discount = Math.max(0, Number(currentDiscount.discount || 0));
+        const itemTotal = Math.max(0, subtotal - discount);
+        const deliveryCharge = getDeliveryChargeAmount();
+        const payableTotal = itemTotal + deliveryCharge;
+
+        return {
+            subtotal,
+            discount,
+            itemTotal,
+            deliveryCharge,
+            payableTotal
+        };
     }
 
     function setLookupHint(type, text) {
@@ -87,22 +219,91 @@ const UI = (() => {
     }
 
     function showStep(stepNum) {
-        if (!el.step1 || !el.step2 || !el.step3) return;
+        const allSteps = [el.step1, el.step2, el.step3, el.step4].filter(Boolean);
+        if (!allSteps.length) return;
 
-        el.step1.classList.remove('active');
-        el.step2.classList.remove('active');
-        el.step3.classList.remove('active');
+        allSteps.forEach(stepEl => stepEl.classList.remove('active'));
 
-        if (stepNum === 1) el.step1.classList.add('active');
-        if (stepNum === 2) el.step2.classList.add('active');
-        if (stepNum === 3) el.step3.classList.add('active');
+        if (stepNum === 1 && el.step1) el.step1.classList.add('active');
+        if (stepNum === 2 && el.step2) el.step2.classList.add('active');
+        if (stepNum === 3 && el.step3) el.step3.classList.add('active');
+        if (stepNum === 4 && el.step4) el.step4.classList.add('active');
     }
 
     function toggleDeliveryFields() {
-        if (!el.selDeliveryOption || !el.deliveryPartnerFields) return;
-        const isDelivery = String(el.selDeliveryOption.value || 'pickup').toLowerCase() === 'delivery';
+        if (!el.deliveryPartnerFields) return;
+        const isDelivery = getCheckoutModeConfig(currentCheckoutMode).deliveryOption === 'delivery';
         el.deliveryPartnerFields.style.display = isDelivery ? 'block' : 'none';
         if (!isDelivery && el.errAddress) el.errAddress.textContent = '';
+    }
+
+    function syncCheckoutModeCards() {
+        document.querySelectorAll('input[name="checkoutMode"]').forEach(input => {
+            const card = input.closest('.checkout-mode-card');
+            if (card) card.classList.toggle('active', input.checked);
+        });
+    }
+
+    function updateCheckoutButtonLabel() {
+        if (!el.btnCheckout) return;
+        el.btnCheckout.textContent = getCheckoutModeConfig(currentCheckoutMode).buttonLabel;
+    }
+
+    function setCheckoutMode(mode) {
+        const config = getCheckoutModeConfig(mode);
+        currentCheckoutMode = config.mode;
+
+        document.querySelectorAll('input[name="checkoutMode"]').forEach(input => {
+            input.checked = input.value === config.mode;
+        });
+        syncCheckoutModeCards();
+        updateCheckoutButtonLabel();
+
+        if (el.checkoutModeError) el.checkoutModeError.textContent = '';
+        toggleDeliveryFields();
+        updateCartTotal();
+    }
+
+    function buildCheckoutCustomerPayload() {
+        const config = getCheckoutModeConfig(currentCheckoutMode);
+        const payload = getCustomerPayload();
+        payload.checkoutMode = config.mode;
+        payload.deliveryOption = config.deliveryOption;
+        payload.paymentMethod = config.paymentMethod;
+        payload.orderStatus = config.orderStatus;
+        payload.deliveryCharge = getDeliveryChargeAmount();
+
+        if (config.deliveryOption !== 'delivery') {
+            payload.address = '';
+            payload.deliveryPartner = '';
+            payload.deliveryPartnerPhone = '';
+        }
+
+        return payload;
+    }
+
+    function renderCheckoutSummary(order, customerPayload) {
+        if (!el.checkoutSummary) return;
+        const config = getCheckoutModeConfig(customerPayload && customerPayload.checkoutMode);
+        const detailAddress = customerPayload.deliveryOption === 'delivery'
+            ? (customerPayload.address || 'Address to be confirmed')
+            : 'Counter pickup';
+
+        el.checkoutSummary.style.display = 'grid';
+        el.checkoutSummary.innerHTML = `
+            <div class="checkout-summary-row"><span>Order ID</span><strong>${order.id}</strong></div>
+            <div class="checkout-summary-row"><span>Customer</span><strong>${order.customer || '-'}</strong></div>
+            <div class="checkout-summary-row"><span>Mode</span><strong>${config.summaryLabel}</strong></div>
+            <div class="checkout-summary-row"><span>Payment</span><strong>${order.paymentMethod || config.paymentMethod}</strong></div>
+            <div class="checkout-summary-row"><span>Delivery Charges</span><strong>Rs ${Math.max(0, Number(order.deliveryCharge || 0)).toFixed(2)}</strong></div>
+            <div class="checkout-summary-row"><span>Total</span><strong>Rs ${Math.max(0, Number(order.total || 0)).toFixed(2)}</strong></div>
+            <div class="checkout-summary-row"><span>Destination</span><strong>${detailAddress}</strong></div>
+        `;
+
+        const titleEl = document.getElementById('paymentStepTitle');
+        const subtitleEl = document.getElementById('paymentStepSubtitle');
+        if (titleEl) titleEl.textContent = config.successTitle;
+        if (subtitleEl) subtitleEl.textContent = config.successSubtitle;
     }
 
     function applyCustomerProfile(profile) {
@@ -112,11 +313,6 @@ const UI = (() => {
         if (el.inpEmail) el.inpEmail.value = String(profile.email || '').trim();
         if (el.inpAddress) el.inpAddress.value = String(profile.address || '').trim();
         if (el.inpNotes) el.inpNotes.value = String(profile.notes || '').trim();
-
-        if (el.selDeliveryOption) {
-            const option = String(profile.preferredDeliveryOption || 'pickup').toLowerCase();
-            el.selDeliveryOption.value = option === 'delivery' ? 'delivery' : 'pickup';
-        }
 
         if (el.inpDeliveryPartner) {
             el.inpDeliveryPartner.value = String(profile.deliveryPartner || '').trim();
@@ -135,7 +331,7 @@ const UI = (() => {
 
         if (phone.length < 10) {
             currentCustomerProfile = null;
-            setLookupHint('info', 'Enter a 10-digit phone number to check existing customer records.');
+            setLookupHint('info', getTerminalCopy().lookupInfo);
             return;
         }
 
@@ -145,29 +341,30 @@ const UI = (() => {
 
         if (profile) {
             applyCustomerProfile(profile);
-            setLookupHint('existing', `Existing customer found: ${profile.name}. Details auto-filled.`);
+            setLookupHint('existing', getTerminalCopy().lookupExisting(profile.name));
         } else {
             if (hadExistingProfile) {
                 if (el.inpEmail) el.inpEmail.value = '';
                 if (el.inpAddress) el.inpAddress.value = '';
                 if (el.inpNotes) el.inpNotes.value = '';
-                if (el.selDeliveryOption) el.selDeliveryOption.value = 'pickup';
                 if (el.inpDeliveryPartner) el.inpDeliveryPartner.value = '';
                 if (el.inpDeliveryPartnerPhone) el.inpDeliveryPartnerPhone.value = '';
+                setCheckoutMode('takeaway_now');
                 toggleDeliveryFields();
             }
-            setLookupHint('new', 'No existing profile found. Creating a new customer record after checkout.');
+            setLookupHint('new', getTerminalCopy().lookupNew);
         }
     }
 
     function getCustomerPayload() {
+        const modeConfig = getCheckoutModeConfig(currentCheckoutMode);
         return {
             name: String(el.inpName && el.inpName.value || '').trim(),
             phone: sanitizePhone(el.inpPhone && el.inpPhone.value || ''),
             email: String(el.inpEmail && el.inpEmail.value || '').trim(),
             address: String(el.inpAddress && el.inpAddress.value || '').trim(),
             notes: String(el.inpNotes && el.inpNotes.value || '').trim(),
-            deliveryOption: String(el.selDeliveryOption && el.selDeliveryOption.value || 'pickup').toLowerCase(),
+            deliveryOption: modeConfig.deliveryOption,
             deliveryPartner: String(el.inpDeliveryPartner && el.inpDeliveryPartner.value || '').trim(),
             deliveryPartnerPhone: String(el.inpDeliveryPartnerPhone && el.inpDeliveryPartnerPhone.value || '').trim(),
             isExistingCustomer: Boolean(currentCustomerProfile)
@@ -180,7 +377,6 @@ const UI = (() => {
         if (el.inpEmail) el.inpEmail.value = '';
         if (el.inpAddress) el.inpAddress.value = '';
         if (el.inpNotes) el.inpNotes.value = '';
-        if (el.selDeliveryOption) el.selDeliveryOption.value = 'pickup';
         if (el.inpDeliveryPartner) el.inpDeliveryPartner.value = '';
         if (el.inpDeliveryPartnerPhone) el.inpDeliveryPartnerPhone.value = '';
 
@@ -190,8 +386,8 @@ const UI = (() => {
         if (el.errAddress) el.errAddress.textContent = '';
 
         currentCustomerProfile = null;
-        toggleDeliveryFields();
-        setLookupHint('info', 'Enter a 10-digit phone number to check existing customer records.');
+        setCheckoutMode('takeaway_now');
+        setLookupHint('info', getTerminalCopy().lookupInfo);
 
         cart = [];
         currentDiscount = { active: false, discount: 0 };
@@ -205,6 +401,17 @@ const UI = (() => {
         if (el.promoInputBlock) el.promoInputBlock.style.display = 'flex';
         if (el.promoAppliedTag) el.promoAppliedTag.style.display = 'none';
         if (el.promoAppliedCode) el.promoAppliedCode.textContent = '';
+        if (el.checkoutModeError) el.checkoutModeError.textContent = '';
+        if (el.checkoutSummary) {
+            el.checkoutSummary.style.display = 'none';
+            el.checkoutSummary.innerHTML = '';
+        }
+        if (el.paymentTitle) el.paymentTitle.textContent = sessionContext.isCustomerTerminal ? 'Ready for Payment' : 'Routing to Gateway...';
+        if (el.paymentSubtitle) {
+            el.paymentSubtitle.textContent = sessionContext.isCustomerTerminal
+                ? 'Your order is prepared. Complete payment to confirm the self-checkout.'
+                : 'The payload has been sent successfully. The user chooses Card, UPI, etc., on their device/interface. Webhook triggers upon completion.';
+        }
 
         showStep(1);
         renderCart();
@@ -217,12 +424,15 @@ const UI = (() => {
         el.custForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const customerPayload = getCustomerPayload();
-            const validation = Validator.validateCustomerStep(customerPayload);
+            const validation = Validator.validateCustomerStep({
+                ...customerPayload,
+                deliveryOption: 'pickup'
+            });
 
             if (el.errName) el.errName.textContent = validation.errors.name || '';
             if (el.errPhone) el.errPhone.textContent = validation.errors.phone || '';
             if (el.errEmail) el.errEmail.textContent = validation.errors.email || '';
-            if (el.errAddress) el.errAddress.textContent = validation.errors.address || '';
+            if (el.errAddress) el.errAddress.textContent = '';
 
             if (validation.isValid) {
                 renderCategories();
@@ -255,15 +465,19 @@ const UI = (() => {
         if (el.inpAddress) {
             el.inpAddress.addEventListener('input', () => {
                 if (el.errAddress) el.errAddress.textContent = '';
+                if (el.checkoutModeError) el.checkoutModeError.textContent = '';
             });
         }
+    }
 
-        if (el.selDeliveryOption) {
-            el.selDeliveryOption.addEventListener('change', () => {
-                toggleDeliveryFields();
-                if (el.errAddress) el.errAddress.textContent = '';
+    function bindCheckoutModes() {
+        document.querySelectorAll('input[name="checkoutMode"]').forEach(input => {
+            input.addEventListener('change', () => {
+                if (input.checked) setCheckoutMode(input.value);
             });
-        }
+        });
+        syncCheckoutModeCards();
+        updateCheckoutButtonLabel();
     }
 
     function renderCategories() {
@@ -300,8 +514,9 @@ const UI = (() => {
             const card = document.createElement('div');
             card.className = 'prod-card';
             const defaultOpt = p.options[0];
+            const visual = resolveProductVisual(p);
             card.innerHTML = `
-                <div class="prod-img">${p.image}</div>
+                <div class="prod-img">${visual}</div>
                 <div class="prod-info">
                     <div class="prod-name">${p.name} (${defaultOpt.label})</div>
                     <div class="prod-price">\u20B9${defaultOpt.price.toFixed(2)}</div>
@@ -409,16 +624,17 @@ const UI = (() => {
     }
 
     function renderCart() {
-        if (!el.cartList || !el.btnCheckout) return;
+        if (!el.cartList) return;
 
         el.cartList.innerHTML = '';
 
-        if (cart.length === 0) {
+        const hasItems = cart.length > 0;
+        if (!hasItems) {
             el.cartList.innerHTML = '<div class="cart-empty text-muted">Cart is empty. Click items to add.</div>';
-            el.btnCheckout.disabled = true;
-        } else {
-            el.btnCheckout.disabled = false;
         }
+
+        if (el.btnGoFulfillment) el.btnGoFulfillment.disabled = !hasItems;
+        if (el.btnCheckout) el.btnCheckout.disabled = !hasItems;
 
         cart.forEach(c => {
             const row = document.createElement('div');
@@ -504,38 +720,91 @@ const UI = (() => {
             currentDiscount = res;
         }
 
-        const total = subtotal - currentDiscount.discount;
+        const totals = getCartTotals();
 
-        if (el.subSpan) el.subSpan.textContent = `\u20B9${subtotal.toFixed(2)}`;
-        if (el.discSpan) el.discSpan.textContent = `- \u20B9${currentDiscount.discount.toFixed(2)}`;
-        if (el.totSpan) el.totSpan.textContent = `\u20B9${total.toFixed(2)}`;
+        if (el.subSpan) el.subSpan.textContent = `\u20B9${totals.subtotal.toFixed(2)}`;
+        if (el.discSpan) el.discSpan.textContent = `- \u20B9${totals.discount.toFixed(2)}`;
+        if (el.totSpan) el.totSpan.textContent = `\u20B9${totals.itemTotal.toFixed(2)}`;
+
+        if (el.fulfillmentSubSpan) el.fulfillmentSubSpan.textContent = `\u20B9${totals.subtotal.toFixed(2)}`;
+        if (el.fulfillmentDiscSpan) el.fulfillmentDiscSpan.textContent = `- \u20B9${totals.discount.toFixed(2)}`;
+        if (el.fulfillmentDeliverySpan) el.fulfillmentDeliverySpan.textContent = `\u20B9${totals.deliveryCharge.toFixed(2)}`;
+        if (el.fulfillmentTotSpan) el.fulfillmentTotSpan.textContent = `\u20B9${totals.payableTotal.toFixed(2)}`;
+    }
+
+    function bindFulfillmentNavigation() {
+        if (el.btnGoFulfillment) {
+            el.btnGoFulfillment.addEventListener('click', () => {
+                if (!cart.length) return;
+                if (el.checkoutModeError) el.checkoutModeError.textContent = '';
+                updateCartTotal();
+                showStep(3);
+            });
+        }
+
+        if (el.btnBackToCart) {
+            el.btnBackToCart.addEventListener('click', () => {
+                if (el.checkoutModeError) el.checkoutModeError.textContent = '';
+                showStep(2);
+            });
+        }
     }
 
     function bindCheckout() {
-        if (!el.btnCheckout || !el.btnReset) return;
+        if (el.btnCheckout) {
+            el.btnCheckout.addEventListener('click', () => {
+                if (cart.length === 0) {
+                    showStep(2);
+                    return;
+                }
 
-        el.btnCheckout.addEventListener('click', () => {
-            if (cart.length === 0) return;
+                const customerPayload = buildCheckoutCustomerPayload();
+                const validation = Validator.validateCustomerStep(customerPayload);
+                if (!validation.isValid) {
+                    if (el.errName) el.errName.textContent = validation.errors.name || '';
+                    if (el.errPhone) el.errPhone.textContent = validation.errors.phone || '';
+                    if (el.errEmail) el.errEmail.textContent = validation.errors.email || '';
+                    if (el.errAddress) el.errAddress.textContent = validation.errors.address || '';
 
-            if (callbacks.onCheckout) {
-                callbacks.onCheckout({
-                    customer: getCustomerPayload(),
-                    cart,
-                    discount: currentDiscount
-                });
-            }
+                    const hasCustomerFieldErrors = Boolean(validation.errors.name || validation.errors.phone || validation.errors.email);
+                    if (el.checkoutModeError) {
+                        el.checkoutModeError.textContent = validation.errors.address
+                            ? 'Delivery needs a valid address before payment.'
+                            : 'Please complete customer details before payment.';
+                    }
+                    showStep(hasCustomerFieldErrors ? 1 : 3);
+                    return;
+                }
 
-            showStep(3);
-        });
+                if (el.checkoutModeError) el.checkoutModeError.textContent = '';
 
-        el.btnReset.addEventListener('click', () => {
-            resetPOS();
-        });
+                let createdOrder = null;
+                if (callbacks.onCheckout) {
+                    createdOrder = callbacks.onCheckout({
+                        customer: customerPayload,
+                        cart,
+                        discount: currentDiscount
+                    }) || null;
+                }
+
+                if (createdOrder) renderCheckoutSummary(createdOrder, customerPayload);
+                showStep(4);
+            });
+        }
+
+        if (el.btnReset) {
+            el.btnReset.addEventListener('click', () => {
+                resetPOS();
+            });
+        }
     }
 
     function init() {
         cacheElements();
+        checkoutSettings = DataStore.getCheckoutSettings ? DataStore.getCheckoutSettings() : { deliveryCharge: 0 };
         bindStep1();
+        bindFulfillmentNavigation();
+        bindCheckoutModes();
         bindSearch();
         bindPromo();
         bindCheckout();
@@ -546,6 +815,9 @@ const UI = (() => {
 
     return {
         init,
-        setCallbacks: cbs => callbacks = { ...callbacks, ...cbs }
+        setCallbacks: cbs => callbacks = { ...callbacks, ...cbs },
+        setSessionContext: context => {
+            sessionContext = { ...sessionContext, ...(context && typeof context === 'object' ? context : {}) };
+        }
     };
 })();

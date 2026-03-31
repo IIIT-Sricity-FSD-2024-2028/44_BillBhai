@@ -2,7 +2,7 @@
   "users": {
     "superuser": {
       "password": "super123",
-      "role": "Admin",
+      "role": "Super User",
       "name": "Legacy Admin Account"
     },
     "admin": {
