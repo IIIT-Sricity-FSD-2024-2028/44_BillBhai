@@ -62,6 +62,15 @@ export class CreateOrderDto {
   discountAmount?: number;
 
   @ApiProperty({
+    example: 'WELCOME10',
+    description: 'Promotion code',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  promoCode?: string;
+
+  @ApiProperty({
     example: 'UPI',
     description: 'Payment method',
     required: false,
@@ -75,6 +84,17 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
+}
+
+export class ValidatePromotionDto {
+  @ApiProperty({ example: 'WELCOME10', description: 'Promotion code' })
+  @IsString()
+  code: string;
+
+  @ApiProperty({ example: 1250, description: 'Order subtotal', minimum: 0 })
+  @IsNumber()
+  @Min(0)
+  subtotal: number;
 }
 
 export class UpdateOrderDto {

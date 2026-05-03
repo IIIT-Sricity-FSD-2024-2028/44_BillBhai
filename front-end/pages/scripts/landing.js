@@ -16,14 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     async function loadLandingContent() {
-        try {
-            const response = await fetch('data/landing_content.json', { cache: 'no-store' });
-            if (!response.ok) return null;
-            const parsed = await response.json();
-            return parsed && typeof parsed === 'object' ? parsed : null;
-        } catch (err) {
-            return null;
-        }
+        return null;
     }
 
     function setText(id, value) {

@@ -1,178 +1,29 @@
-# Retail Order Processing & Billing System
+# BillBhai — Retail Order Processing & Billing System
 
-## Problem Statement
+BillBhai is a retail POS and operations demo with a NestJS backend and a static frontend.
 
-Modern retail operations require a seamless, accurate, and scalable system to manage customer orders, billing, payments, inventory, delivery, returns, and reporting.  
-Manual or loosely integrated processes often lead to billing errors, stock mismatches, delayed deliveries, and poor customer experience.
+## About The Project
 
-This project aims to design and implement a **Retail Order Processing and Billing System** that efficiently handles:
+Modern retail operations need a reliable system for orders, billing, payments, inventory, deliveries, returns, and reporting. This project is built to support both in-store and delivery-based workflows while keeping data transparent and easy to audit.
 
-- End-to-end order lifecycle (from order creation to delivery)
-- Accurate billing, discounts, taxes, and invoicing
+It covers:
+
+- End-to-end order lifecycle from creation to delivery
+- Billing, discounts, taxes, and invoicing
 - Inventory monitoring, replenishment, and adjustments
 - Returns, refunds, and exchanges
 - Sales tracking and operational reporting
 
-The system is designed to support **both in-store and delivery-based retail workflows**, ensuring transparency, auditability, and operational efficiency.
+## Identified Actors
 
----
+- **Customer** — buys products, makes payments, and requests returns/refunds
+- **Cashier** — creates orders, verifies items, and handles billing
+- **Return Handler** — manages returns, exchanges, and refunds
+- **Delivery Operations** — assigns riders and tracks delivery status
+- **Inventory Manager** — monitors stock and stock adjustments
+- **Super User / Admin** — oversees the overall system and reporting
 
-## Identified Actors in this Domain
-
-### Customer
-
-An individual who purchases products or requests services from the store.
-
-**Responsibilities:**
-
-- Select products for purchase
-- Avail discounts and loyalty benefits
-- Make payments
-- Receive bills, invoices, and receipts
-- Request returns, refunds, or exchanges
-
----
-
-### Cashier
-
-Store staff responsible for order creation and billing at the point of sale.
-
-**Responsibilities:**
-
-- Scan and verify product barcodes
-- Create and update orders
-- Generate bills and invoices
-- Apply discounts, loyalty benefits, and taxes
-- Collect and confirm payments
-
----
-
-### Return Handler 
-Store staff responsible for managing customer returns, exchanges, and refunds.
-
-**Responsibilities:**
-
-- Verify returned items and eligibility
-- Approve or reject return requests based on policy
-- Process refunds and exchanges
-- Coordinate with inventory updates after returns
-- Ensure return records are properly logged for audit
-
----
-
-### Delivery Operations Manager
-
-Manages order dispatch and delivery lifecycle.
-
-**Responsibilities:**
-
-- Confirm delivery orders
-- Assign delivery partners
-- Track dispatch and delivery status
-- Update delivery milestones
-
----
-
-### Inventory Manager
-
-Responsible for inventory availability and accuracy.
-
-**Responsibilities:**
-
-- Monitor stock levels
-- Update inventory after sales, returns, and receipts
-- Manage stock adjustments
-- Trigger reorders when stock falls below reorder level
-
----
-
-### Head of Operations
-
-Oversees store-level operations and performance.
-
-**Responsibilities:**
-
-- Review sales and inventory reports
-- Approve stock adjustments
-- Monitor operational logs
-- Analyze business performance
-
----
-
-### Payment Gateway (External System)
-
-Handles secure payment processing.
-
-**Responsibilities:**
-
-- Process digital payments (UPI, card, etc.)
-- Confirm transaction status
-
----
-
-## Planned Features (Actor-wise)
-
-### Customer Features
-
-- Product selection and order placement
-- Loyalty account integration
-- Discount and offer application
-- Multiple payment options
-- Order delivery tracking
-- Return, refund, and exchange requests
-
----
-
-### Cashier Features
-
-- Barcode scanning and order verification
-- Bill generation and modification
-- Discount rule and tax component application
-- Invoice generation post-payment
-- Receipt issuance
-
----
-
-### Return Handler Features
-
-- Return request verification
-- Return approval/rejection based on store policy
-- Refund processing (cash / digital)
-- Exchange handling (product swap / adjustment)
-- Return record creation and tracking
-- Return-related inventory update coordination
-
----
-
-### Delivery Operations Features
-
-- Delivery order creation
-- Dispatch record generation
-- Delivery partner assignment
-- Delivery status updates (Out for Delivery, Delivered)
-
----
-
-### Inventory Management Features
-
-- Inventory item and stock level tracking
-- Automatic stock updates after sales and returns
-- Reorder level monitoring
-- Goods receipt processing
-- Stock adjustment handling
-
----
-
-### Management & Reporting Features
-
-- Sales tracking and analysis
-- Inventory status and reorder reports
-- Operational logs and audit trails
-- Exportable and shareable reports
-
----
-
-## Core System Modules
+## Core Modules
 
 - Order Processing
 - Billing & Invoicing
@@ -182,38 +33,95 @@ Handles secure payment processing.
 - Returns & Refunds
 - Sales & Operational Reporting
 
----
+## Project Structure
 
-The system supports the following key use cases:
+- `back-end/` — NestJS API, seeded demo data, role-based access control
+- `front-end/` — Static HTML/CSS/JS UI for cashier, dashboard, delivery, returns, and profile pages
+- Root `package.json` — convenience scripts to run both apps together
 
-- Order Creation
-- Billing and Invoice
-- Return and Refund
-- Process Order to Delivery Partner
-- Sales Tracking & Report Analysis
-- Inventory Monitoring, Update, and Reorder
+## Prerequisites
 
----
+- Node.js 18+ recommended
+- npm
 
-## Login Credentials (All Actors)
+## Quick Start
 
-Use these demo accounts to log in as each actor:
+### 1) Install dependencies
 
-| Actor                        | Role Label in App     | Username         | Password     | Default Landing Page     |
-|-----------------------------|----------------------|------------------|--------------|--------------------------|
-| Super User (Platform Owner) | Super User           | chirag           | chirag1234   | pages/superuser.html     |
-| Admin                       | Admin                | admin            | admin123     | pages/dashboard.html     |
-| Cashier                     | Cashier              | cashier          | cashier123   | pages/cashier.html       |
-| Return Handler              | Return Handler       | returnhandler    | return123    | pages/returns.html       |
-| Inventory Manager           | Inventory Manager    | inventorymanager | inventory123 | pages/inventory.html     |
-| Delivery Operations         | Delivery Ops         | deliveryops      | delivery123  | pages/delivery.html      |
-| Customer                    | Customer             | customer         | customer123  | pages/profile.html       |
+```bash
+npm install
+npm --prefix back-end install
+```
 
-## Key Highlights
+### 2) Start both apps
 
-- End-to-end retail workflow coverage
-- Clear separation of actor responsibilities
-- Return and refund flow handled by a dedicated Return Handler actor
-- Audit-friendly operational logs
-- Scalable design for multi-branch retail
-- Supports both walk-in and delivery orders
+```bash
+npm run dev
+```
+
+This starts:
+
+- Backend API at `http://localhost:3000`
+- Frontend at `http://127.0.0.1:5500`
+
+### 3) Open the UI
+
+- Landing page: `http://127.0.0.1:5500/pages/index.html`
+- Cashier page: `http://127.0.0.1:5500/pages/cashier.html`
+- Dashboard page: `http://127.0.0.1:5500/pages/dashboard.html`
+
+## Backend API
+
+The backend is a NestJS app under `back-end/`.
+
+Common endpoints:
+
+- `/api/auth/login`
+- `/api/products`
+- `/api/customers`
+- `/api/orders`
+- `/api/deliveries`
+- `/api/returns`
+- `/api/inventory`
+- `/api/suppliers`
+- `/api/companies`
+- `/api/users`
+- `/api/reports/*`
+
+Requests use the `x-role` header for role-based access control.
+
+## Frontend Notes
+
+- The frontend is static and served from `front-end/pages`
+- It talks to the backend at `http://localhost:3000/api`
+- If the backend is not running, some pages fall back to local mock data
+
+## Demo Login Credentials
+
+| Username | Password | Role |
+|---|---|---|
+| `admin` | `admin123` | admin |
+| `cashier` | `cashier123` | cashier |
+| `inventorymanager` | `inventory123` | inventorymanager |
+| `deliveryops` | `delivery123` | deliveryops |
+| `returnhandler` | `return123` | returnhandler |
+| `chirag` | `chirag1234` | superuser |
+| `customer` | `customer123` | customer |
+
+## Useful Scripts
+
+Root scripts:
+
+```bash
+npm run dev:backend
+npm run dev:frontend
+npm run dev
+```
+
+Backend scripts live in [back-end/package.json](back-end/package.json).
+
+## Notes
+
+- The backend seeds orders, customers, products, deliveries, returns, inventory, and users in memory on startup.
+- `/api/orders` returns the seeded order records immediately after backend start.
+- `returns` endpoints require the `returnhandler` role for reads.

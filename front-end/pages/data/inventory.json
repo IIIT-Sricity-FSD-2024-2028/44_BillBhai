@@ -1,5 +1,0 @@
-[
-  { "sku": "SKU-01", "name": "Basmati Rice", "cat": "Grocery", "supplier": "Agarwal Traders", "stock": 145, "price": 380, "status": "In Stock" },
-  { "sku": "SKU-02", "name": "Toor Dal", "cat": "Grocery", "supplier": "Sharma Wholesale", "stock": 230, "price": 120, "status": "In Stock" },
-  { "sku": "SKU-03", "name": "Refined Oil", "cat": "Grocery", "supplier": "Fortune Dist.", "stock": 18, "price": 155, "status": "Low Stock" }
-]

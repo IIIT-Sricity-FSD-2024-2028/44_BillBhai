@@ -16,6 +16,7 @@ import {
   UpdateOrderDto,
   CreateBillDto,
   CreatePaymentDto,
+  ValidatePromotionDto,
 } from './dto/order.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
@@ -44,6 +45,14 @@ export class OrdersController {
   @ApiOperation({ summary: 'Create order' })
   create(@Body() dto: CreateOrderDto) {
     return this.ordersService.createOrder(dto);
+  }
+
+  @Post('promotions/validate')
+  @Roles('superuser', 'admin', 'cashier', 'customer')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Validate promotion code against subtotal' })
+  validatePromotion(@Body() dto: ValidatePromotionDto) {
+    return this.ordersService.validatePromotion(dto.code, dto.subtotal);
   }
 
   // ── Bills - Specific Routes BEFORE generic :id ──

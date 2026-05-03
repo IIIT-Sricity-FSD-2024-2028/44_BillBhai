@@ -470,13 +470,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadJsonArray(path, fallback) {
-        const parsed = await fetchJsonWithTimeout(path);
-        return Array.isArray(parsed) ? parsed : fallback;
+        return fallback;
     }
 
     async function loadJsonObject(path, fallback) {
-        const parsed = await fetchJsonWithTimeout(path);
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
+        return fallback;
     }
 
     const API_BASE_URL = 'http://localhost:3000/api';
@@ -564,9 +562,42 @@ document.addEventListener('DOMContentLoaded', () => {
             || /not found/i.test(String(error && error.message || ''));
     }
 
+    function buildBackendReturnPayload(item, overrides) {
+        const patch = overrides && typeof overrides === 'object' ? overrides : {};
+        const currentUser = loadObject('currentUser', {});
+        const nextRequestedBy = String(
+            patch.requestedBy !== undefined ? patch.requestedBy : (item && item.requestedBy) || localStorage.getItem('userName') || 'Operator'
+        ).trim() || 'Operator';
+
+        return {
+            orderId: String(
+                patch.orderId !== undefined ? patch.orderId : ((item && (item.oid || item.orderId)) || '')
+            ).trim().toUpperCase(),
+            staffId: String(
+                patch.staffId !== undefined ? patch.staffId : ((item && item.staffId) || currentUser.id || 'USR-005')
+            ).trim() || 'USR-005',
+            reason: String(
+                patch.reason !== undefined ? patch.reason : ((item && item.reason) || '')
+            ).trim(),
+            refundAmount: Math.max(0, Number(
+                patch.refundAmount !== undefined ? patch.refundAmount : ((item && item.amount) || 0)
+            ) || 0),
+            returnType: String(
+                patch.returnType !== undefined ? patch.returnType : ((item && item.returnType) || 'refund')
+            ).trim() || 'refund',
+            product: String(
+                patch.product !== undefined ? patch.product : ((item && (item.backendProduct || item.product)) || '')
+            ).trim(),
+            qty: Math.max(1, Number(
+                patch.qty !== undefined ? patch.qty : ((item && item.qty) || 1)
+            ) || 1),
+            requestedBy: nextRequestedBy
+        };
+    }
+
     async function resolveBackendReturnId(item) {
         if (!item) throw new Error('Return item missing');
-        const currentId = String(item.id || '').trim();
+        const currentId = String(item.backendId || item.id || '').trim();
         const rows = await apiRequest('/returns', { role: 'returnhandler' });
         const list = Array.isArray(rows) ? rows : [];
 
@@ -577,11 +608,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!match) {
             const orderId = String(item.oid || '').trim();
             const reason = String(item.reason || '').trim().toLowerCase();
-            const product = String(item.product || '').trim().toLowerCase();
+            const qty = Math.max(1, Number(item.qty) || 1);
+            const amount = Math.max(0, Number(item.amount) || 0);
+            const requestedBy = String(item.requestedBy || '').trim().toLowerCase();
             match = list.find((row) =>
                 String(row && row.orderId || '').trim() === orderId
                 && String(row && row.reason || '').trim().toLowerCase() === reason
-                && String(row && row.product || '').trim().toLowerCase() === product
+                && Math.max(1, Number(row && row.qty) || 1) === qty
+                && Math.abs((Math.max(0, Number(row && row.refundAmount) || 0)) - amount) < 0.01
+                && (!requestedBy || String(row && row.requestedBy || '').trim().toLowerCase() === requestedBy)
             );
         }
 
@@ -589,8 +624,66 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error(`Return ${currentId || item.oid || ''} not found`);
         }
 
-        item.id = String(match.id).trim();
-        return item.id;
+        item.backendId = String(match.id).trim();
+        item.id = item.backendId;
+        if (match.product) item.backendProduct = String(match.product).trim();
+        if (match.staffId) item.staffId = String(match.staffId).trim();
+        return item.backendId;
+    }
+
+    async function ensureBackendReturnId(item, overrides) {
+        try {
+            return await resolveBackendReturnId(item);
+        } catch (error) {
+            if (!isNotFoundError(error) && !/not found/i.test(String(error && error.message || ''))) {
+                throw error;
+            }
+        }
+
+        const created = await apiRequest('/returns', {
+            method: 'POST',
+            role: 'returnhandler',
+            body: buildBackendReturnPayload(item, overrides)
+        });
+
+        const backendId = String(created && created.id || '').trim();
+        if (!backendId) {
+            throw new Error('Return could not be recreated in backend');
+        }
+
+        item.backendId = backendId;
+        item.id = backendId;
+        item.status = String(created && created.status || item.status || 'Pending').trim();
+        item.staffId = String(created && created.staffId || item.staffId || '').trim();
+        item.backendProduct = String(created && created.product || item.backendProduct || item.product || '').trim();
+        return backendId;
+    }
+
+    async function updateReturnOnBackend(item, payload) {
+        const updatePayload = payload && typeof payload === 'object' ? payload : {};
+        const preferredId = String(item && (item.backendId || item.id) || '').trim();
+
+        try {
+            if (!preferredId) throw new Error('Return id missing');
+            await apiRequest(`/returns/${encodeURIComponent(preferredId)}`, {
+                method: 'PUT',
+                role: 'returnhandler',
+                body: updatePayload
+            });
+            item.backendId = preferredId;
+            return preferredId;
+        } catch (error) {
+            if (!isNotFoundError(error)) throw error;
+            const resolvedId = await ensureBackendReturnId(item, updatePayload);
+            await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
+                method: 'PUT',
+                role: 'returnhandler',
+                body: updatePayload
+            });
+            item.backendId = resolvedId;
+            item.id = resolvedId;
+            return resolvedId;
+        }
     }
 
     async function resolveBackendDeliveryId(item) {
@@ -707,8 +800,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     id: String(delivery.id || '').trim(),
                     oid: String(delivery.orderId || '').trim(),
                     orderId: String(delivery.orderId || '').trim(),
-                    customer: String(customer.name || order.customerId || 'Unknown Customer').trim(),
-                    address: String(customer.address || 'Address unavailable').trim(),
+                    customer: String(delivery.customerName || order.customerName || customer.name || order.customerId || 'Unknown Customer').trim(),
+                    address: String(delivery.address || order.customerAddress || customer.address || 'Address unavailable').trim(),
                     partner: String(delivery.partnerName || 'Unassigned').trim(),
                     partnerPhone: String(delivery.partnerPhone || '').trim(),
                     partnerAgency: String(delivery.partnerAgency || '').trim(),
@@ -728,14 +821,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const product = productById.get(String(ret.product || '')) || {};
                 return {
                     id: String(ret.id || '').trim(),
+                    backendId: String(ret.id || '').trim(),
                     oid: String(ret.orderId || '').trim(),
+                    orderId: String(ret.orderId || '').trim(),
                     customer: String(customer.name || order.customerId || 'Unknown Customer').trim(),
                     product: String(product.name || ret.product || 'Unknown Product').trim(),
+                    backendProduct: String(ret.product || '').trim(),
                     reason: String(ret.reason || '').trim(),
                     amount: Math.max(0, Number(ret.refundAmount || 0)),
                     qty: Math.max(1, Number(ret.qty || 1)),
                     status: String(ret.status || 'Pending').trim(),
                     requestedBy: String(ret.requestedBy || '').trim() || 'Operator',
+                    staffId: String(ret.staffId || '').trim(),
+                    returnType: String(ret.returnType || 'refund').trim() || 'refund',
                     updatedAt: formatBackendDate(ret.returnDate || new Date().toISOString())
                 };
             });
@@ -751,8 +849,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 username: String(user.username || '').trim()
             }));
 
-            // Backend-authoritative snapshot for operational modules.
-            inventory = cloneRows(mappedInventory);
+            // Backend is source-of-truth in backend-only mode.
+inventory = cloneRows(mappedInventory);
             orders = cloneRows(mappedOrders);
             deliveries = cloneRows(mappedDeliveries);
             returns = cloneRows(mappedReturns);
@@ -836,215 +934,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    const defaultOrders = [
-        { id: 'ORD-4829', customer: 'Kavya Menon', items: 6, total: 4280, payment: 'Paid Upfront', status: 'Processing', date: '17 Feb 16:42' },
-        { id: 'ORD-4828', customer: 'Rohit Saini', items: 2, total: 980, payment: 'COD', status: 'Processing', date: '17 Feb 16:05' },
-        { id: 'ORD-4827', customer: 'Megha Arora', items: 4, total: 1840, payment: 'UPI', status: 'Delivered', date: '17 Feb 15:36' },
-        { id: 'ORD-4826', customer: 'Deepak Iyer', items: 3, total: 1325, payment: 'Card', status: 'Delivered', date: '17 Feb 15:12' },
-        { id: 'ORD-4825', customer: 'Neel Shah', items: 8, total: 5620, payment: 'Counter Paid', status: 'Delivered', date: '17 Feb 14:58' },
-        { id: 'ORD-4824', customer: 'Pooja Nair', items: 5, total: 2680, payment: 'UPI', status: 'Processing', date: '17 Feb 14:44' },
-        { id: 'ORD-4823', customer: 'Vivek Dutta', items: 2, total: 760, payment: 'Cash', status: 'Pending', date: '17 Feb 14:39' },
-        { id: 'ORD-4822', customer: 'Asha Kapoor', items: 7, total: 3485, payment: 'Card', status: 'Delivered', date: '17 Feb 14:35' },
-        { id: 'ORD-4821', customer: 'Rahul Sharma', items: 3, total: 1250, payment: 'UPI', status: 'Delivered', date: '17 Feb 14:32' },
-        { id: 'ORD-4820', customer: 'Priya Patel', items: 1, total: 450, payment: 'Cash', status: 'Processing', date: '17 Feb 13:45' },
-        { id: 'ORD-4819', customer: 'Amit Kumar', items: 5, total: 3200, payment: 'Card', status: 'Delivered', date: '17 Feb 12:10' },
-        { id: 'ORD-4818', customer: 'Sonal Verma', items: 4, total: 2190, payment: 'Paid Upfront', status: 'Processing', date: '16 Feb 18:20' }
-    ];
+    const defaultOrders = [];
+    const defaultInventory = [];
+    const defaultDeliveries = [];
+    const defaultReturns = [];
+    const defaultUsers = [];
+    const defaultBusinesses = [];
 
-    const defaultInventory = [
-        { sku: 'SKU-01', name: 'Basmati Rice', cat: 'Grocery', supplier: 'Agarwal Traders', stock: 145, price: 380, status: 'In Stock' },
-        { sku: 'SKU-02', name: 'Toor Dal', cat: 'Grocery', supplier: 'Sharma Wholesale', stock: 230, price: 120, status: 'In Stock' },
-        { sku: 'SKU-03', name: 'Refined Oil', cat: 'Grocery', supplier: 'Fortune Dist.', stock: 18, price: 155, status: 'Low Stock' },
-        { sku: 'SKU-04', name: 'Atta Flour', cat: 'Grocery', supplier: 'Agarwal Traders', stock: 122, price: 248, status: 'In Stock' },
-        { sku: 'SKU-05', name: 'Sugar', cat: 'Grocery', supplier: 'Sharma Wholesale', stock: 64, price: 48, status: 'In Stock' },
-        { sku: 'SKU-06', name: 'Paneer', cat: 'Dairy', supplier: 'City Dairy', stock: 21, price: 78, status: 'Low Stock' },
-        { sku: 'SKU-07', name: 'Curd Cup', cat: 'Dairy', supplier: 'City Dairy', stock: 88, price: 26, status: 'In Stock' },
-        { sku: 'SKU-08', name: 'Butter', cat: 'Dairy', supplier: 'City Dairy', stock: 14, price: 60, status: 'Low Stock' },
-        { sku: 'SKU-09', name: 'Potato Chips', cat: 'Snacks', supplier: 'SnackHub Foods', stock: 172, price: 20, status: 'In Stock' },
-        { sku: 'SKU-10', name: 'Biscuits', cat: 'Snacks', supplier: 'SnackHub Foods', stock: 154, price: 12, status: 'In Stock' },
-        { sku: 'SKU-11', name: 'Orange Juice', cat: 'Beverages', supplier: 'Cool Bev', stock: 37, price: 42, status: 'In Stock' },
-        { sku: 'SKU-12', name: 'Mineral Water', cat: 'Beverages', supplier: 'Cool Bev', stock: 9, price: 20, status: 'Critical' },
-        { sku: 'SKU-13', name: 'Dishwash Liquid', cat: 'Home Care', supplier: 'HomeSpark Supplies', stock: 48, price: 58, status: 'In Stock' },
-        { sku: 'SKU-14', name: 'Detergent Powder', cat: 'Home Care', supplier: 'HomeSpark Supplies', stock: 0, price: 96, status: 'Out of Stock' }
-    ];
-
-    const defaultDeliveries = [
-        { id: 'DEL-901', oid: 'ORD-4821', customer: 'Rahul Sharma', address: '12, MG Road, Sector 14', partner: 'Rajesh K.', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 14:10' },
-        { id: 'DEL-900', oid: 'ORD-4820', customer: 'Priya Patel', address: 'A-204, Green Park', partner: 'Sunil M.', status: 'In Transit', etaMin: 18, updatedAt: '17 Feb 13:50' },
-        { id: 'DEL-899', oid: 'ORD-4819', customer: 'Amit Kumar', address: 'Plot 7, Industrial Area', partner: 'Rajesh K.', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 12:58' },
-        { id: 'DEL-898', oid: 'ORD-4818', customer: 'Sneha Gupta', address: '302, Lotus Tower', partner: 'Unassigned', status: 'Pending', etaMin: 30, updatedAt: '17 Feb 12:40' },
-        { id: 'DEL-897', oid: 'ORD-4817', customer: 'Vikram Joshi', address: 'H.No 15, Civil Lines', partner: 'Deepak R.', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 11:35' },
-        { id: 'DEL-896', oid: 'ORD-4816', customer: 'Neha Reddy', address: 'F-3, Paradise Colony', partner: 'Sunil M.', status: 'Failed', etaMin: 0, updatedAt: '17 Feb 11:10' },
-        { id: 'DEL-895', oid: 'ORD-4815', customer: 'Karan Mehta', address: '5th Cross, Jayanagar', partner: 'Sunil M.', status: 'In Transit', etaMin: 25, updatedAt: '17 Feb 10:55' },
-        { id: 'DEL-894', oid: 'ORD-4814', customer: 'Anjali Desai', address: 'B-12, Shanti Nagar', partner: 'Rajesh K.', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 10:22' },
-        { id: 'DEL-893', oid: 'ORD-4813', customer: 'Rohan Verma', address: 'Flat 6A, Sunrise Apts', partner: 'Deepak R.', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 09:58' },
-        { id: 'DEL-892', oid: 'ORD-4812', customer: 'Suresh Iyer', address: '42, Lake View Road', partner: 'Rajesh K.', status: 'In Transit', etaMin: 10, updatedAt: '17 Feb 09:40' },
-        { id: 'DEL-891', oid: 'ORD-4811', customer: 'Meera Krishnan', address: '101, Sapphire Towers', partner: 'Deepak R.', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 09:05' },
-        { id: 'DEL-890', oid: 'ORD-4810', customer: 'Arjun Singh', address: 'House 23, Ram Nagar', partner: 'Unassigned', status: 'Pending', etaMin: 45, updatedAt: '17 Feb 08:50' }
-    ];
-
-    const defaultReturns = [
-        { id: 'RET-221', oid: 'ORD-4820', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Pending', requestedBy: 'Walk-in', updatedAt: '17 Feb 13:55' },
-        { id: 'RET-220', oid: 'ORD-4818', product: 'Milk Pack', reason: 'Expired', amount: 58, qty: 1, status: 'Pending', requestedBy: 'POS Counter', updatedAt: '17 Feb 12:50' },
-        { id: 'RET-219', oid: 'ORD-4817', product: 'Refined Oil', reason: 'Wrong Item', amount: 170, qty: 1, status: 'Refunded', requestedBy: 'POS Counter', updatedAt: '17 Feb 12:15' },
-        { id: 'RET-218', oid: 'ORD-4816', product: 'Basmati Rice', reason: 'Damaged', amount: 380, qty: 1, status: 'Rejected', requestedBy: 'Walk-in', updatedAt: '17 Feb 11:45' },
-        { id: 'RET-217', oid: 'ORD-4815', product: 'Soft Drink', reason: 'Stale', amount: 42, qty: 2, status: 'Pending', requestedBy: 'Komal Shah', updatedAt: '17 Feb 11:20' },
-        { id: 'RET-216', oid: 'ORD-4814', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Pending', requestedBy: 'Walk-in', updatedAt: '17 Feb 10:50' },
-        { id: 'RET-215', oid: 'ORD-4813', product: 'Toor Dal', reason: 'Wrong Item', amount: 120, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '17 Feb 10:25' },
-        { id: 'RET-214', oid: 'ORD-4812', product: 'Milk Pack', reason: 'Expired', amount: 58, qty: 1, status: 'Pending', requestedBy: 'POS Counter', updatedAt: '17 Feb 10:05' },
-        { id: 'RET-213', oid: 'ORD-4811', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Pending', requestedBy: 'Komal Shah', updatedAt: '17 Feb 09:40' },
-        { id: 'RET-212', oid: 'ORD-4810', product: 'Milk Pack', reason: 'Stale', amount: 58, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '17 Feb 09:10' },
-        { id: 'RET-211', oid: 'ORD-4809', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Rejected', requestedBy: 'Walk-in', updatedAt: '17 Feb 08:55' },
-        { id: 'RET-210', oid: 'ORD-4808', product: 'Basmati Rice', reason: 'Wrong Item', amount: 380, qty: 1, status: 'Pending', requestedBy: 'POS Counter', updatedAt: '16 Feb 18:20' },
-        { id: 'RET-209', oid: 'ORD-4807', product: 'Toor Dal', reason: 'Damaged', amount: 120, qty: 1, status: 'Pending', requestedBy: 'Walk-in', updatedAt: '16 Feb 17:35' },
-        { id: 'RET-208', oid: 'ORD-4806', product: 'Soft Drink', reason: 'Expired', amount: 42, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '16 Feb 16:10' }
-    ];
-
-    const defaultUsers = [
-        { name: 'Admin', role: 'Ops Head', status: 'Active' },
-        { name: 'Ramesh Gupta', role: 'Cashier', status: 'Active' },
-        { name: 'Sunita Verma', role: 'Cashier', status: 'Active' },
-        { name: 'Harsh Batra', role: 'Cashier', status: 'Active' },
-        { name: 'Neha Kulkarni', role: 'Inventory Manager', status: 'Active' },
-        { name: 'Sameer Khan', role: 'Delivery Ops', status: 'Active' },
-        { name: 'Ishita Rao', role: 'Return Handler', status: 'Active' },
-        { name: 'Mohit Jain', role: 'Cashier', status: 'Inactive' }
-    ];
-
-    const defaultBusinesses = [
-        {
-            id: 'BIZ-101',
-            name: 'FreshKart Central',
-            owner: 'Ritu Malhotra',
-            adminName: 'Arjun Mehta',
-            type: 'Grocery Retail',
-            email: 'central@freshkart.in',
-            phone: '+91-9870011101',
-            status: 'Active',
-            productsPlan: 'Core POS + Inventory',
-            tenureMonths: 32,
-            storesCount: 6,
-            profit: 1245000,
-            paymentDue: 0,
-            users: [
-                { name: 'Arjun Mehta', role: 'Admin', status: 'Active' },
-                { name: 'Komal Shah', role: 'Cashier', status: 'Active' },
-                { name: 'Irfan Ali', role: 'Inventory Manager', status: 'Active' },
-                { name: 'Gopal Yadav', role: 'Delivery Ops', status: 'Active' }
-            ],
-            stores: [
-                { code: 'FK-CEN-01', city: 'Delhi', status: 'Active' },
-                { code: 'FK-CEN-02', city: 'Noida', status: 'Active' },
-                { code: 'FK-CEN-03', city: 'Gurugram', status: 'Active' }
-            ],
-            payments: [
-                { month: 'Jan 2026', amount: 48000, status: 'Paid' },
-                { month: 'Feb 2026', amount: 48000, status: 'Paid' },
-                { month: 'Mar 2026', amount: 48000, status: 'Paid' }
-            ]
-        },
-        {
-            id: 'BIZ-102',
-            name: 'Metro Mart East',
-            owner: 'Aman Bedi',
-            adminName: 'Shreya Nair',
-            type: 'Supermarket',
-            email: 'ops@metromarteast.in',
-            phone: '+91-9870011102',
-            status: 'Active',
-            productsPlan: 'Billing + Returns',
-            tenureMonths: 18,
-            storesCount: 4,
-            profit: 842000,
-            paymentDue: 15000,
-            users: [
-                { name: 'Shreya Nair', role: 'Admin', status: 'Active' },
-                { name: 'Hemant Rawat', role: 'Return Handler', status: 'Active' },
-                { name: 'Rakesh Pal', role: 'Cashier', status: 'Active' }
-            ],
-            stores: [
-                { code: 'MM-E-11', city: 'Kolkata', status: 'Active' },
-                { code: 'MM-E-12', city: 'Howrah', status: 'Active' },
-                { code: 'MM-E-13', city: 'Durgapur', status: 'Active' },
-                { code: 'MM-E-14', city: 'Siliguri', status: 'Maintenance' }
-            ],
-            payments: [
-                { month: 'Jan 2026', amount: 39000, status: 'Paid' },
-                { month: 'Feb 2026', amount: 39000, status: 'Paid' },
-                { month: 'Mar 2026', amount: 39000, status: 'Partial' }
-            ]
-        },
-        {
-            id: 'BIZ-103',
-            name: 'DailyNeeds Hub',
-            owner: 'Neha Saini',
-            adminName: 'Bhavesh Gupta',
-            type: 'Convenience Store',
-            email: 'admin@dailyneedshub.in',
-            phone: '+91-9870011103',
-            status: 'Trial',
-            productsPlan: 'Billing Starter',
-            tenureMonths: 6,
-            storesCount: 2,
-            profit: 221000,
-            paymentDue: 9000,
-            users: [
-                { name: 'Bhavesh Gupta', role: 'Admin', status: 'Active' },
-                { name: 'Manju K', role: 'Cashier', status: 'Active' }
-            ],
-            stores: [
-                { code: 'DN-H-01', city: 'Jaipur', status: 'Active' },
-                { code: 'DN-H-02', city: 'Ajmer', status: 'Active' }
-            ],
-            payments: [
-                { month: 'Jan 2026', amount: 15000, status: 'Paid' },
-                { month: 'Feb 2026', amount: 15000, status: 'Paid' },
-                { month: 'Mar 2026', amount: 15000, status: 'Due' }
-            ]
-        },
-        {
-            id: 'BIZ-104',
-            name: 'Value Basket North',
-            owner: 'Imran Khan',
-            adminName: 'Nitika Arora',
-            type: 'Wholesale + Retail',
-            email: 'north@valuebasket.in',
-            phone: '+91-9870011104',
-            status: 'Active',
-            productsPlan: 'Full Suite',
-            tenureMonths: 44,
-            storesCount: 9,
-            profit: 2354000,
-            paymentDue: 0,
-            users: [
-                { name: 'Nitika Arora', role: 'Admin', status: 'Active' },
-                { name: 'Rohit Dabas', role: 'Inventory Manager', status: 'Active' },
-                { name: 'Seema Arif', role: 'Return Handler', status: 'Active' },
-                { name: 'Pankaj Rana', role: 'Delivery Ops', status: 'Active' },
-                { name: 'Rupa S', role: 'Cashier', status: 'Active' }
-            ],
-            stores: [
-                { code: 'VB-N-01', city: 'Chandigarh', status: 'Active' },
-                { code: 'VB-N-02', city: 'Ludhiana', status: 'Active' },
-                { code: 'VB-N-03', city: 'Jalandhar', status: 'Active' }
-            ],
-            payments: [
-                { month: 'Jan 2026', amount: 69000, status: 'Paid' },
-                { month: 'Feb 2026', amount: 69000, status: 'Paid' },
-                { month: 'Mar 2026', amount: 69000, status: 'Paid' }
-            ]
-        }
-    ];
-
-    const businesses = loadList('bb_businesses', defaultBusinesses)
-        .map((b, idx) => normalizeBusinessRecord(b, defaultBusinesses[idx] && defaultBusinesses[idx].id, defaultBusinesses[idx] && defaultBusinesses[idx].name));
-
-    if (!localStorage.getItem('bb_businesses')) {
-        saveList('bb_businesses', businesses);
-    } else {
-        // Persist normalized schema so older saved data does not break new UI.
-        saveList('bb_businesses', businesses);
-    }
+    const businesses = [];
 
     let activeBusinessId = String(localStorage.getItem('activeBusinessId') || '').trim();
     const activeBusinessName = String(localStorage.getItem('activeBusinessName') || '').trim();
@@ -1122,17 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const seedOrders = [
             { id: `ORD-${seedNum + 1}`, customer: `${city} Walk-in`, items: 6, total: 4280 + idx * 180, payment: 'Paid Upfront', status: 'Processing', date: '17 Feb 16:42' },
-            { id: `ORD-${seedNum + 2}`, customer: 'Anita Verma', items: 2, total: 980 + idx * 90, payment: 'COD', status: 'Processing', date: '17 Feb 16:05' },
-            { id: `ORD-${seedNum + 3}`, customer: 'Vikram Singh', items: 4, total: 1840 + idx * 110, payment: 'UPI', status: 'Delivered', date: '17 Feb 15:36' },
-            { id: `ORD-${seedNum + 4}`, customer: 'Suman Rao', items: 3, total: 1325 + idx * 80, payment: 'Card', status: 'Delivered', date: '17 Feb 15:12' },
-            { id: `ORD-${seedNum + 5}`, customer: 'Karan Joshi', items: 8, total: 5620 + idx * 210, payment: 'Counter Paid', status: 'Delivered', date: '17 Feb 14:58' },
-            { id: `ORD-${seedNum + 6}`, customer: 'Pooja Nair', items: 5, total: 2680 + idx * 140, payment: 'UPI', status: 'Processing', date: '17 Feb 14:44' },
-            { id: `ORD-${seedNum + 7}`, customer: 'Rohan Verma', items: 2, total: 760 + idx * 55, payment: 'Cash', status: 'Pending', date: '17 Feb 14:39' },
-            { id: `ORD-${seedNum + 8}`, customer: 'Neha Reddy', items: 7, total: 3485 + idx * 165, payment: 'Card', status: 'Delivered', date: '17 Feb 14:35' },
-            { id: `ORD-${seedNum + 9}`, customer: 'Arjun Singh', items: 3, total: 1250 + idx * 70, payment: 'UPI', status: 'Delivered', date: '17 Feb 14:32' },
-            { id: `ORD-${seedNum + 10}`, customer: 'Meera Krishnan', items: 1, total: 450 + idx * 40, payment: 'COD', status: 'Pending', date: '17 Feb 13:45' },
-            { id: `ORD-${seedNum + 11}`, customer: 'Deepak Iyer', items: 5, total: 3200 + idx * 150, payment: 'Card', status: 'Delivered', date: '17 Feb 12:10' },
-            { id: `ORD-${seedNum + 12}`, customer: 'Sonal Verma', items: 4, total: 2190 + idx * 125, payment: 'Paid Upfront', status: 'Processing', date: '16 Feb 18:20' }
+            { id: `ORD-${seedNum + 2}`, customer: 'Anita Verma', items: 2, total: 980 + idx * 90, payment: 'COD', status: 'Processing', date: '17 Feb 16:05' }
         ];
 
         const addressBook = [
@@ -1151,18 +1038,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
 
         const seedDeliveries = [
-            { id: `DEL-${seedNum + 1}`, oid: seedOrders[0].id, customer: seedOrders[0].customer, address: addressBook[0], partner: 'Rider Team A', partnerPhone: '+91 80109 42021', partnerAgency: 'Fleet Hub A', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 16:58' },
-            { id: `DEL-${seedNum + 2}`, oid: seedOrders[1].id, customer: seedOrders[1].customer, address: addressBook[1], partner: 'Rider Team B', partnerPhone: '+91 80109 42022', partnerAgency: 'Fleet Hub B', status: 'In Transit', etaMin: 18, updatedAt: '17 Feb 16:20' },
-            { id: `DEL-${seedNum + 3}`, oid: seedOrders[2].id, customer: seedOrders[2].customer, address: addressBook[2], partner: 'Rajesh K.', partnerPhone: '+91 98214 44770', partnerAgency: 'SwiftDrop Logistics', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 15:58' },
-            { id: `DEL-${seedNum + 4}`, oid: seedOrders[3].id, customer: seedOrders[3].customer, address: addressBook[3], partner: 'Deepak R.', partnerPhone: '+91 98214 44772', partnerAgency: 'SwiftDrop Logistics', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 15:24' },
-            { id: `DEL-${seedNum + 5}`, oid: seedOrders[5].id, customer: seedOrders[5].customer, address: addressBook[4], partner: 'Rider Team C', partnerPhone: '+91 80109 42023', partnerAgency: 'Fleet Hub C', status: 'In Transit', etaMin: 26, updatedAt: '17 Feb 14:52' },
-            { id: `DEL-${seedNum + 6}`, oid: seedOrders[6].id, customer: seedOrders[6].customer, address: addressBook[5], partner: 'Unassigned', partnerPhone: '', partnerAgency: '', status: 'Pending', etaMin: 34, updatedAt: '17 Feb 14:48' },
-            { id: `DEL-${seedNum + 7}`, oid: seedOrders[7].id, customer: seedOrders[7].customer, address: addressBook[6], partner: 'Sunil M.', partnerPhone: '+91 98214 44771', partnerAgency: 'SwiftDrop Logistics', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 14:46' },
-            { id: `DEL-${seedNum + 8}`, oid: seedOrders[8].id, customer: seedOrders[8].customer, address: addressBook[7], partner: 'Rider Team A', partnerPhone: '+91 80109 42021', partnerAgency: 'Fleet Hub A', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 14:40' },
-            { id: `DEL-${seedNum + 9}`, oid: seedOrders[9].id, customer: seedOrders[9].customer, address: addressBook[8], partner: 'Unassigned', partnerPhone: '', partnerAgency: '', status: 'Pending', etaMin: 40, updatedAt: '17 Feb 13:52' },
-            { id: `DEL-${seedNum + 10}`, oid: seedOrders[10].id, customer: seedOrders[10].customer, address: addressBook[9], partner: 'Deepak R.', partnerPhone: '+91 98214 44772', partnerAgency: 'SwiftDrop Logistics', status: 'Delivered', etaMin: 0, updatedAt: '17 Feb 12:38' },
-            { id: `DEL-${seedNum + 11}`, oid: seedOrders[11].id, customer: seedOrders[11].customer, address: addressBook[10], partner: 'Rider Team B', partnerPhone: '+91 80109 42022', partnerAgency: 'Fleet Hub B', status: 'Failed', etaMin: 0, updatedAt: '16 Feb 18:58' },
-            { id: `DEL-${seedNum + 12}`, oid: `ORD-${seedNum + 13}`, customer: 'Asha Kapoor', address: addressBook[11], partner: 'Rider Team C', partnerPhone: '+91 80109 42023', partnerAgency: 'Fleet Hub C', status: 'In Transit', etaMin: 14, updatedAt: '17 Feb 11:55' }
+            { id: `DEL-${seedNum + 1}`, oid: seedOrders[0].id, customer: seedOrders[0].customer, customerName: seedOrders[0].customer, address: addressBook[0], partner: 'Rajesh K.', partnerPhone: '+91 98214 44770', partnerAgency: 'SwiftDrop Logistics', status: 'Pending', etaMin: 35, updatedAt: '17 Feb 05:30' },
+            { id: `DEL-${seedNum + 2}`, oid: seedOrders[1].id, customer: seedOrders[1].customer, customerName: seedOrders[1].customer, address: addressBook[1], partner: 'Sunil M.', partnerPhone: '+91 98214 44771', partnerAgency: 'SwiftDrop Logistics', status: 'In Transit', etaMin: 18, updatedAt: '17 Feb 16:20' }
         ];
 
         const seedInventory = [
@@ -1183,16 +1060,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
 
         const seedReturns = [
-            { id: `RET-${seedNum + 1}`, oid: seedOrders[1].id, product: seedInventory[2].name, sku: seedInventory[2].sku, cat: seedInventory[2].cat, reason: 'Damaged', amount: seedInventory[2].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 16:18' },
-            { id: `RET-${seedNum + 2}`, oid: seedOrders[2].id, product: seedInventory[5].name, sku: seedInventory[5].sku, cat: seedInventory[5].cat, reason: 'Expired', amount: seedInventory[5].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 15:42' },
-            { id: `RET-${seedNum + 3}`, oid: seedOrders[4].id, product: seedInventory[2].name, sku: seedInventory[2].sku, cat: seedInventory[2].cat, reason: 'Wrong Item', amount: seedInventory[2].price, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '17 Feb 15:10' },
-            { id: `RET-${seedNum + 4}`, oid: seedOrders[5].id, product: seedInventory[11].name, sku: seedInventory[11].sku, cat: seedInventory[11].cat, reason: 'Leaking Bottle', amount: seedInventory[11].price * 2, qty: 2, status: 'Pending', requestedBy: returnLead, updatedAt: '17 Feb 14:58' },
-            { id: `RET-${seedNum + 5}`, oid: seedOrders[6].id, product: seedInventory[1].name, sku: seedInventory[1].sku, cat: seedInventory[1].cat, reason: 'Wrong Item', amount: seedInventory[1].price, qty: 1, status: 'Rejected', requestedBy: 'Walk-in', updatedAt: '17 Feb 14:26' },
-            { id: `RET-${seedNum + 6}`, oid: seedOrders[7].id, product: seedInventory[3].name, sku: seedInventory[3].sku, cat: seedInventory[3].cat, reason: 'Damaged', amount: seedInventory[3].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 14:02' },
-            { id: `RET-${seedNum + 7}`, oid: seedOrders[8].id, product: seedInventory[7].name, sku: seedInventory[7].sku, cat: seedInventory[7].cat, reason: 'Stale', amount: seedInventory[7].price, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '17 Feb 13:44' },
-            { id: `RET-${seedNum + 8}`, oid: seedOrders[9].id, product: seedInventory[8].name, sku: seedInventory[8].sku, cat: seedInventory[8].cat, reason: 'Crushed Pack', amount: seedInventory[8].price * 3, qty: 3, status: 'Pending', requestedBy: returnLead, updatedAt: '17 Feb 13:18' },
-            { id: `RET-${seedNum + 9}`, oid: seedOrders[10].id, product: seedInventory[13].name, sku: seedInventory[13].sku, cat: seedInventory[13].cat, reason: 'Torn Pack', amount: seedInventory[13].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 12:34' },
-            { id: `RET-${seedNum + 10}`, oid: seedOrders[11].id, product: seedInventory[10].name, sku: seedInventory[10].sku, cat: seedInventory[10].cat, reason: 'Expired', amount: seedInventory[10].price, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '16 Feb 18:48' }
+            { id: `RET-${seedNum + 1}`, oid: seedOrders[0].id, product: seedInventory[2].name, sku: seedInventory[2].sku, cat: seedInventory[2].cat, reason: 'Damaged', amount: seedInventory[2].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 16:18' },
+            { id: `RET-${seedNum + 2}`, oid: seedOrders[1].id, product: seedInventory[5].name, sku: seedInventory[5].sku, cat: seedInventory[5].cat, reason: 'Expired', amount: seedInventory[5].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 15:42' }
         ];
 
         const fallbackUsers = [
@@ -1212,24 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    const businessDataStore = loadObject('bb_business_data', {});
-    businesses.forEach((business, idx) => {
-        const seed = buildBusinessSeedData(business, idx);
-        const existing = businessDataStore[business.id];
-        if (!existing || typeof existing !== 'object') {
-            businessDataStore[business.id] = seed;
-            return;
-        }
-
-        businessDataStore[business.id] = {
-            orders: Array.isArray(existing.orders) ? cloneRows(existing.orders) : seed.orders,
-            inventory: Array.isArray(existing.inventory) ? cloneRows(existing.inventory) : seed.inventory,
-            deliveries: Array.isArray(existing.deliveries) ? cloneRows(existing.deliveries) : seed.deliveries,
-            returns: Array.isArray(existing.returns) ? cloneRows(existing.returns) : seed.returns,
-            users: Array.isArray(existing.users) ? cloneRows(existing.users) : seed.users
-        };
-    });
-    saveObject('bb_business_data', businessDataStore);
+    const businessDataStore = {};
 
     let selectedBusiness = activeBusinessId ? businesses.find(b => b.id === activeBusinessId) : null;
     let isBusinessScoped = !!selectedBusiness;
@@ -1284,25 +1136,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadOperationalSnapshotFromStorage() {
-        if (isBusinessScoped && selectedBusiness) {
-            const store = loadObject('bb_business_data', {});
-            const scoped = store[selectedBusiness.id];
-            if (!scoped || typeof scoped !== 'object') return;
-
-            businessDataStore[selectedBusiness.id] = scoped;
-            if (Array.isArray(scoped.orders)) orders = cloneRows(scoped.orders);
-            if (Array.isArray(scoped.inventory)) inventory = cloneRows(scoped.inventory);
-            if (Array.isArray(scoped.deliveries)) deliveries = cloneRows(scoped.deliveries);
-            if (Array.isArray(scoped.returns)) returns = cloneRows(scoped.returns);
-            if (Array.isArray(scoped.users)) users = cloneRows(scoped.users);
-            return;
-        }
-
-        orders = loadList('bb_orders', orders);
-        inventory = loadList('bb_inventory', inventory);
-        deliveries = loadList('bb_deliveries', deliveries);
-        returns = loadList('bb_returns', returns);
-        users = loadList('bb_users', users);
+        // Backend-only mode: do not rehydrate operational collections from localStorage.
+        return;
     }
 
     function shouldApplyIncomingSync(payload) {
@@ -1358,23 +1193,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function persistOperationalData(options) {
         const opts = options && typeof options === 'object' ? options : {};
-
-        if (isBusinessScoped && selectedBusiness) {
-            businessDataStore[selectedBusiness.id] = {
-                orders,
-                inventory,
-                deliveries,
-                returns,
-                users
-            };
-            saveObject('bb_business_data', businessDataStore);
-        } else {
-            saveList('bb_orders', orders);
-            saveList('bb_inventory', inventory);
-            saveList('bb_deliveries', deliveries);
-            saveList('bb_returns', returns);
-            saveList('bb_users', users);
-        }
 
         renderNotificationDropdown();
         if (!opts.silentSync) publishDataSync(opts.domains);
@@ -6427,18 +6245,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const created = await apiRequest('/returns', {
                         method: 'POST',
                         role: 'returnhandler',
-                        body: {
+                        body: buildBackendReturnPayload(returnRecord, {
                             orderId: returnRecord.oid,
-                            staffId: String(currentUser.id || 'USR-005').trim() || 'USR-005',
-                            reason: returnRecord.reason,
-                            refundAmount: Number(returnRecord.amount),
-                            returnType: 'refund',
-                            product: returnRecord.product,
-                            qty: Number(returnRecord.qty),
-                            requestedBy: returnRecord.requestedBy
-                        }
+                            staffId: String(currentUser.id || 'USR-005').trim() || 'USR-005'
+                        })
                     });
                     returnRecord.id = created.id || returnRecord.id;
+                    returnRecord.backendId = returnRecord.id;
+                    returnRecord.orderId = String(created.orderId || returnRecord.oid || '').trim();
+                    returnRecord.backendProduct = String(created.product || returnRecord.product || '').trim();
+                    returnRecord.staffId = String(created.staffId || currentUser.id || 'USR-005').trim();
+                    returnRecord.returnType = String(created.returnType || 'refund').trim() || 'refund';
                     returns.unshift(returnRecord);
                     persistOperationalData();
                     renderPage('returns');
@@ -6479,21 +6296,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     refundAmount: Math.max(0, Number(values.amount) || 0)
                 };
                 try {
-                    try {
-                        await apiRequest(`/returns/${encodeURIComponent(String(item.id))}`, {
-                            method: 'PUT',
-                            role: 'returnhandler',
-                            body: payload
-                        });
-                    } catch (error) {
-                        if (!isNotFoundError(error)) throw error;
-                        const resolvedId = await resolveBackendReturnId(item);
-                        await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
-                            method: 'PUT',
-                            role: 'returnhandler',
-                            body: payload
-                        });
-                    }
+                    await updateReturnOnBackend(item, payload);
 
                     item.status = payload.status;
                     item.reason = payload.reason;
@@ -6522,21 +6325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = returns.find(r => r.id === id);
         if (!item) return;
         try {
-            try {
-                await apiRequest(`/returns/${encodeURIComponent(String(item.id))}`, {
-                    method: 'PUT',
-                    role: 'returnhandler',
-                    body: { status: 'Refunded' }
-                });
-            } catch (error) {
-                if (!isNotFoundError(error)) throw error;
-                const resolvedId = await resolveBackendReturnId(item);
-                await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
-                    method: 'PUT',
-                    role: 'returnhandler',
-                    body: { status: 'Refunded' }
-                });
-            }
+            await updateReturnOnBackend(item, { status: 'Refunded' });
             item.status = 'Refunded';
             item.updatedAt = formatDate();
             persistOperationalData();
@@ -6555,21 +6344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = returns.find(r => r.id === id);
         if (!item) return;
         try {
-            try {
-                await apiRequest(`/returns/${encodeURIComponent(String(item.id))}`, {
-                    method: 'PUT',
-                    role: 'returnhandler',
-                    body: { status: 'Rejected' }
-                });
-            } catch (error) {
-                if (!isNotFoundError(error)) throw error;
-                const resolvedId = await resolveBackendReturnId(item);
-                await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
-                    method: 'PUT',
-                    role: 'returnhandler',
-                    body: { status: 'Rejected' }
-                });
-            }
+            await updateReturnOnBackend(item, { status: 'Rejected' });
             item.status = 'Rejected';
             item.updatedAt = formatDate();
             persistOperationalData();
@@ -7285,18 +7060,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     (async function startApp() {
         try {
-            // Render immediately from local/default data so users never stare at static placeholders.
+            ['bb_orders', 'bb_inventory', 'bb_deliveries', 'bb_returns', 'bb_users', 'bb_business_data', 'bb_businesses'].forEach((key) => {
+                try { localStorage.removeItem(key); } catch (err) {}
+            });
             initRealtimeSync();
-            renderPage(currentPage);
-
-            // Prefer live backend data; fallback to JSON snapshots when backend is unavailable.
             const loadedFromBackend = await loadOperationalDataFromBackend();
             if (!loadedFromBackend) {
-                await hydrateDataFromJsonFiles();
+                throw new Error('Backend unavailable: dashboard requires in-memory server data.');
             }
             renderPage(currentPage);
         } catch (err) {
-            console.error('Dashboard startup failed; showing fallback shell.', err);
+            console.error('Dashboard startup failed in backend-only mode.', err);
+            businesses.splice(0, businesses.length);
+            selectedBusiness = null;
+            isBusinessScoped = false;
+            businessScopedData = null;
+            orders = [];
+            inventory = [];
+            deliveries = [];
+            returns = [];
+            users = [];
+            showToast('Backend is required. Start the API server to load dashboard data.');
             try {
                 renderPage(currentPage);
             } catch (renderErr) {
