@@ -4215,7 +4215,11 @@ inventory = cloneRows(mappedInventory);
         const userEmail = String(userRecord && userRecord.email || '').trim();
         const userStatus = String(userRecord && userRecord.status || 'Active').trim() || 'Active';
         const existingUsername = normalizeAuthUserKey(opts.existingUsername || userRecord && userRecord.username);
-        const username = generateUniqueUsername(userName, userEmail, existingUsername);
+        const preferredUsername = normalizeAuthUserKey(opts.preferredUsername);
+        if (preferredUsername && usernameTaken(preferredUsername, userName)) {
+            throw new Error('Username is already in use. Please choose another username.');
+        }
+        const username = preferredUsername || generateUniqueUsername(userName, userEmail, existingUsername);
 
         const overrides = loadObject(AUTH_OVERRIDE_STORAGE_KEY, {});
         const previousRecord = existingUsername && overrides[existingUsername] && typeof overrides[existingUsername] === 'object'
@@ -5785,6 +5789,13 @@ inventory = cloneRows(mappedInventory);
             document.getElementById('userRole').value = '';
             const phoneEl = document.getElementById('userPhone');
             if (phoneEl) phoneEl.value = '';
+            const usernameEl = document.getElementById('userUsername');
+            if (usernameEl) {
+                usernameEl.value = '';
+                usernameEl.readOnly = false;
+            }
+            const passwordEl = document.getElementById('userPassword');
+            if (passwordEl) passwordEl.value = '';
             document.getElementById('userStatus').value = 'Active';
         }
         overlay.classList.add('active');
@@ -5819,6 +5830,23 @@ inventory = cloneRows(mappedInventory);
                 el.classList.remove('error');
             }
         });
+        const usernameEl = document.getElementById('userUsername');
+        const passwordEl = document.getElementById('userPassword');
+        const typedUsername = String(usernameEl && usernameEl.value || '').trim();
+        const typedPassword = String(passwordEl && passwordEl.value || '').trim();
+        const normalizedTypedUsername = normalizeAuthUserKey(typedUsername);
+        if (typedUsername && typedUsername !== normalizedTypedUsername) {
+            const group = usernameEl && usernameEl.closest('.form-group');
+            if (group) group.classList.add('has-error');
+            if (usernameEl) usernameEl.classList.add('error');
+            valid = false;
+        }
+        if (typedPassword && typedPassword.length < 6) {
+            const group = passwordEl && passwordEl.closest('.form-group');
+            if (group) group.classList.add('has-error');
+            if (passwordEl) passwordEl.classList.add('error');
+            valid = false;
+        }
         if (!valid) return;
 
         const uname = document.getElementById('userName').value.trim();
@@ -5834,9 +5862,17 @@ inventory = cloneRows(mappedInventory);
             phone: String(document.getElementById('userPhone') && document.getElementById('userPhone').value || '').trim()
         };
 
-        const credential = upsertAuthCredentialsForUser(uData, {
-            existingUsername: existingUser && existingUser.username
-        });
+        let credential;
+        try {
+            credential = upsertAuthCredentialsForUser(uData, {
+                existingUsername: existingUser && existingUser.username,
+                preferredUsername: normalizedTypedUsername,
+                forcePassword: typedPassword
+            });
+        } catch (error) {
+            showToast(error && error.message ? error.message : 'Could not create credentials.');
+            return;
+        }
         uData.username = credential.username;
 
         try {
@@ -5849,7 +5885,8 @@ inventory = cloneRows(mappedInventory);
                         role: mapRoleLabelToBackendRole(uData.role),
                         email: uData.email,
                         mobileNo: uData.phone || '',
-                        status: uData.status
+                        status: uData.status,
+                        ...(typedPassword ? { password: typedPassword } : {})
                     }
                 });
                 uData.id = backendUser.id || existingUser.id;
@@ -6053,6 +6090,13 @@ inventory = cloneRows(mappedInventory);
         document.getElementById('userStatus').value = u.status;
         const phoneInput = document.getElementById('userPhone');
         if (phoneInput) phoneInput.value = u.phone || '';
+        const usernameInput = document.getElementById('userUsername');
+        if (usernameInput) {
+            usernameInput.value = String(u.username || '').trim();
+            usernameInput.readOnly = true;
+        }
+        const passwordInput = document.getElementById('userPassword');
+        if (passwordInput) passwordInput.value = '';
     };
     window.deleteUser = function(nameToken) {
         if (!hasActionAccess('users')) {

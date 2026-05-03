@@ -50,7 +50,11 @@ const DataStore = (() => {
         return Array.from(map.values());
     }
 
-    function saveOrders() {}
+    function saveOrders() {
+        try {
+            localStorage.setItem('bb_pos_orders', JSON.stringify(Array.isArray(orders) ? orders : []));
+        } catch (error) {}
+    }
 
     function loadStoredValue(key, fallbackValue, parseJson) {
         try {
@@ -72,7 +76,34 @@ const DataStore = (() => {
         return String(role || '').toLowerCase().replace(/\s+/g, '');
     }
 
-    function saveCustomers() {}
+    function saveCustomers() {
+        try {
+            localStorage.setItem('bb_pos_customers', JSON.stringify(customers && typeof customers === 'object' ? customers : {}));
+        } catch (error) {}
+    }
+
+    function mapBackendCustomersToLookup(rows) {
+        const next = {};
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+            const phone = normalizePhone(row && row.mobileNo);
+            if (phone.length !== 10) return;
+            next[phone] = {
+                id: String(row && row.id || '').trim(),
+                phone,
+                name: String(row && row.name || '').trim(),
+                email: String(row && row.email || '').trim(),
+                address: String(row && row.address || '').trim(),
+                notes: '',
+                preferredDeliveryOption: 'pickup',
+                deliveryPartner: '',
+                deliveryPartnerPhone: '',
+                lastOrderId: '',
+                lastOrderAt: '',
+                orderCount: Number((customers[phone] && customers[phone].orderCount) || 0)
+            };
+        });
+        return next;
+    }
 
     function getCustomerByPhone(phone) {
         const normalized = normalizePhone(phone);
@@ -270,6 +301,27 @@ const DataStore = (() => {
         }
     }
 
+    async function loadCustomersFromBackend() {
+        const userRole = localStorage.getItem('userRole') || 'cashier';
+        const companyId = String(localStorage.getItem('activeBusinessId') || 'BIZ-101').trim() || 'BIZ-101';
+        const response = await fetch(`http://localhost:3000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-role': userRole
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to load customers from backend (HTTP ${response.status})`);
+        }
+
+        const rows = await response.json();
+        const backendCustomers = mapBackendCustomersToLookup(rows);
+        customers = { ...customers, ...backendCustomers };
+        saveCustomers();
+    }
+
     function resolveBusinessContext() {
         const fallbackId = 'BIZ-101';
         const currentScopedId = String(localStorage.getItem('activeBusinessId') || '').trim();
@@ -395,14 +447,15 @@ const DataStore = (() => {
     }
 
     async function init() {
-        try {
-            localStorage.removeItem('bb_pos_orders');
-            localStorage.removeItem('bb_pos_customers');
-        } catch (err) {}
-        orders = [];
-        customers = {};
+        orders = loadStoredValue('bb_pos_orders', [], true);
+        customers = loadStoredValue('bb_pos_customers', {}, true);
 
         await loadProductsFromBackend();
+        try {
+            await loadCustomersFromBackend();
+        } catch (error) {
+            // Backend customer preload is best-effort; cached customers still work.
+        }
     }
 
     function getCategories() {
@@ -480,11 +533,11 @@ const DataStore = (() => {
         const order = {
             id: String(backendOrder && backendOrder.id || generateId()).trim(),
             companyId: String(backendOrder && backendOrder.companyId || businessContext.id).trim(),
-            customerId: String(opts.customerId || customerData && customerData.id || backendOrder && backendOrder.customerId || '').trim(),
-            customer: String(customerData && customerData.name || '').trim(),
-            phone: normalizePhone(customerData && customerData.phone || ''),
-            email: String(customerData && customerData.email || '').trim(),
-            address: String(customerData && customerData.address || '').trim(),
+            customerId: String(opts.customerId || (backendOrder && (backendOrder.customerId || backendOrder.customer)) || (customerData && customerData.id) || '').trim(),
+            customer: String((backendOrder && (backendOrder.customerName || backendOrder.customer)) || (customerData && customerData.name) || '').trim(),
+            phone: normalizePhone((backendOrder && (backendOrder.customerPhone || backendOrder.mobileNo)) || (customerData && customerData.phone) || ''),
+            email: String((backendOrder && backendOrder.customerEmail) || (customerData && customerData.email) || '').trim(),
+            address: String((backendOrder && (backendOrder.customerAddress || backendOrder.address)) || (customerData && customerData.address) || '').trim(),
             notes: String(customerData && customerData.notes || '').trim(),
             checkoutMode: checkoutMode || (deliveryOption === 'delivery' ? 'prepaid_delivery' : 'takeaway_now'),
             deliveryOption,

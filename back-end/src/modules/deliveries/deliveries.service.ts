@@ -9,6 +9,8 @@ import { CreateDeliveryDto, UpdateDeliveryDto } from './dto/delivery.dto';
 export interface Delivery {
   id: string;
   orderId: string;
+  customerName?: string | null;
+  address?: string | null;
   partnerName: string;
   partnerPhone?: string | null;
   partnerAgency?: string | null;
@@ -51,6 +53,8 @@ export class DeliveriesService {
     const newDelivery = {
       id: `DEL-${this.counter++}`,
       orderId: dto.orderId,
+      customerName: dto.customerName ?? null,
+      address: dto.address ?? null,
       partnerName: dto.partnerName ?? 'Unassigned',
       partnerPhone: dto.partnerPhone ?? null,
       partnerAgency: dto.partnerAgency ?? null,

@@ -179,19 +179,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     orderId: String(backendOrder.id || '').trim(),
                     partnerName: String(customerPayload.deliveryPartner || '').trim() || undefined,
                     partnerPhone: String(customerPayload.deliveryPartnerPhone || '').trim() || undefined,
-                    dispatchDate: new Date().toISOString().slice(0, 10),
-                    customerName: String(customerRecord && customerRecord.name || customerPayload.name || '').trim() || undefined,
-                    address: String(customerRecord && customerRecord.address || customerPayload.address || '').trim() || undefined
+                    dispatchDate: new Date().toISOString().slice(0, 10)
                 };
                 try {
-                    await fetch('http://localhost:3000/api/deliveries', {
+                    const deliveryResponse = await fetch('http://localhost:3000/api/deliveries', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'x-role': 'deliveryops'
+                            'x-role': userRole
                         },
                         body: JSON.stringify(deliveryPayload)
                     });
+                    if (!deliveryResponse.ok) {
+                        const bodyText = await deliveryResponse.text().catch(() => '');
+                        console.warn('Delivery create rejected:', deliveryResponse.status, bodyText);
+                    }
                 } catch (error) {
                     console.warn('Delivery create failed after order submit:', error);
                 }
@@ -287,7 +289,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 dataPayload.discount,
                 {
                     backendOrder: backendResult && backendResult.backendOrder,
-                    customerId: backendResult && backendResult.customerRecord && backendResult.customerRecord.id
+                    customerId: backendResult && backendResult.customerRecord && backendResult.customerRecord.id,
+                    customerRecord: backendResult && backendResult.customerRecord
                 }
             );
 

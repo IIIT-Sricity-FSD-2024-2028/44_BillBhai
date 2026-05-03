@@ -50,6 +50,24 @@ export class CreateDeliveryDto {
   @IsOptional()
   @IsString()
   dispatchDate?: string;
+
+  @ApiProperty({
+    example: 'Rahul Sharma',
+    description: 'Customer name',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
+  @ApiProperty({
+    example: '12, MG Road, Sector 14',
+    description: 'Delivery address',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  address?: string;
 }
 
 export class UpdateDeliveryDto {
