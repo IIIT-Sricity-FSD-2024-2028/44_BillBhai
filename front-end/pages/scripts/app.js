@@ -5,7 +5,11 @@
 document.addEventListener('DOMContentLoaded', async () => {
     'use strict';
 
-    await DataStore.init();
+    try {
+        await DataStore.init();
+    } catch (error) {
+        console.error('POS bootstrap failed, continuing with fallback UI init:', error);
+    }
 
     const session = DataStore.getSessionContext();
     const isCustomerTerminal = Boolean(session.isCustomerTerminal);
@@ -26,8 +30,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const resetBtn = document.getElementById('btnResetFlow');
     const checkoutModeHeadingEl = document.getElementById('checkoutModeHeading');
 
-    const displayName = isCustomerTerminal ? 'Self Checkout' : session.userName;
-    const displayAvatar = isCustomerTerminal ? 'S' : session.userName.charAt(0).toUpperCase();
+    const safeUserName = String(session.userName || 'Cashier').trim() || 'Cashier';
+    const displayName = isCustomerTerminal ? 'Self Checkout' : safeUserName;
+    const displayAvatar = isCustomerTerminal ? 'S' : safeUserName.charAt(0).toUpperCase();
     const pageLabel = isCustomerTerminal ? 'Self Checkout' : 'Active Customer';
 
     if (userNameEl) userNameEl.textContent = displayName;

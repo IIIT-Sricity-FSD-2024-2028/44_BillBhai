@@ -36,15 +36,27 @@ export class UsersService {
   }
 
   findByUsername(username: string) {
+    const normalized = String(username || '').trim().toLowerCase();
+    if (!normalized) return null;
     return (
-      this.users.find((u) => u.username === username.toLowerCase()) ?? null
+      this.users.find(
+        (u) =>
+          u.username.toLowerCase() === normalized ||
+          String(u.email || '').trim().toLowerCase() === normalized,
+      ) ?? null
     );
   }
 
   findByUsernameAndPassword(username: string, password: string) {
+    const normalized = String(username || '').trim().toLowerCase();
+    const normalizedPassword = String(password || '');
+    if (!normalized || !normalizedPassword) return null;
     return (
       this.users.find(
-        (u) => u.username === username.toLowerCase() && u.password === password,
+        (u) =>
+          (u.username.toLowerCase() === normalized ||
+            String(u.email || '').trim().toLowerCase() === normalized) &&
+          u.password === normalizedPassword,
       ) ?? null
     );
   }
