@@ -134,6 +134,7 @@ export class OrdersService {
     const newOrder = {
       id: orderId,
       customerName: String(dto.customerName || '').trim() || undefined,
+      customerAddress: String(dto.customerAddress || '').trim() || undefined,
       customerId: dto.customerId,
       staffId: dto.staffId,
       companyId: dto.companyId,
@@ -176,6 +177,9 @@ export class OrdersService {
       ...dto,
       ...(dto.customerName !== undefined
         ? { customerName: String(dto.customerName).trim() }
+        : {}),
+      ...(dto.customerAddress !== undefined
+        ? { customerAddress: String(dto.customerAddress).trim() }
         : {}),
       ...(dto.itemsCount !== undefined
         ? { itemsCount: Math.max(0, Number(dto.itemsCount) || 0) }

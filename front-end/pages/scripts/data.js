@@ -65,7 +65,7 @@ const DataStore = (() => {
     }
 
     function normalizePhone(value) {
-        return String(value || '').replace(/\D/g, '').slice(0, 10);
+        return String(value || '').replace(/\D/g, '').slice(-10);
     }
 
     function normalizeRoleKey(role) {
