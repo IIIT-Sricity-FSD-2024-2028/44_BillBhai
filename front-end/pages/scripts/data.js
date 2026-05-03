@@ -298,8 +298,23 @@ const DataStore = (() => {
                     barcode: p.barcode,
                     size: p.size,
                     description: p.description,
-                    image: `images/${p.id}.png`
+                    image: p.image || `images/${p.id}.png`,
+                    options: Array.isArray(p.options) && p.options.length
+                        ? p.options.map((opt) => ({
+                            label: String(opt && opt.label || opt && opt.size || p.size || 'Unit').trim() || 'Unit',
+                            price: Number(opt && opt.price)
+                        })).filter((opt) => Number.isFinite(opt.price) && opt.price >= 0)
+                        : [{
+                            label: String(p.size || 'Unit').trim() || 'Unit',
+                            price: Number(p.price)
+                        }]
                 }));
+                catalog = catalog.filter((item) =>
+                    item &&
+                    Array.isArray(item.options) &&
+                    item.options.length > 0 &&
+                    Number.isFinite(Number(item.options[0].price))
+                );
                 return;
             }
 
