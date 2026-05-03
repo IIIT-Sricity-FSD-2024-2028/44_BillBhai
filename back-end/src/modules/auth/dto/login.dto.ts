@@ -4,7 +4,7 @@ import { IsString, IsNotEmpty, MinLength } from 'class-validator';
 export class LoginDto {
   @ApiProperty({
     description: 'User username',
-    example: 'admin1',
+    example: 'admin',
   })
   @IsString()
   @IsNotEmpty()
@@ -12,7 +12,7 @@ export class LoginDto {
 
   @ApiProperty({
     description: 'User password',
-    example: 'Admin@123',
+    example: 'admin123',
   })
   @IsString()
   @IsNotEmpty()

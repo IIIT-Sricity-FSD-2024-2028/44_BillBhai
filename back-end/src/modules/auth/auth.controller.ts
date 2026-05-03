@@ -29,14 +29,14 @@ export class AuthController {
     examples: {
       admin: {
         value: {
-          username: 'admin1',
-          password: 'Admin@123',
+          username: 'admin',
+          password: 'admin123',
         },
       },
       cashier: {
         value: {
-          username: 'cashier1',
-          password: 'Cashier@123',
+          username: 'cashier',
+          password: 'cashier123',
         },
       },
     },
@@ -46,7 +46,7 @@ export class AuthController {
     description: 'Login successful',
     example: {
       id: 'USR-001',
-      username: 'admin1',
+      username: 'admin',
       role: 'admin',
       email: 'admin@freshkart.com',
       companyId: 'BIZ-101',

@@ -29,14 +29,14 @@
               "examples": {
                 "admin": {
                   "value": {
-                    "username": "admin1",
-                    "password": "Admin@123"
+                    "username": "admin",
+                    "password": "admin123"
                   }
                 },
                 "cashier": {
                   "value": {
-                    "username": "cashier1",
-                    "password": "Cashier@123"
+                    "username": "cashier",
+                    "password": "cashier123"
                   }
                 }
               }
@@ -50,7 +50,7 @@
               "application/json": {
                 "example": {
                   "id": "USR-001",
-                  "username": "admin1",
+                  "username": "admin",
                   "role": "admin",
                   "email": "admin@freshkart.com",
                   "companyId": "BIZ-101"
@@ -1796,12 +1796,12 @@
           "username": {
             "type": "string",
             "description": "User username",
-            "example": "admin1"
+            "example": "admin"
           },
           "password": {
             "type": "string",
             "description": "User password",
-            "example": "Admin@123"
+            "example": "admin123"
           }
         },
         "required": [
