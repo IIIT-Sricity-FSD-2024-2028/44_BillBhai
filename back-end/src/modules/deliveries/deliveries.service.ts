@@ -10,6 +10,9 @@ export interface Delivery {
   id: string;
   orderId: string;
   partnerName: string;
+  partnerPhone?: string | null;
+  partnerAgency?: string | null;
+  partnerVehicle?: string | null;
   dispatchDate: string | null;
   deliveryDate: string | null;
   status: string;
@@ -49,6 +52,9 @@ export class DeliveriesService {
       id: `DEL-${this.counter++}`,
       orderId: dto.orderId,
       partnerName: dto.partnerName ?? 'Unassigned',
+      partnerPhone: dto.partnerPhone ?? null,
+      partnerAgency: dto.partnerAgency ?? null,
+      partnerVehicle: dto.partnerVehicle ?? null,
       dispatchDate: dto.dispatchDate ?? null,
       deliveryDate: null,
       status: dto.partnerName ? 'Dispatched' : 'Pending',

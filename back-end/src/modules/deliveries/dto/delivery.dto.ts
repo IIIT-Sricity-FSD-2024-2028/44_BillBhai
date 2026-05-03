@@ -16,6 +16,33 @@ export class CreateDeliveryDto {
   partnerName?: string;
 
   @ApiProperty({
+    example: '+91 98111 22334',
+    description: 'Delivery partner phone number',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  partnerPhone?: string;
+
+  @ApiProperty({
+    example: 'SwiftDrop Logistics',
+    description: 'Delivery partner agency/team',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  partnerAgency?: string;
+
+  @ApiProperty({
+    example: 'Bike',
+    description: 'Delivery partner vehicle',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  partnerVehicle?: string;
+
+  @ApiProperty({
     example: '2026-02-20',
     description: 'Dispatch date',
     required: false,
@@ -34,6 +61,33 @@ export class UpdateDeliveryDto {
   @IsOptional()
   @IsString()
   partnerName?: string;
+
+  @ApiProperty({
+    example: '+91 98111 22334',
+    description: 'Delivery partner phone number',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  partnerPhone?: string;
+
+  @ApiProperty({
+    example: 'SwiftDrop Logistics',
+    description: 'Delivery partner agency/team',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  partnerAgency?: string;
+
+  @ApiProperty({
+    example: 'Bike',
+    description: 'Delivery partner vehicle',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  partnerVehicle?: string;
 
   @ApiProperty({
     example: '2026-02-20',

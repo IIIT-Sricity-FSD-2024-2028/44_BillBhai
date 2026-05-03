@@ -9,5 +9,8 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "live-server": "^1.2.2"
+  },
+  "overrides": {
+    "braces": "3.0.3"
   }
 }

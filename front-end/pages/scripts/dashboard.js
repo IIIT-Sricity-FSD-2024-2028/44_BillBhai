@@ -558,6 +558,51 @@ document.addEventListener('DOMContentLoaded', () => {
             || /not found/i.test(String(error && error.message || ''));
     }
 
+    async function resolveBackendReturnId(item) {
+        if (!item) throw new Error('Return item missing');
+        const currentId = String(item.id || '').trim();
+        const rows = await apiRequest('/returns', { role: 'returnhandler' });
+        const list = Array.isArray(rows) ? rows : [];
+
+        let match = currentId
+            ? list.find((row) => String(row && row.id || '').trim() === currentId)
+            : null;
+
+        if (!match) {
+            const orderId = String(item.oid || '').trim();
+            const reason = String(item.reason || '').trim().toLowerCase();
+            const product = String(item.product || '').trim().toLowerCase();
+            match = list.find((row) =>
+                String(row && row.orderId || '').trim() === orderId
+                && String(row && row.reason || '').trim().toLowerCase() === reason
+                && String(row && row.product || '').trim().toLowerCase() === product
+            );
+        }
+
+        if (!match || !match.id) {
+            throw new Error(`Return ${currentId || item.oid || ''} not found`);
+        }
+
+        item.id = String(match.id).trim();
+        return item.id;
+    }
+
+    async function resolveBackendDeliveryId(item) {
+        if (!item) throw new Error('Delivery item missing');
+        const orderId = String(item.orderId || item.oid || '').trim();
+        if (!orderId) throw new Error('Delivery order id missing');
+
+        const delivery = await apiRequest(`/deliveries/order/${encodeURIComponent(orderId)}`, {
+            role: 'deliveryops'
+        });
+        if (!delivery || !delivery.id) {
+            throw new Error(`Delivery for order ${orderId} not found`);
+        }
+
+        item.id = String(delivery.id).trim();
+        return item.id;
+    }
+
     function formatBackendDate(value) {
         if (!value) return formatDate();
         const parsed = new Date(value);
@@ -637,8 +682,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     : 0;
                 return {
                     id: String(order.id || '').trim(),
-                    customer: String((customer && customer.name) || order.customerId || 'Unknown Customer').trim(),
-                    items: itemCount,
+                    customer: String(order.customerName || (customer && customer.name) || order.customerId || 'Unknown Customer').trim(),
+                    items: Math.max(0, Number(order.itemsCount || itemCount || 0)),
                     total: Math.max(0, Number(order.total || 0)),
                     payment: String(order.paymentMethod || 'Pending').trim(),
                     status: String(order.status || 'Pending').trim(),
@@ -659,6 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     customer: String(customer.name || order.customerId || 'Unknown Customer').trim(),
                     address: String(customer.address || 'Address unavailable').trim(),
                     partner: String(delivery.partnerName || 'Unassigned').trim(),
+                    partnerPhone: String(delivery.partnerPhone || '').trim(),
+                    partnerAgency: String(delivery.partnerAgency || '').trim(),
+                    partnerVehicle: String(delivery.partnerVehicle || '').trim(),
+                    dispatchDate: String(delivery.dispatchDate || '').trim(),
+                    deliveryDate: String(delivery.deliveryDate || '').trim(),
                     status,
                     etaMin: status === 'In Transit' ? 20 : (status === 'Pending' ? 35 : 0),
                     updatedAt: formatBackendDate(updatedAtRaw || new Date().toISOString()),
@@ -695,12 +745,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 username: String(user.username || '').trim()
             }));
 
-            // Keep backend as source-of-truth for existing keys and only append local-only rows.
-            inventory = mergePrimaryWithSecondary(mappedInventory, inventory, 'sku');
-            orders = mergePrimaryWithSecondary(mappedOrders, orders, 'id');
-            deliveries = mergePrimaryWithSecondary(mappedDeliveries, deliveries, 'id');
-            returns = mergePrimaryWithSecondary(mappedReturns, returns, 'id');
-            users = mergePrimaryWithSecondary(mappedUsers, users, 'name');
+            // Backend-authoritative snapshot for operational modules.
+            inventory = cloneRows(mappedInventory);
+            orders = cloneRows(mappedOrders);
+            deliveries = cloneRows(mappedDeliveries);
+            returns = cloneRows(mappedReturns);
+            users = cloneRows(mappedUsers);
 
             if (Array.isArray(companiesData) && companiesData.length) {
                 const existingById = new Map(businesses.map((item) => [item.id, item]));
@@ -829,17 +879,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const defaultReturns = [
         { id: 'RET-221', oid: 'ORD-4820', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Pending', requestedBy: 'Walk-in', updatedAt: '17 Feb 13:55' },
-        { id: 'RET-220', oid: 'ORD-4818', product: 'Milk Pack', reason: 'Expired', amount: 58, qty: 1, status: 'Approved', requestedBy: 'POS Counter', updatedAt: '17 Feb 12:50' },
+        { id: 'RET-220', oid: 'ORD-4818', product: 'Milk Pack', reason: 'Expired', amount: 58, qty: 1, status: 'Pending', requestedBy: 'POS Counter', updatedAt: '17 Feb 12:50' },
         { id: 'RET-219', oid: 'ORD-4817', product: 'Refined Oil', reason: 'Wrong Item', amount: 170, qty: 1, status: 'Refunded', requestedBy: 'POS Counter', updatedAt: '17 Feb 12:15' },
         { id: 'RET-218', oid: 'ORD-4816', product: 'Basmati Rice', reason: 'Damaged', amount: 380, qty: 1, status: 'Rejected', requestedBy: 'Walk-in', updatedAt: '17 Feb 11:45' },
-        { id: 'RET-217', oid: 'ORD-4815', product: 'Soft Drink', reason: 'Stale', amount: 42, qty: 2, status: 'Approved', requestedBy: 'Komal Shah', updatedAt: '17 Feb 11:20' },
+        { id: 'RET-217', oid: 'ORD-4815', product: 'Soft Drink', reason: 'Stale', amount: 42, qty: 2, status: 'Pending', requestedBy: 'Komal Shah', updatedAt: '17 Feb 11:20' },
         { id: 'RET-216', oid: 'ORD-4814', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Pending', requestedBy: 'Walk-in', updatedAt: '17 Feb 10:50' },
         { id: 'RET-215', oid: 'ORD-4813', product: 'Toor Dal', reason: 'Wrong Item', amount: 120, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '17 Feb 10:25' },
         { id: 'RET-214', oid: 'ORD-4812', product: 'Milk Pack', reason: 'Expired', amount: 58, qty: 1, status: 'Pending', requestedBy: 'POS Counter', updatedAt: '17 Feb 10:05' },
-        { id: 'RET-213', oid: 'ORD-4811', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Approved', requestedBy: 'Komal Shah', updatedAt: '17 Feb 09:40' },
+        { id: 'RET-213', oid: 'ORD-4811', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Pending', requestedBy: 'Komal Shah', updatedAt: '17 Feb 09:40' },
         { id: 'RET-212', oid: 'ORD-4810', product: 'Milk Pack', reason: 'Stale', amount: 58, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '17 Feb 09:10' },
         { id: 'RET-211', oid: 'ORD-4809', product: 'Refined Oil', reason: 'Damaged', amount: 170, qty: 1, status: 'Rejected', requestedBy: 'Walk-in', updatedAt: '17 Feb 08:55' },
-        { id: 'RET-210', oid: 'ORD-4808', product: 'Basmati Rice', reason: 'Wrong Item', amount: 380, qty: 1, status: 'Approved', requestedBy: 'POS Counter', updatedAt: '16 Feb 18:20' },
+        { id: 'RET-210', oid: 'ORD-4808', product: 'Basmati Rice', reason: 'Wrong Item', amount: 380, qty: 1, status: 'Pending', requestedBy: 'POS Counter', updatedAt: '16 Feb 18:20' },
         { id: 'RET-209', oid: 'ORD-4807', product: 'Toor Dal', reason: 'Damaged', amount: 120, qty: 1, status: 'Pending', requestedBy: 'Walk-in', updatedAt: '16 Feb 17:35' },
         { id: 'RET-208', oid: 'ORD-4806', product: 'Soft Drink', reason: 'Expired', amount: 42, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '16 Feb 16:10' }
     ];
@@ -1128,14 +1178,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const seedReturns = [
             { id: `RET-${seedNum + 1}`, oid: seedOrders[1].id, product: seedInventory[2].name, sku: seedInventory[2].sku, cat: seedInventory[2].cat, reason: 'Damaged', amount: seedInventory[2].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 16:18' },
-            { id: `RET-${seedNum + 2}`, oid: seedOrders[2].id, product: seedInventory[5].name, sku: seedInventory[5].sku, cat: seedInventory[5].cat, reason: 'Expired', amount: seedInventory[5].price, qty: 1, status: 'Approved', requestedBy: cashierName, updatedAt: '17 Feb 15:42' },
+            { id: `RET-${seedNum + 2}`, oid: seedOrders[2].id, product: seedInventory[5].name, sku: seedInventory[5].sku, cat: seedInventory[5].cat, reason: 'Expired', amount: seedInventory[5].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 15:42' },
             { id: `RET-${seedNum + 3}`, oid: seedOrders[4].id, product: seedInventory[2].name, sku: seedInventory[2].sku, cat: seedInventory[2].cat, reason: 'Wrong Item', amount: seedInventory[2].price, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '17 Feb 15:10' },
             { id: `RET-${seedNum + 4}`, oid: seedOrders[5].id, product: seedInventory[11].name, sku: seedInventory[11].sku, cat: seedInventory[11].cat, reason: 'Leaking Bottle', amount: seedInventory[11].price * 2, qty: 2, status: 'Pending', requestedBy: returnLead, updatedAt: '17 Feb 14:58' },
             { id: `RET-${seedNum + 5}`, oid: seedOrders[6].id, product: seedInventory[1].name, sku: seedInventory[1].sku, cat: seedInventory[1].cat, reason: 'Wrong Item', amount: seedInventory[1].price, qty: 1, status: 'Rejected', requestedBy: 'Walk-in', updatedAt: '17 Feb 14:26' },
-            { id: `RET-${seedNum + 6}`, oid: seedOrders[7].id, product: seedInventory[3].name, sku: seedInventory[3].sku, cat: seedInventory[3].cat, reason: 'Damaged', amount: seedInventory[3].price, qty: 1, status: 'Approved', requestedBy: cashierName, updatedAt: '17 Feb 14:02' },
+            { id: `RET-${seedNum + 6}`, oid: seedOrders[7].id, product: seedInventory[3].name, sku: seedInventory[3].sku, cat: seedInventory[3].cat, reason: 'Damaged', amount: seedInventory[3].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 14:02' },
             { id: `RET-${seedNum + 7}`, oid: seedOrders[8].id, product: seedInventory[7].name, sku: seedInventory[7].sku, cat: seedInventory[7].cat, reason: 'Stale', amount: seedInventory[7].price, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '17 Feb 13:44' },
             { id: `RET-${seedNum + 8}`, oid: seedOrders[9].id, product: seedInventory[8].name, sku: seedInventory[8].sku, cat: seedInventory[8].cat, reason: 'Crushed Pack', amount: seedInventory[8].price * 3, qty: 3, status: 'Pending', requestedBy: returnLead, updatedAt: '17 Feb 13:18' },
-            { id: `RET-${seedNum + 9}`, oid: seedOrders[10].id, product: seedInventory[13].name, sku: seedInventory[13].sku, cat: seedInventory[13].cat, reason: 'Torn Pack', amount: seedInventory[13].price, qty: 1, status: 'Approved', requestedBy: cashierName, updatedAt: '17 Feb 12:34' },
+            { id: `RET-${seedNum + 9}`, oid: seedOrders[10].id, product: seedInventory[13].name, sku: seedInventory[13].sku, cat: seedInventory[13].cat, reason: 'Torn Pack', amount: seedInventory[13].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 12:34' },
             { id: `RET-${seedNum + 10}`, oid: seedOrders[11].id, product: seedInventory[10].name, sku: seedInventory[10].sku, cat: seedInventory[10].cat, reason: 'Expired', amount: seedInventory[10].price, qty: 1, status: 'Refunded', requestedBy: 'Walk-in', updatedAt: '16 Feb 18:48' }
         ];
 
@@ -1341,8 +1391,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function hydrateDataFromJsonFiles() {
+        const scopedCompanyId = String(activeBusinessId || '').trim();
         const [
-            jsonOrdersRaw,
+            backendOrdersRaw,
             jsonInventoryRaw,
             jsonDeliveriesRaw,
             jsonReturnsRaw,
@@ -1350,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
             jsonBusinessesRaw,
             jsonBusinessData
         ] = await Promise.all([
-            loadJsonArray('data/orders.json', defaultOrders),
+            apiRequest(scopedCompanyId ? `/orders?companyId=${encodeURIComponent(scopedCompanyId)}` : '/orders', { role: 'cashier' }).catch(() => defaultOrders),
             loadJsonArray('data/inventory.json', defaultInventory),
             loadJsonArray('data/deliveries.json', defaultDeliveries),
             loadJsonArray('data/returns.json', defaultReturns),
@@ -1359,7 +1410,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadJsonObject('data/business_data.json', {})
         ]);
 
-        const jsonOrders = mergeSeedRecords(jsonOrdersRaw, defaultOrders, 'id');
+        const jsonOrders = mergeSeedRecords(Array.isArray(backendOrdersRaw) ? backendOrdersRaw : defaultOrders, defaultOrders, 'id');
         const jsonInventory = mergeSeedRecords(jsonInventoryRaw, defaultInventory, 'sku');
         const jsonDeliveries = mergeSeedRecords(jsonDeliveriesRaw, defaultDeliveries, 'id');
         const jsonReturns = mergeSeedRecords(jsonReturnsRaw, defaultReturns, 'id');
@@ -2655,7 +2706,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const product = String(r.product || '').trim() || '-';
             const qty = Number.isFinite(Number(r.qty)) ? Math.max(1, Number(r.qty)) : null;
             const amount = Number.isFinite(Number(r.amount)) ? Math.max(0, Number(r.amount)) : 0;
-            const status = String(r.status || 'Pending').trim() || 'Pending';
+            const rawStatus = String(r.status || 'Pending').trim() || 'Pending';
+            const status = /approve/i.test(rawStatus) ? 'Pending' : rawStatus;
             const reason = String(r.reason || 'Unknown').trim() || 'Unknown';
             const requestedBy = String(r.requestedBy || '').trim() || '-';
             const updatedAt = String(r.updatedAt || '-').trim() || '-';
@@ -2897,18 +2949,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const actionBtn = (label, onClick, extraStyles) => `<button class="btn btn-outline" data-action="delivery" style="padding: 4px 8px; font-size: 0.75rem; ${extraStyles || ''}" onclick="${onClick}">${label}</button>`;
         const actionsFor = (item) => {
-            if (item.status === 'Delivered') return '<span class="text-muted text-sm">Closed</span>';
-            if (item.status === 'Failed') {
-                return [
-                    actionBtn('Retry', `window.retryDelivery('${item.id}')`, 'margin-right:4px;'),
-                    actionBtn('Assign', `window.assignDeliveryPartner('${item.id}')`, '')
-                ].join('');
+            const actions = [actionBtn('Assign Delivery', `window.assignDeliveryPartner('${item.id}')`, 'margin-right: 4px;')];
+            const normalizedStatus = normalizeDeliveryStatus(item.status);
+            if (normalizedStatus !== 'Delivered') {
+                actions.push(actionBtn('Edit', `window.editDelivery('${item.id}')`, ''));
             }
-            return [
-                actionBtn('Assign', `window.assignDeliveryPartner('${item.id}')`, 'margin-right:4px;'),
-                actionBtn('Mark Delivered', `window.markDeliveryDelivered('${item.id}')`, 'margin-right:4px;'),
-                actionBtn('Mark Failed', `window.markDeliveryFailed('${item.id}')`, 'color: var(--red); border-color: var(--red);')
-            ].join('');
+            return actions.join('');
         };
         const externalFor = (item) => item.partnerPhoneHref
             ? `<a class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" href="${item.partnerPhoneHref}">Call Partner</a>`
@@ -2918,12 +2964,15 @@ document.addEventListener('DOMContentLoaded', () => {
             .map(d => {
                 const updated = d.updatedAt === '-' ? '&mdash;' : d.updatedAt;
                 const eta = d.etaMin === null ? '&mdash;' : `${Math.max(0, Math.round(d.etaMin))} min`;
+                const partnerPhone = d.partnerPhoneHref
+                    ? `<a href="${d.partnerPhoneHref}" style="color:var(--accent); text-decoration:none;">${d.partnerPhone}</a>`
+                    : d.partnerPhone;
                 return `<tr>
                     <td class="cell-main">${d.id}</td>
                     <td>${d.oid}</td>
                     <td>${d.customer}</td>
                     <td>${d.address}</td>
-                    <td>${d.partner}<div class="text-sm text-muted">${d.partnerAgency} • ${d.partnerPhone}</div></td>
+                    <td>${d.partner}<div class="text-sm text-muted">${d.partnerAgency} &bull; ${partnerPhone}</div></td>
                     <td>${eta}</td>
                     <td>${deliveryBadge(d.status)}</td>
                     <td>${updated}</td>
@@ -3034,12 +3083,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const s = String(r.status || '').toLowerCase();
             acc.total += 1;
             if (s.includes('refund')) acc.refunded += 1;
-            else if (s.includes('approve')) acc.approved += 1;
             else if (s.includes('reject')) acc.rejected += 1;
             else acc.pending += 1;
             acc.valueRefunded += s.includes('refund') ? Number(r.amount || 0) : 0;
             return acc;
-        }, { total: 0, pending: 0, approved: 0, refunded: 0, rejected: 0, valueRefunded: 0 });
+        }, { total: 0, pending: 0, refunded: 0, rejected: 0, valueRefunded: 0 });
 
         const productCounts = new Map();
         view.forEach(r => {
@@ -3090,7 +3138,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="stat-info">
                     <span class="stat-label">Pending</span>
                     <span class="stat-value">${counts.pending}</span>
-                    <div class="text-sm text-muted" style="margin-top:6px;">Approved ${counts.approved} &bull; Rejected ${counts.rejected}</div>
+                    <div class="text-sm text-muted" style="margin-top:6px;">Rejected ${counts.rejected}</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -3401,20 +3449,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function actionsFor(item) {
             const btn = (label, onClick, extraStyles) => `<button class="btn btn-outline" data-action="delivery" style="padding: 4px 8px; font-size: 0.75rem; ${extraStyles || ''}" onclick="${onClick}">${label}</button>`;
-
-            if (item.status === 'Delivered') return '<span class="text-muted text-sm">Closed</span>';
-            if (item.status === 'Failed') {
-                return [
-                    btn('Retry', `window.retryDelivery('${item.id}')`, 'margin-right:4px;'),
-                    btn('Assign', `window.assignDeliveryPartner('${item.id}')`, '')
-                ].join('');
+            const actions = [btn('Assign Delivery', `window.assignDeliveryPartner('${item.id}')`, 'margin-right: 4px;')];
+            const normalizedStatus = normalizeDeliveryStatus(item.status);
+            if (normalizedStatus !== 'Delivered') {
+                actions.push(btn('Edit', `window.editDelivery('${item.id}')`, ''));
             }
-
-            return [
-                btn('Assign', `window.assignDeliveryPartner('${item.id}')`, 'margin-right:4px;'),
-                btn('Mark Delivered', `window.markDeliveryDelivered('${item.id}')`, 'margin-right:4px;'),
-                btn('Mark Failed', `window.markDeliveryFailed('${item.id}')`, 'color: var(--red); border-color: var(--red);')
-            ].join('');
+            return actions.join('');
         }
 
         function externalActionsFor(item) {
@@ -3441,12 +3481,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 .map(d => {
                     const updated = d.updatedAt === '-' ? '&mdash;' : d.updatedAt;
                     const eta = d.etaMin === null ? '&mdash;' : `${Math.max(0, Math.round(d.etaMin))} min`;
+                    const partnerPhone = d.partnerPhoneHref
+                        ? `<a href="${d.partnerPhoneHref}" style="color:var(--accent); text-decoration:none;">${d.partnerPhone}</a>`
+                        : d.partnerPhone;
                     return `<tr>
                         <td class="cell-main">${d.id}</td>
                         <td>${d.oid}</td>
                         <td>${d.customer}</td>
                         <td>${d.address}</td>
-                        <td>${d.partner}<div class="text-sm text-muted">${d.partnerAgency} • ${d.partnerPhone}</div></td>
+                        <td>${d.partner}<div class="text-sm text-muted">${d.partnerAgency} &bull; ${partnerPhone}</div></td>
                         <td>${eta}</td>
                         <td>${deliveryBadge(d.status)}</td>
                         <td>${updated}</td>
@@ -3490,7 +3533,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </section>
         <section class="card"><div class="card-bd">${table(
             ['ID', 'Order', 'Reason', 'Amount', 'Status', 'Requested By', 'Updated', 'Actions'],
-            returns.map(r => `<tr><td class="cell-main">${r.id}</td><td>${r.oid}</td><td>${r.reason}</td><td>₹${r.amount}</td><td>${statusBadge(r.status)}</td><td>${r.requestedBy || '-'}</td><td>${r.updatedAt || '-'}</td><td><button class="btn btn-outline" data-action="returns" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.approveReturn('${r.id}')">Approve</button><button class="btn btn-outline" data-action="returns" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.refundReturn('${r.id}')">Refund</button><button class="btn btn-outline" data-action="returns" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.rejectReturn('${r.id}')">Reject</button></td></tr>`).join('')
+            returns.map(r => `<tr><td class="cell-main">${r.id}</td><td>${r.oid}</td><td>${r.reason}</td><td>₹${r.amount}</td><td>${statusBadge(r.status)}</td><td>${r.requestedBy || '-'}</td><td>${r.updatedAt || '-'}</td><td><button class="btn btn-outline" data-action="returns" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.refundReturn('${r.id}')">Refund</button><button class="btn btn-outline" data-action="returns" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.rejectReturn('${r.id}')">Reject</button></td></tr>`).join('')
         )}</div></section>`;
         setTimeout(initReturnCharts, 0);
         const raiseBtn = document.getElementById('raiseReturnBtnDyn');
@@ -3504,14 +3547,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const s = String(r.status || '').toLowerCase();
             acc.total += 1;
             if (s.includes('refund')) acc.refunded += 1;
-            else if (s.includes('approve')) acc.approved += 1;
             else if (s.includes('reject')) acc.rejected += 1;
             else acc.pending += 1;
             acc.valueTotal += Number(r.amount || 0);
             if (s.includes('refund')) acc.valueRefunded += Number(r.amount || 0);
             if (!s.includes('refund') && !s.includes('reject')) acc.valueAtRisk += Number(r.amount || 0);
             return acc;
-        }, { total: 0, pending: 0, approved: 0, refunded: 0, rejected: 0, valueTotal: 0, valueRefunded: 0, valueAtRisk: 0 });
+        }, { total: 0, pending: 0, refunded: 0, rejected: 0, valueTotal: 0, valueRefunded: 0, valueAtRisk: 0 });
 
         const productCounts = new Map();
         view.forEach(r => {
@@ -3547,8 +3589,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="stat-info">
                     <span class="stat-label">Pending / Open</span>
-                    <span class="stat-value">${counts.pending + counts.approved}</span>
-                    <div class="text-sm text-muted" style="margin-top:6px;">Pending ${counts.pending} &bull; Approved ${counts.approved}</div>
+                    <span class="stat-value">${counts.pending}</span>
+                    <div class="text-sm text-muted" style="margin-top:6px;">Pending ${counts.pending} &bull; Rejected ${counts.rejected}</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -3585,7 +3627,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="chart-tabs" id="returnsFilters">
                         <button class="chart-tab active" type="button" data-filter="all">All</button>
                         <button class="chart-tab" type="button" data-filter="pending">Pending</button>
-                        <button class="chart-tab" type="button" data-filter="approved">Approved</button>
                         <button class="chart-tab" type="button" data-filter="refunded">Refunded</button>
                         <button class="chart-tab" type="button" data-filter="rejected">Rejected</button>
                     </div>
@@ -3631,8 +3672,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function matchesFilter(item, filter) {
             const s = String(item.status || '').toLowerCase();
             if (filter === 'all') return true;
-            if (filter === 'pending') return !s.includes('approve') && !s.includes('refund') && !s.includes('reject');
-            if (filter === 'approved') return s.includes('approve');
+            if (filter === 'pending') return !s.includes('refund') && !s.includes('reject');
             if (filter === 'refunded') return s.includes('refund');
             if (filter === 'rejected') return s.includes('reject');
             return true;
@@ -3641,18 +3681,11 @@ document.addEventListener('DOMContentLoaded', () => {
         function actionsFor(item) {
             const btn = (label, onClick, extraStyles) => `<button class="btn btn-outline" data-action="returns" style="padding: 4px 8px; font-size: 0.75rem; ${extraStyles || ''}" onclick="${onClick}">${label}</button>`;
             const s = String(item.status || '').toLowerCase();
-
-            if (s.includes('refund') || s.includes('reject')) return '<span class="text-muted text-sm">Closed</span>';
-            if (s.includes('approve')) {
-                return [
-                    btn('Refund', `window.refundReturn('${item.id}')`, 'margin-right:4px;'),
-                    btn('Reject', `window.rejectReturn('${item.id}')`, 'color: var(--red); border-color: var(--red);')
-                ].join('');
+            if (s.includes('refund') || s.includes('reject')) {
+                return btn('Edit', `window.editReturn('${item.id}')`, '');
             }
-
             return [
-                btn('Approve', `window.approveReturn('${item.id}')`, 'margin-right:4px;'),
-                btn('Refund', `window.refundReturn('${item.id}')`, 'margin-right:4px;'),
+                btn('Refund', `window.refundReturn('${item.id}')`, 'margin-right: 4px;'),
                 btn('Reject', `window.rejectReturn('${item.id}')`, 'color: var(--red); border-color: var(--red);')
             ].join('');
         }
@@ -5065,7 +5098,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const view = getReturnView();
         const reasonCounts = new Map();
         const productCounts = new Map();
-        const statusCounts = { pending: 0, approved: 0, refunded: 0, rejected: 0 };
+        const statusCounts = { pending: 0, refunded: 0, rejected: 0 };
 
         view.forEach(r => {
             const reason = String(r.reason || '').trim() || 'Unknown';
@@ -5076,7 +5109,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const s = String(r.status || '').toLowerCase();
             if (s.includes('refund')) statusCounts.refunded += 1;
-            else if (s.includes('approve')) statusCounts.approved += 1;
             else if (s.includes('reject')) statusCounts.rejected += 1;
             else statusCounts.pending += 1;
         });
@@ -5116,10 +5148,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         createChart('retStatusChart', 'doughnut', {
-            labels: ['Pending', 'Approved', 'Refunded', 'Rejected'],
+            labels: ['Pending', 'Refunded', 'Rejected'],
             datasets: [{
-                data: [statusCounts.pending, statusCounts.approved, statusCounts.refunded, statusCounts.rejected],
-                backgroundColor: [c.amber, c.purple, c.green, c.red],
+                data: [statusCounts.pending, statusCounts.refunded, statusCounts.rejected],
+                backgroundColor: [c.amber, c.green, c.red],
                 borderWidth: 0
             }]
         }, { plugins: { legend: { position: 'right', labels: { color: c.text } } } });
@@ -5759,14 +5791,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             if (existingOrder && existingOrder.id) {
-                await apiRequest(`/orders/${encodeURIComponent(String(existingOrder.id))}`, {
+                const backendOrder = await apiRequest(`/orders/${encodeURIComponent(String(existingOrder.id))}`, {
                     method: 'PUT',
                     role: 'cashier',
                     body: {
                         status: oData.status,
-                        paymentMethod: oData.payment
+                        paymentMethod: oData.payment,
+                        customerName: oData.customer,
+                        itemsCount: totalItems,
+                        total: totalValue
                     }
                 });
+
+                if (backendOrder && typeof backendOrder === 'object') {
+                    oData.customer = String(backendOrder.customerName || oData.customer).trim();
+                    oData.items = Math.max(0, Number(backendOrder.itemsCount || oData.items || totalItems));
+                    oData.total = Math.max(0, Number(backendOrder.total || oData.total));
+                    oData.payment = String(backendOrder.paymentMethod || oData.payment).trim();
+                    oData.status = String(backendOrder.status || oData.status).trim();
+                    oData.date = backendOrder.orderDate ? formatBackendDate(backendOrder.orderDate) : oData.date;
+                }
             } else {
                 const customerRows = await apiRequest(`/customers?companyId=${encodeURIComponent(activeCompanyId)}`, {
                     role: 'cashier'
@@ -6394,27 +6438,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    window.approveReturn = async function(id) {
+    window.editReturn = function(id) {
         if (!hasActionAccess('returns')) {
-            denyAction('Return approve');
+            denyAction('Return edit');
             return;
         }
         const item = returns.find(r => r.id === id);
         if (!item) return;
-        try {
-            await apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
-                method: 'PUT',
-                role: 'returnhandler',
-                body: { status: 'Approved' }
-            });
-            item.status = 'Approved';
-            item.updatedAt = formatDate();
-            persistOperationalData();
-            renderPage('returns');
-            showToast(`Return ${id} approved.`);
-        } catch (error) {
-            showMutationError('Return approval', error);
-        }
+
+        openQuickFormModal({
+            title: `Edit Return - ${id}`,
+            submitLabel: 'Save',
+            fields: [
+                { name: 'status', label: 'Status', type: 'select', required: true, options: ['Pending', 'Under Review', 'Refunded', 'Rejected'] },
+                { name: 'reason', label: 'Reason', type: 'text', required: true, placeholder: 'Damaged / Wrong Item / ...' },
+                { name: 'amount', label: 'Refund Amount', type: 'number', required: true, min: 0, step: 0.01 }
+            ],
+            initialValues: {
+                status: String(item.status || 'Pending').trim() || 'Pending',
+                reason: String(item.reason || '').trim(),
+                amount: Number.isFinite(Number(item.amount)) ? Number(item.amount) : 0
+            },
+            onSubmit: async (values, closeModal) => {
+                const payload = {
+                    status: String(values.status || 'Pending').trim() || 'Pending',
+                    reason: String(values.reason || '').trim(),
+                    refundAmount: Math.max(0, Number(values.amount) || 0)
+                };
+                try {
+                    try {
+                        await apiRequest(`/returns/${encodeURIComponent(String(item.id))}`, {
+                            method: 'PUT',
+                            role: 'returnhandler',
+                            body: payload
+                        });
+                    } catch (error) {
+                        if (!isNotFoundError(error)) throw error;
+                        const resolvedId = await resolveBackendReturnId(item);
+                        await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
+                            method: 'PUT',
+                            role: 'returnhandler',
+                            body: payload
+                        });
+                    }
+
+                    item.status = payload.status;
+                    item.reason = payload.reason;
+                    item.amount = payload.refundAmount;
+                    item.updatedAt = formatDate();
+                    persistOperationalData();
+                    renderPage('returns');
+                    closeModal();
+                    showToast(`Return ${id} updated.`);
+                } catch (error) {
+                    showMutationError('Return update', error);
+                }
+            }
+        });
+    };
+
+    window.approveReturn = function(id) {
+        window.editReturn(id);
     };
 
     window.refundReturn = async function(id) {
@@ -6425,11 +6509,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = returns.find(r => r.id === id);
         if (!item) return;
         try {
-            await apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
-                method: 'PUT',
-                role: 'returnhandler',
-                body: { status: 'Refunded' }
-            });
+            try {
+                await apiRequest(`/returns/${encodeURIComponent(String(item.id))}`, {
+                    method: 'PUT',
+                    role: 'returnhandler',
+                    body: { status: 'Refunded' }
+                });
+            } catch (error) {
+                if (!isNotFoundError(error)) throw error;
+                const resolvedId = await resolveBackendReturnId(item);
+                await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
+                    method: 'PUT',
+                    role: 'returnhandler',
+                    body: { status: 'Refunded' }
+                });
+            }
             item.status = 'Refunded';
             item.updatedAt = formatDate();
             persistOperationalData();
@@ -6448,11 +6542,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = returns.find(r => r.id === id);
         if (!item) return;
         try {
-            await apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
-                method: 'PUT',
-                role: 'returnhandler',
-                body: { status: 'Rejected' }
-            });
+            try {
+                await apiRequest(`/returns/${encodeURIComponent(String(item.id))}`, {
+                    method: 'PUT',
+                    role: 'returnhandler',
+                    body: { status: 'Rejected' }
+                });
+            } catch (error) {
+                if (!isNotFoundError(error)) throw error;
+                const resolvedId = await resolveBackendReturnId(item);
+                await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
+                    method: 'PUT',
+                    role: 'returnhandler',
+                    body: { status: 'Rejected' }
+                });
+            }
             item.status = 'Rejected';
             item.updatedAt = formatDate();
             persistOperationalData();
@@ -6463,59 +6567,98 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.assignDeliveryPartner = function(id) {
+    window.editDelivery = function(id) {
         if (!hasActionAccess('delivery')) {
-            denyAction('Delivery assignment');
+            denyAction('Delivery edit');
             return;
         }
         const item = deliveries.find(d => d.id === id);
         if (!item) return;
         openQuickFormModal({
-            title: `Assign Partner - ${id}`,
-            submitLabel: 'Assign',
+            title: `Edit Delivery - ${id}`,
+            submitLabel: 'Save',
             fields: [
-                { name: 'partner', label: 'Delivery Partner', type: 'text', required: true },
+                { name: 'status', label: 'Status', type: 'select', required: true, options: ['Pending', 'Dispatched', 'In Transit', 'Delivered', 'Failed'] },
+                { name: 'partner', label: 'Delivery Partner', type: 'text', required: false, placeholder: 'Unassigned' },
                 { name: 'partnerPhone', label: 'Partner Phone', type: 'text', required: false, placeholder: '+91 98xxxxxx' },
                 { name: 'partnerAgency', label: 'Agency / Team', type: 'text', required: false, placeholder: 'External delivery partner' },
-                { name: 'partnerVehicle', label: 'Vehicle', type: 'text', required: false, placeholder: 'Bike' }
+                { name: 'partnerVehicle', label: 'Vehicle', type: 'text', required: false, placeholder: 'Bike' },
+                { name: 'etaMin', label: 'ETA Minutes', type: 'number', required: false, min: 0, step: 1 }
             ],
             initialValues: {
+                status: normalizeDeliveryStatus(item.status),
                 partner: item.partner || '',
                 partnerPhone: item.partnerPhone || '',
                 partnerAgency: item.partnerAgency || '',
-                partnerVehicle: item.partnerVehicle || ''
+                partnerVehicle: item.partnerVehicle || '',
+                etaMin: Number.isFinite(Number(item.etaMin)) ? Math.max(0, Number(item.etaMin)) : ''
             },
             onSubmit: async (values, closeModal) => {
-                const partner = String(values.partner).trim();
+                const status = String(values.status || 'Pending').trim() || 'Pending';
+                const partner = String(values.partner || '').trim();
+                const partnerName = partner || 'Unassigned';
                 const partnerPhone = String(values.partnerPhone || '').trim();
                 const partnerAgency = String(values.partnerAgency || '').trim();
                 const partnerVehicle = String(values.partnerVehicle || '').trim();
+                const etaMin = values.etaMin === '' ? null : Math.max(0, Number(values.etaMin) || 0);
+                const payload = {
+                    partnerName,
+                    partnerPhone,
+                    partnerAgency,
+                    partnerVehicle,
+                    status
+                };
+                if ((status === 'In Transit' || status === 'Dispatched') && !item.dispatchDate) {
+                    payload.dispatchDate = new Date().toISOString().slice(0, 10);
+                }
+                if (status === 'Delivered') {
+                    payload.deliveryDate = new Date().toISOString().slice(0, 10);
+                }
                 try {
-                    await apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
-                        method: 'PUT',
-                        role: 'deliveryops',
-                        body: {
-                            partnerName: partner,
-                            dispatchDate: new Date().toISOString().slice(0, 10),
-                            status: 'In Transit'
-                        }
-                    });
-                    item.partner = partner;
+                    try {
+                        await apiRequest(`/deliveries/${encodeURIComponent(String(item.id || id))}`, {
+                            method: 'PUT',
+                            role: 'deliveryops',
+                            body: payload
+                        });
+                    } catch (error) {
+                        if (!isNotFoundError(error)) throw error;
+                        const resolvedId = await resolveBackendDeliveryId(item);
+                        await apiRequest(`/deliveries/${encodeURIComponent(String(resolvedId))}`, {
+                            method: 'PUT',
+                            role: 'deliveryops',
+                            body: payload
+                        });
+                    }
+                    item.partner = partnerName;
                     item.partnerPhone = partnerPhone;
                     item.partnerAgency = partnerAgency;
                     item.partnerVehicle = partnerVehicle;
-                    if (normalizeDeliveryStatus(item.status) !== 'Delivered') item.status = 'In Transit';
+                    item.status = status;
+                    if (payload.dispatchDate) item.dispatchDate = payload.dispatchDate;
+                    if (payload.deliveryDate) item.deliveryDate = payload.deliveryDate;
+                    if (etaMin !== null) {
+                        item.etaMin = etaMin;
+                    } else if (status === 'Delivered' || status === 'Failed') {
+                        item.etaMin = 0;
+                    } else if (status === 'Pending') {
+                        item.etaMin = 35;
+                    }
                     item.updatedAt = formatDate();
                     item.time = item.updatedAt.split(' ').slice(-1)[0];
                     persistOperationalData();
                     renderPage(currentPage);
                     closeModal();
-                    showToast(`Partner assigned for ${id}.`);
+                    showToast(`Delivery ${id} updated.`);
                 } catch (error) {
-                    showMutationError('Delivery assignment', error);
+                    showMutationError('Delivery update', error);
                 }
             }
         });
+    };
+
+    window.assignDeliveryPartner = function(id) {
+        window.editDelivery(id);
     };
 
     window.markDeliveryDelivered = async function(id) {
@@ -6526,14 +6669,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = deliveries.find(d => d.id === id);
         if (!item) return;
         try {
-            await apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
-                method: 'PUT',
-                role: 'deliveryops',
-                body: {
-                    status: 'Delivered',
-                    deliveryDate: new Date().toISOString().slice(0, 10)
-                }
-            });
+            try {
+                await apiRequest(`/deliveries/${encodeURIComponent(String(item.id || id))}`, {
+                    method: 'PUT',
+                    role: 'deliveryops',
+                    body: {
+                        status: 'Delivered',
+                        deliveryDate: new Date().toISOString().slice(0, 10)
+                    }
+                });
+            } catch (error) {
+                if (!isNotFoundError(error)) throw error;
+                const resolvedId = await resolveBackendDeliveryId(item);
+                await apiRequest(`/deliveries/${encodeURIComponent(String(resolvedId))}`, {
+                    method: 'PUT',
+                    role: 'deliveryops',
+                    body: {
+                        status: 'Delivered',
+                        deliveryDate: new Date().toISOString().slice(0, 10)
+                    }
+                });
+            }
             item.status = 'Delivered';
             item.updatedAt = formatDate();
             item.time = item.updatedAt.split(' ').slice(-1)[0];
@@ -6555,11 +6711,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!item) return;
         if (normalizeDeliveryStatus(item.status) === 'Delivered') return;
         try {
-            await apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
-                method: 'PUT',
-                role: 'deliveryops',
-                body: { status: 'Failed' }
-            });
+            try {
+                await apiRequest(`/deliveries/${encodeURIComponent(String(item.id || id))}`, {
+                    method: 'PUT',
+                    role: 'deliveryops',
+                    body: { status: 'Failed' }
+                });
+            } catch (error) {
+                if (!isNotFoundError(error)) throw error;
+                const resolvedId = await resolveBackendDeliveryId(item);
+                await apiRequest(`/deliveries/${encodeURIComponent(String(resolvedId))}`, {
+                    method: 'PUT',
+                    role: 'deliveryops',
+                    body: { status: 'Failed' }
+                });
+            }
             item.status = 'Failed';
             item.updatedAt = formatDate();
             item.time = item.updatedAt.split(' ').slice(-1)[0];
@@ -6580,14 +6746,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = deliveries.find(d => d.id === id);
         if (!item) return;
         try {
-            await apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
-                method: 'PUT',
-                role: 'deliveryops',
-                body: {
-                    status: 'Pending',
-                    partnerName: 'Unassigned'
-                }
-            });
+            try {
+                await apiRequest(`/deliveries/${encodeURIComponent(String(item.id || id))}`, {
+                    method: 'PUT',
+                    role: 'deliveryops',
+                    body: {
+                        status: 'Pending',
+                        partnerName: 'Unassigned'
+                    }
+                });
+            } catch (error) {
+                if (!isNotFoundError(error)) throw error;
+                const resolvedId = await resolveBackendDeliveryId(item);
+                await apiRequest(`/deliveries/${encodeURIComponent(String(resolvedId))}`, {
+                    method: 'PUT',
+                    role: 'deliveryops',
+                    body: {
+                        status: 'Pending',
+                        partnerName: 'Unassigned'
+                    }
+                });
+            }
             item.status = 'Pending';
             item.partner = '';
             item.partnerPhone = '';

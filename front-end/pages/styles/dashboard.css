@@ -48,7 +48,9 @@
 html {
     font-size: 110%;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale
+    -moz-osx-font-smoothing: grayscale;
+    scrollbar-color: rgba(220, 53, 69, 0.75) rgba(255, 255, 255, 0.06);
+    scrollbar-width: thin
 }
 
 body {
@@ -58,6 +60,36 @@ body {
     display: flex;
     min-height: 100vh;
     transition: background var(--t), color var(--t)
+}
+
+body::-webkit-scrollbar,
+.sidebar-nav::-webkit-scrollbar,
+.tbl-wrap::-webkit-scrollbar {
+    width: 10px;
+    height: 10px
+}
+
+body::-webkit-scrollbar-track,
+.sidebar-nav::-webkit-scrollbar-track,
+.tbl-wrap::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px
+}
+
+body::-webkit-scrollbar-thumb,
+.sidebar-nav::-webkit-scrollbar-thumb,
+.tbl-wrap::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(232, 93, 106, 0.9), rgba(220, 53, 69, 0.9));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box
+}
+
+body::-webkit-scrollbar-thumb:hover,
+.sidebar-nav::-webkit-scrollbar-thumb:hover,
+.tbl-wrap::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(255, 159, 10, 0.95), rgba(220, 53, 69, 0.95));
+    background-clip: padding-box
 }
 
 /* Ensure the HTML `hidden` attribute always hides elements (used for role-based nav). */
@@ -382,9 +414,15 @@ body.no-sidebar-layout .menu-toggle {
     border-radius: var(--radius-sm);
     padding: 10px 12px;
     color: var(--text-primary);
+    color-scheme: dark;
     font-family: var(--font);
     font-size: 0.86rem;
     transition: border-color var(--t), box-shadow var(--t)
+}
+
+.toolbar-select option {
+    background: var(--bg-card-solid);
+    color: var(--text-primary);
 }
 
 .toolbar-select:focus {
@@ -889,7 +927,9 @@ body.no-sidebar-layout .menu-toggle {
 }
 
 .tbl-wrap {
-    overflow-x: auto
+    overflow-x: auto;
+    scrollbar-color: rgba(220, 53, 69, 0.75) rgba(255, 255, 255, 0.06);
+    scrollbar-width: thin
 }
 
 table.dt {

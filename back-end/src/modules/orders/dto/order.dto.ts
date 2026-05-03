@@ -79,6 +79,37 @@ export class CreateOrderDto {
 
 export class UpdateOrderDto {
   @ApiProperty({
+    example: 'Rahul Sharma',
+    description: 'Editable customer display name',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Editable item count shown in the orders table',
+    minimum: 0,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  itemsCount?: number;
+
+  @ApiProperty({
+    example: 1250,
+    description: 'Editable order total shown in the orders table',
+    minimum: 0,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  total?: number;
+
+  @ApiProperty({
     enum: ['Pending', 'Processing', 'Delivered', 'Cancelled'],
     description: 'Order status',
     required: false,

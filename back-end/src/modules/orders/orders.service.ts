@@ -41,20 +41,33 @@ export class OrdersService {
 
   // ── Orders ──
 
+  private buildOrderSnapshot(order: any) {
+    const items = this.orderItems.filter((item) => item.orderId === order.id);
+    const itemCount = items.reduce(
+      (sum, item) => sum + Math.max(0, Number(item.quantity || 0)),
+      0,
+    );
+
+    return {
+      ...order,
+      items,
+      itemsCount: Number.isFinite(Number(order.itemsCount))
+        ? Number(order.itemsCount)
+        : itemCount,
+    };
+  }
+
   findAllOrders(companyId?: string) {
     const list = companyId
       ? this.orders.filter((o) => o.companyId === companyId)
       : this.orders;
-    return list.map((o) => ({
-      ...o,
-      items: this.orderItems.filter((i) => i.orderId === o.id),
-    }));
+    return list.map((o) => this.buildOrderSnapshot(o));
   }
 
   findOneOrder(id: string) {
     const order = this.orders.find((o) => o.id === id);
     if (!order) throw new NotFoundException(`Order ${id} not found`);
-    return { ...order, items: this.orderItems.filter((i) => i.orderId === id) };
+    return this.buildOrderSnapshot(order);
   }
 
   createOrder(dto: CreateOrderDto) {
@@ -78,6 +91,10 @@ export class OrdersService {
       discountAmount: discount,
       paymentMethod: dto.paymentMethod ?? 'Pending',
       total,
+      itemsCount: dto.items.reduce(
+        (sum, item) => sum + Math.max(0, Number(item.quantity || 0)),
+        0,
+      ),
     };
     this.orders.unshift(newOrder);
 
@@ -100,7 +117,19 @@ export class OrdersService {
   updateOrder(id: string, dto: UpdateOrderDto) {
     const idx = this.orders.findIndex((o) => o.id === id);
     if (idx === -1) throw new NotFoundException(`Order ${id} not found`);
-    this.orders[idx] = { ...this.orders[idx], ...dto };
+    this.orders[idx] = {
+      ...this.orders[idx],
+      ...dto,
+      ...(dto.customerName !== undefined
+        ? { customerName: String(dto.customerName).trim() }
+        : {}),
+      ...(dto.itemsCount !== undefined
+        ? { itemsCount: Math.max(0, Number(dto.itemsCount) || 0) }
+        : {}),
+      ...(dto.total !== undefined
+        ? { total: Math.max(0, Number(dto.total) || 0) }
+        : {}),
+    };
     return this.findOneOrder(id);
   }
 

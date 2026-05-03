@@ -2400,6 +2400,23 @@
       "UpdateOrderDto": {
         "type": "object",
         "properties": {
+          "customerName": {
+            "type": "string",
+            "example": "Rahul Sharma",
+            "description": "Editable customer display name"
+          },
+          "itemsCount": {
+            "type": "number",
+            "example": 3,
+            "description": "Editable item count shown in the orders table",
+            "minimum": 0
+          },
+          "total": {
+            "type": "number",
+            "example": 1250,
+            "description": "Editable order total shown in the orders table",
+            "minimum": 0
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -2430,6 +2447,21 @@
             "example": "DHL Express",
             "description": "Delivery partner name"
           },
+          "partnerPhone": {
+            "type": "string",
+            "example": "+91 98111 22334",
+            "description": "Delivery partner phone number"
+          },
+          "partnerAgency": {
+            "type": "string",
+            "example": "SwiftDrop Logistics",
+            "description": "Delivery partner agency/team"
+          },
+          "partnerVehicle": {
+            "type": "string",
+            "example": "Bike",
+            "description": "Delivery partner vehicle"
+          },
           "dispatchDate": {
             "type": "string",
             "example": "2026-02-20",
@@ -2447,6 +2479,21 @@
             "type": "string",
             "example": "DHL Express",
             "description": "Delivery partner name"
+          },
+          "partnerPhone": {
+            "type": "string",
+            "example": "+91 98111 22334",
+            "description": "Delivery partner phone number"
+          },
+          "partnerAgency": {
+            "type": "string",
+            "example": "SwiftDrop Logistics",
+            "description": "Delivery partner agency/team"
+          },
+          "partnerVehicle": {
+            "type": "string",
+            "example": "Bike",
+            "description": "Delivery partner vehicle"
           },
           "dispatchDate": {
             "type": "string",
