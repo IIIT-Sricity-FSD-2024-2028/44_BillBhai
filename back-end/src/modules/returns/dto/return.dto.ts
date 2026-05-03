@@ -2,6 +2,11 @@ import { IsString, IsNumber, IsOptional, IsIn, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateReturnDto {
+  @ApiProperty({ example: 'BIZ-102', description: 'Company ID' })
+  @IsOptional()
+  @IsString()
+  companyId?: string;
+
   @ApiProperty({ example: 'ORD-4821', description: 'Order ID' })
   @IsString()
   orderId: string;

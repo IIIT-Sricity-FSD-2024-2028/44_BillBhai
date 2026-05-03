@@ -157,81 +157,73 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const userRecord = await response.json();
-            const normalizedRole = roleToKey(userRecord.role);
-
-            localStorage.setItem('userRole', normalizedRole);
-            localStorage.setItem('userName', userRecord.username);
-
-            const businessScopedRoles = ['admin', 'cashier', 'inventorymanager', 'deliveryops', 'returnhandler', 'customer'];
-            if (businessScopedRoles.includes(normalizedRole)) {
-                const resolvedCompanyId = String(userRecord.companyId || '').trim();
-                if (!resolvedCompanyId) {
-                    loginError.textContent = 'This account has no business mapped. Contact superuser.';
-                    btnLogin.classList.remove('loading');
-                    btnLogin.disabled = false;
-                    return;
-                }
-                localStorage.setItem('activeBusinessId', resolvedCompanyId);
-                try {
-                    const companyResp = await fetch(`http://localhost:3000/api/companies/${encodeURIComponent(resolvedCompanyId)}`, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-role': normalizedRole === 'admin' ? 'admin' : 'superuser'
-                        }
-                    });
-                    if (companyResp.ok) {
-                        const company = await companyResp.json();
-                        localStorage.setItem('activeBusinessName', String(company && company.name || '').trim());
-                    } else {
-                        localStorage.removeItem('activeBusinessName');
-                    }
-                } catch (err) {
-                    localStorage.removeItem('activeBusinessName');
-                }
-            } else {
-                localStorage.removeItem('activeBusinessId');
-                localStorage.removeItem('activeBusinessName');
-            }
-
-            localStorage.setItem('currentUser', JSON.stringify({
-                id: userRecord.id,
-                username: userRecord.username,
-                name: userRecord.username,
-                role: normalizedRole,
-                email: userRecord.email || '',
-                companyId: String(userRecord.companyId || '').trim() || null
-            }));
-
-            if (normalizedRole === 'customer') {
-                sessionStorage.setItem('bb_customer_session_id', `customer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-                sessionStorage.setItem('bb_customer_session_notifications', '[]');
-            } else {
-                sessionStorage.removeItem('bb_customer_session_id');
-                sessionStorage.removeItem('bb_customer_session_notifications');
-            }
-
-            setTimeout(() => {
-                btnLogin.classList.remove('loading');
-                btnLogin.classList.add('success');
-                setTimeout(() => {
-                    const requestedRedirect = String(sessionStorage.getItem('bb_post_login_redirect') || '').trim();
-                    const safeRedirect = requestedRedirect && /\.html$/i.test(requestedRedirect) ? requestedRedirect : '';
-                    if (safeRedirect && normalizedRole === 'admin') {
-                        sessionStorage.removeItem('bb_post_login_redirect');
-                        window.location.href = safeRedirect;
-                        return;
-                    }
-                    sessionStorage.removeItem('bb_post_login_redirect');
-                    window.location.href = routeByRole(normalizedRole);
-                }, 800);
-            }, 1200);
+            handleAuthenticatedUser(userRecord);
         } catch (error) {
             console.error('Login error:', error);
             loginError.textContent = 'Backend is unavailable. Start backend server and try again.';
             btnLogin.classList.remove('loading');
             btnLogin.disabled = false;
         }
+    }
+
+    function handleAuthenticatedUser(userRecord) {
+        const normalizedRole = roleToKey(userRecord.role);
+
+        localStorage.setItem('userRole', normalizedRole);
+        localStorage.setItem('userName', userRecord.username);
+
+        const businessScopedRoles = ['admin', 'cashier', 'inventorymanager', 'deliveryops', 'returnhandler', 'customer'];
+        if (businessScopedRoles.includes(normalizedRole)) {
+            const resolvedCompanyId = String(userRecord.companyId || '').trim();
+            if (!resolvedCompanyId) {
+                loginError.textContent = 'This account has no business mapped. Contact superuser.';
+                btnLogin.classList.remove('loading');
+                btnLogin.disabled = false;
+                return;
+            }
+            localStorage.setItem('activeBusinessId', resolvedCompanyId);
+            if (normalizedRole === 'returnhandler') {
+                localStorage.setItem('activeBusinessName', 'Returns Desk');
+            } else {
+                localStorage.setItem('activeBusinessName', String(userRecord.businessName || userRecord.name || 'BillBhai').trim() || 'BillBhai');
+            }
+        } else {
+            localStorage.removeItem('activeBusinessId');
+            localStorage.removeItem('activeBusinessName');
+        }
+
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: userRecord.id,
+            username: userRecord.username,
+            name: userRecord.name || userRecord.username,
+            role: normalizedRole,
+            email: userRecord.email || '',
+            companyId: String(userRecord.companyId || '').trim() || null
+        }));
+
+        if (normalizedRole === 'customer') {
+            sessionStorage.setItem('bb_customer_session_id', `customer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+            sessionStorage.setItem('bb_customer_session_notifications', '[]');
+        } else {
+            sessionStorage.removeItem('bb_customer_session_id');
+            sessionStorage.removeItem('bb_customer_session_notifications');
+        }
+
+        setTimeout(() => {
+            btnLogin.classList.remove('loading');
+            btnLogin.classList.add('success');
+            setTimeout(() => {
+                const requestedRedirect = String(sessionStorage.getItem('bb_post_login_redirect') || '').trim();
+                const safeRedirect = requestedRedirect && /\.html$/i.test(requestedRedirect) ? requestedRedirect : '';
+                if (safeRedirect && normalizedRole === 'admin') {
+                    sessionStorage.removeItem('bb_post_login_redirect');
+                    window.location.href = safeRedirect;
+                    return;
+                }
+                sessionStorage.removeItem('bb_post_login_redirect');
+                window.location.href = routeByRole(normalizedRole);
+            }, 800);
+        }, 1200);
     }
 
     if (loginForm) {

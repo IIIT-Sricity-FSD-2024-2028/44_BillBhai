@@ -20,9 +20,14 @@ export class ReturnsService {
   }
 
   create(dto: CreateReturnDto) {
+    const safeDto = {
+      ...dto,
+      companyId: String(dto.companyId || '').trim()
+    } as Required<Pick<CreateReturnDto, keyof CreateReturnDto>>;
+
     const newReturn = {
       id: `RET-${this.counter++}`,
-      ...dto,
+      ...safeDto,
       returnDate: new Date().toISOString().split('T')[0],
       status: 'Pending',
     };

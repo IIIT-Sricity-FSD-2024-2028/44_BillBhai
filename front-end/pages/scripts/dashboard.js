@@ -593,11 +593,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildBackendReturnPayload(item, overrides) {
         const patch = overrides && typeof overrides === 'object' ? overrides : {};
         const currentUser = loadObject('currentUser', {});
+        const companyId = String(localStorage.getItem('activeBusinessId') || currentUser.companyId || '').trim();
         const nextRequestedBy = String(
             patch.requestedBy !== undefined ? patch.requestedBy : (item && item.requestedBy) || localStorage.getItem('userName') || 'Operator'
         ).trim() || 'Operator';
 
         return {
+            companyId: companyId || undefined,
             orderId: String(
                 patch.orderId !== undefined ? patch.orderId : ((item && (item.oid || item.orderId)) || '')
             ).trim().toUpperCase(),
@@ -795,6 +797,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const effectiveReturnRows = (Array.isArray(returnsData) ? returnsData : []).filter((ret) => {
                 if (!isScopedBusiness) return true;
+                const retCompanyId = String(ret && ret.companyId || '').trim();
+                if (retCompanyId) {
+                    return retCompanyId === scopedCompanyId;
+                }
                 return orderById.has(String(ret && ret.orderId || '').trim());
             });
 
@@ -872,6 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return {
                     id: String(ret.id || '').trim(),
                     backendId: String(ret.id || '').trim(),
+                    companyId: String(ret.companyId || order.companyId || '').trim(),
                     oid: String(ret.orderId || '').trim(),
                     orderId: String(ret.orderId || '').trim(),
                     customer: String(customer.name || order.customerId || 'Unknown Customer').trim(),

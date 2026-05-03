@@ -684,6 +684,7 @@ export const seedDeliveries = [
 export const seedReturns = [
   {
     id: 'RET-221',
+    companyId: 'BIZ-101',
     orderId: 'ORD-4828',
     staffId: 'USR-005',
     returnDate: '2026-02-17',
@@ -697,6 +698,7 @@ export const seedReturns = [
   },
   {
     id: 'RET-220',
+    companyId: 'BIZ-101',
     orderId: 'ORD-4829',
     staffId: 'USR-005',
     returnDate: '2026-02-17',
