@@ -82,7 +82,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 companyId: companyId,
                 orderType: dataPayload.orderType || 'delivery',
                 checkoutMode: dataPayload.checkoutMode || 'prepaid_delivery',
-                discountAmount: dataPayload.discount || 0,
+                discountAmount: Math.max(0, Number(dataPayload.discount && dataPayload.discount.discount || 0)),
+                promoCode: dataPayload.discount && dataPayload.discount.active ? dataPayload.discount.code : undefined,
                 paymentMethod: dataPayload.paymentMethod || 'UPI',
                 items: dataPayload.cart.map(item => ({
                     productId: item.id,

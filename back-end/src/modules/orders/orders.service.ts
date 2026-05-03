@@ -2,13 +2,8 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
-import {
-  seedOrders,
-  seedOrderItems,
-  seedBills,
-  seedPayments,
-} from '../../common/seed/seed-data';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -23,15 +18,17 @@ import {
  * 2. Generating Bills tied to specific Orders.
  * 3. Recording Payments against those Bills.
  *
- * All data is managed in-memory using arrays seeded from the original project defaults.
+ * All data is managed in-memory only and resets on server restart.
  */
 @Injectable()
 export class OrdersService {
+  private static readonly PROMO_CODE = 'WELCOME10';
+  private static readonly PROMO_RATE = 0.1;
   // In-memory data collections
-  private orders = seedOrders.map((o) => ({ ...o }));
-  private orderItems = seedOrderItems.map((i) => ({ ...i }));
-  private bills = seedBills.map((b) => ({ ...b }));
-  private payments = seedPayments.map((p) => ({ ...p }));
+  private orders: any[] = [];
+  private orderItems: any[] = [];
+  private bills: any[] = [];
+  private payments: any[] = [];
 
   // Dynamic counters for ID generation
   private orderCounter = 4830;
@@ -70,13 +67,41 @@ export class OrdersService {
     return this.buildOrderSnapshot(order);
   }
 
+  validatePromotion(code: string, subtotal: number) {
+    const normalizedCode = String(code || '').trim().toUpperCase();
+    const safeSubtotal = Math.max(0, Number(subtotal) || 0);
+    if (normalizedCode !== OrdersService.PROMO_CODE) {
+      throw new BadRequestException('Invalid promo code');
+    }
+
+    const discount = Number(
+      (safeSubtotal * OrdersService.PROMO_RATE).toFixed(2),
+    );
+    return {
+      valid: true,
+      code: OrdersService.PROMO_CODE,
+      discount,
+      subtotal: safeSubtotal,
+      total: Math.max(0, Number((safeSubtotal - discount).toFixed(2))),
+    };
+  }
+
   createOrder(dto: CreateOrderDto) {
     const orderId = `ORD-${this.orderCounter++}`;
     const subtotal = dto.items.reduce(
       (sum, i) => sum + i.itemPrice * i.quantity,
       0,
     );
-    const discount = dto.discountAmount ?? 0;
+    const normalizedPromoCode = String(dto.promoCode || '')
+      .trim()
+      .toUpperCase();
+    let discount = Math.max(0, Number(dto.discountAmount ?? 0) || 0);
+    if (normalizedPromoCode) {
+      if (normalizedPromoCode !== OrdersService.PROMO_CODE) {
+        throw new BadRequestException('Invalid promo code');
+      }
+      discount = Number((subtotal * OrdersService.PROMO_RATE).toFixed(2));
+    }
     const total = Math.max(0, subtotal - discount);
 
     const newOrder = {
@@ -89,6 +114,7 @@ export class OrdersService {
       checkoutMode: dto.checkoutMode,
       status: 'Processing',
       discountAmount: discount,
+      promoCode: normalizedPromoCode || null,
       paymentMethod: dto.paymentMethod ?? 'Pending',
       total,
       itemsCount: dto.items.reduce(

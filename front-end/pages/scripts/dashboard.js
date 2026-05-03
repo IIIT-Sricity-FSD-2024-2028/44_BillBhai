@@ -745,8 +745,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 username: String(user.username || '').trim()
             }));
 
-            // Backend-authoritative snapshot for operational modules.
-            inventory = cloneRows(mappedInventory);
+            // Backend is source-of-truth in backend-only mode.
+inventory = cloneRows(mappedInventory);
             orders = cloneRows(mappedOrders);
             deliveries = cloneRows(mappedDeliveries);
             returns = cloneRows(mappedReturns);
@@ -1278,25 +1278,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadOperationalSnapshotFromStorage() {
-        if (isBusinessScoped && selectedBusiness) {
-            const store = loadObject('bb_business_data', {});
-            const scoped = store[selectedBusiness.id];
-            if (!scoped || typeof scoped !== 'object') return;
-
-            businessDataStore[selectedBusiness.id] = scoped;
-            if (Array.isArray(scoped.orders)) orders = cloneRows(scoped.orders);
-            if (Array.isArray(scoped.inventory)) inventory = cloneRows(scoped.inventory);
-            if (Array.isArray(scoped.deliveries)) deliveries = cloneRows(scoped.deliveries);
-            if (Array.isArray(scoped.returns)) returns = cloneRows(scoped.returns);
-            if (Array.isArray(scoped.users)) users = cloneRows(scoped.users);
-            return;
-        }
-
-        orders = loadList('bb_orders', orders);
-        inventory = loadList('bb_inventory', inventory);
-        deliveries = loadList('bb_deliveries', deliveries);
-        returns = loadList('bb_returns', returns);
-        users = loadList('bb_users', users);
+        // Backend-only mode: do not rehydrate operational collections from localStorage.
+        return;
     }
 
     function shouldApplyIncomingSync(payload) {
@@ -1352,23 +1335,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function persistOperationalData(options) {
         const opts = options && typeof options === 'object' ? options : {};
-
-        if (isBusinessScoped && selectedBusiness) {
-            businessDataStore[selectedBusiness.id] = {
-                orders,
-                inventory,
-                deliveries,
-                returns,
-                users
-            };
-            saveObject('bb_business_data', businessDataStore);
-        } else {
-            saveList('bb_orders', orders);
-            saveList('bb_inventory', inventory);
-            saveList('bb_deliveries', deliveries);
-            saveList('bb_returns', returns);
-            saveList('bb_users', users);
-        }
 
         renderNotificationDropdown();
         if (!opts.silentSync) publishDataSync(opts.domains);
@@ -7272,18 +7238,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     (async function startApp() {
         try {
-            // Render immediately from local/default data so users never stare at static placeholders.
+            ['bb_orders', 'bb_inventory', 'bb_deliveries', 'bb_returns', 'bb_users', 'bb_business_data'].forEach((key) => {
+                try { localStorage.removeItem(key); } catch (err) {}
+            });
             initRealtimeSync();
-            renderPage(currentPage);
-
-            // Prefer live backend data; fallback to JSON snapshots when backend is unavailable.
             const loadedFromBackend = await loadOperationalDataFromBackend();
             if (!loadedFromBackend) {
-                await hydrateDataFromJsonFiles();
+                throw new Error('Backend unavailable: dashboard requires in-memory server data.');
             }
             renderPage(currentPage);
         } catch (err) {
-            console.error('Dashboard startup failed; showing fallback shell.', err);
+            console.error('Dashboard startup failed in backend-only mode.', err);
+            showToast('Backend is required. Start the API server to load dashboard data.');
             try {
                 renderPage(currentPage);
             } catch (renderErr) {

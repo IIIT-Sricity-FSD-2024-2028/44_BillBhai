@@ -2,8 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, RequestMethod } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import * as fs from 'fs';
-import * as path from 'path';
 import { Request, Response, NextFunction } from 'express';
 
 /**
@@ -59,17 +57,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  // 4. Export Swagger JSON: For Review-4 submission requirements
-  const docsPath = path.resolve(__dirname, '..', 'docs');
-  if (!fs.existsSync(docsPath)) {
-    fs.mkdirSync(docsPath, { recursive: true });
-  }
-  fs.writeFileSync(
-    path.join(docsPath, 'swagger.json'),
-    JSON.stringify(document, null, 2),
-  );
-
-  // 5. Start the server on port 3000
+  // 4. Start the server on port 3000
   await app.listen(3000);
   console.log('----------------------------------------------------');
   console.log('BillBhai Backend is running on: http://localhost:3000');

@@ -667,7 +667,7 @@ const UI = (() => {
     function bindPromo() {
         if (!el.btnPromo || !el.inpPromo || !el.errPromo) return;
 
-        el.btnPromo.addEventListener('click', () => {
+        el.btnPromo.addEventListener('click', async () => {
             const code = el.inpPromo.value.trim();
             if (!code) return;
 
@@ -679,7 +679,7 @@ const UI = (() => {
             }
 
             const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            const res = DataStore.applyPromo(code, subtotal);
+            const res = await DataStore.applyPromo(code, subtotal);
 
             if (res.active) {
                 currentDiscount = res;
@@ -716,8 +716,13 @@ const UI = (() => {
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
         if (currentDiscount.active) {
-            const res = DataStore.applyPromo(currentDiscount.code, subtotal);
-            currentDiscount = res;
+            const computedDiscount = currentDiscount.code === 'WELCOME10'
+                ? Number((subtotal * 0.10).toFixed(2))
+                : Math.max(0, Number(currentDiscount.discount || 0));
+            currentDiscount = {
+                ...currentDiscount,
+                discount: Math.min(subtotal, computedDiscount)
+            };
         }
 
         const totals = getCartTotals();
