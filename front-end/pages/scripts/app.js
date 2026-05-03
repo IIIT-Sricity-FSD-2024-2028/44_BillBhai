@@ -64,9 +64,63 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     UI.setSessionContext(session);
 
-    async function submitOrderToBackend(orderData, dataPayload) {
+    async function resolveBackendCustomer(dataPayload, companyId, userRole) {
+        const customerPayload = dataPayload && dataPayload.customer ? dataPayload.customer : {};
+        const normalizedPhone = String(customerPayload.phone || '').replace(/\D/g, '').slice(0, 10);
+        const normalizedName = String(customerPayload.name || '').trim().toLowerCase();
+
+        try {
+            const response = await fetch(`http://localhost:3000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-role': userRole
+                }
+            });
+
+            if (response.ok) {
+                const rows = await response.json();
+                const match = (Array.isArray(rows) ? rows : []).find((row) => {
+                    const rowPhone = String(row && row.mobileNo || '').replace(/\D/g, '').slice(0, 10);
+                    const rowName = String(row && row.name || '').trim().toLowerCase();
+                    return (normalizedPhone && rowPhone === normalizedPhone) || (normalizedName && rowName === normalizedName);
+                });
+                if (match && match.id) return match;
+            }
+        } catch (error) {
+            console.warn('Customer lookup failed before order submit:', error);
+        }
+
+        const createResponse = await fetch('http://localhost:3000/api/customers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-role': userRole
+            },
+            body: JSON.stringify({
+                companyId,
+                name: String(customerPayload.name || 'Walk-in Customer').trim() || 'Walk-in Customer',
+                mobileNo: normalizedPhone || `9${Date.now().toString().slice(-9)}`,
+                email: String(customerPayload.email || '').trim(),
+                address: String(customerPayload.address || '').trim()
+            })
+        });
+
+        if (!createResponse.ok) {
+            throw new Error(`Customer create failed with status ${createResponse.status}`);
+        }
+
+        return createResponse.json();
+    }
+
+    async function submitOrderToBackend(dataPayload) {
         try {
             const userRole = localStorage.getItem('userRole') || 'cashier';
+            const customerPayload = dataPayload && dataPayload.customer ? dataPayload.customer : {};
+            const checkoutMode = String(customerPayload.checkoutMode || 'takeaway_now').trim() || 'takeaway_now';
+            const orderType = checkoutMode === 'takeaway_now' ? 'pickup' : 'delivery';
+            const discountAmount = Math.max(0, Number(dataPayload && dataPayload.discount && dataPayload.discount.discount || 0));
+            const paymentMethod = String(customerPayload.paymentMethod || (checkoutMode === 'cod_delivery' ? 'COD' : 'Paid Upfront')).trim() || 'Pending';
             let userId = 'USR-002';
             try {
                 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -75,15 +129,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 userId = 'USR-002';
             }
             const companyId = localStorage.getItem('activeBusinessId') || 'BIZ-101';
+            const customerRecord = await resolveBackendCustomer(dataPayload, companyId, userRole);
 
             const backendPayload = {
-                customerId: dataPayload.customer?.id || 'CUS-001',
+                customerId: String(customerRecord && customerRecord.id || dataPayload.customer && dataPayload.customer.id || 'CUS-001').trim() || 'CUS-001',
                 staffId: userId,
                 companyId: companyId,
-                orderType: dataPayload.orderType || 'delivery',
-                checkoutMode: dataPayload.checkoutMode || 'prepaid_delivery',
-                discountAmount: dataPayload.discount || 0,
-                paymentMethod: dataPayload.paymentMethod || 'UPI',
+                orderType,
+                checkoutMode,
+                discountAmount,
+                paymentMethod,
                 items: dataPayload.cart.map(item => ({
                     productId: item.id,
                     quantity: Number(item.qty || item.quantity || 1),
@@ -101,28 +156,68 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
             if (!response.ok) {
-                console.warn('Failed to submit order to backend:', response.status);
-                return;
+                throw new Error(`Order create failed with status ${response.status}`);
             }
 
             const backendOrder = await response.json();
-            console.log('Order submitted to backend:', backendOrder.id);
+            const itemCount = Array.isArray(dataPayload.cart)
+                ? dataPayload.cart.reduce((sum, item) => sum + Math.max(1, Number(item && (item.qty || item.quantity) || 1)), 0)
+                : 0;
+            const total = Array.isArray(dataPayload.cart)
+                ? dataPayload.cart.reduce((sum, item) => sum + (Math.max(0, Number(item && item.price || 0)) * Math.max(1, Number(item && (item.qty || item.quantity) || 1))), 0)
+                : 0;
+
+            const updatePayload = {
+                customerName: String(customerRecord && customerRecord.name || customerPayload.name || '').trim(),
+                itemsCount: itemCount,
+                total: Math.max(0, total - discountAmount + Math.max(0, Number(customerPayload.deliveryCharge || 0))),
+                status: String(customerPayload.orderStatus || 'Processing').trim() || 'Processing',
+                paymentMethod: String(customerPayload.paymentMethod || paymentMethod || 'Pending').trim() || 'Pending'
+            };
+
+            try {
+                const updateResponse = await fetch(`http://localhost:3000/api/orders/${encodeURIComponent(String(backendOrder.id))}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-role': userRole
+                    },
+                    body: JSON.stringify(updatePayload)
+                });
+                if (updateResponse.ok) {
+                    return {
+                        backendOrder: await updateResponse.json(),
+                        customerRecord
+                    };
+                }
+            } catch (error) {
+                console.warn('Order post-create update failed:', error);
+            }
+
+            return { backendOrder, customerRecord };
         } catch (error) {
             console.error('Error submitting order to backend:', error);
+            return null;
         }
     }
 
     UI.setCallbacks({
-        onCheckout: (dataPayload) => {
+        onCheckout: async (dataPayload) => {
+            const backendResult = await submitOrderToBackend(dataPayload);
+            if (!backendResult || !backendResult.backendOrder || !backendResult.backendOrder.id) {
+                throw new Error('Order was not saved to backend.');
+            }
             const newOrder = DataStore.createOrder(
                 dataPayload.customer,
                 dataPayload.cart,
-                dataPayload.discount
+                dataPayload.discount,
+                {
+                    backendOrder: backendResult && backendResult.backendOrder,
+                    customerId: backendResult && backendResult.customerRecord && backendResult.customerRecord.id
+                }
             );
 
             console.log('Simulating gateway redirect for order:', newOrder);
-            // Submit order to backend API without blocking the UI flow.
-            submitOrderToBackend(newOrder, dataPayload);
             return newOrder;
         }
     });

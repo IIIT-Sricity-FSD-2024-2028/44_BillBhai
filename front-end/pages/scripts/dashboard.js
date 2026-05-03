@@ -87,6 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return !!actions[moduleKey];
     }
 
+    function hasOrderDeleteAccess() {
+        return activeRoleKey === 'admin' || activeRoleKey === 'superuser';
+    }
+
     function denyAction(actionLabel) {
         alert(`Access denied: ${actionLabel} is not allowed for your role.`);
     }
@@ -105,6 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hasActionAccess('orders')) {
             hide('#newOrderBtn, #newOrderBtnDyn');
             hide("button[onclick*='editOrder'], button[onclick*='deleteOrder']");
+        } else if (!hasOrderDeleteAccess()) {
+            hide("button[onclick*='deleteOrder']");
         }
         if (!hasActionAccess('users')) {
             hide('#addUserBtn, #addUserBtnDyn');
@@ -3187,6 +3193,15 @@ document.addEventListener('DOMContentLoaded', () => {
             normalizedPayment: String(order && order.payment || 'Pending').trim() || 'Pending',
             parsedDate: parseOrderDate(order && order.date)
         }));
+        const buildOrderActions = (item) => {
+            const actions = [
+                `<button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('${item.id}')">Edit</button>`
+            ];
+            if (hasOrderDeleteAccess()) {
+                actions.push(`<button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('${item.id}')">Delete</button>`);
+            }
+            return actions.join('');
+        };
         const statusOptions = Array.from(new Set(orderRows.map(item => item.normalizedStatus))).sort();
         const paymentOptions = Array.from(new Set(orderRows.map(item => item.normalizedPayment))).sort();
 
@@ -3223,7 +3238,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
             tbody.innerHTML = filteredRows.length
-                ? filteredRows.map(item => `<tr><td class="cell-main">${item.id}</td><td>${item.customer}</td><td>${item.items}</td><td>Rs ${Math.max(0, Number(item.total || 0)).toLocaleString()}</td><td>${badge(item.normalizedPayment, item.normalizedPayment.toLowerCase())}</td><td>${statusBadge(item.normalizedStatus)}</td><td>${item.date}</td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('${item.id}')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('${item.id}')">Delete</button></td></tr>`).join('')
+                ? filteredRows.map(item => `<tr><td class="cell-main">${item.id}</td><td>${item.customer}</td><td>${item.items}</td><td>Rs ${Math.max(0, Number(item.total || 0)).toLocaleString()}</td><td>${badge(item.normalizedPayment, item.normalizedPayment.toLowerCase())}</td><td>${statusBadge(item.normalizedStatus)}</td><td>${item.date}</td><td>${buildOrderActions(item)}</td></tr>`).join('')
                 : '<tr><td colspan="8" class="text-muted">No orders match the selected filters.</td></tr>';
         }
 
@@ -5788,12 +5803,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeUser = loadObject('currentUser', {});
         const fallbackProduct = inventory.find(item => String(item && item.productId || '').trim());
         const fallbackProductId = String((fallbackProduct && fallbackProduct.productId) || 'P001').trim() || 'P001';
+        const totalItems = Math.max(1, Number(oData.items) || 1);
+        const totalValue = Math.max(0, Number(oData.total) || 0);
 
         try {
             if (existingOrder && existingOrder.id) {
                 const backendOrder = await apiRequest(`/orders/${encodeURIComponent(String(existingOrder.id))}`, {
                     method: 'PUT',
-                    role: 'cashier',
                     body: {
                         status: oData.status,
                         paymentMethod: oData.payment,
@@ -5824,7 +5840,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const generatedPhone = `9${Date.now().toString().slice(-9)}`;
                     customer = await apiRequest('/customers', {
                         method: 'POST',
-                        role: 'cashier',
                         body: {
                             companyId: activeCompanyId,
                             name: oData.customer,
@@ -5832,9 +5847,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
                 }
-
-                const totalItems = Math.max(1, Number(oData.items) || 1);
-                const totalValue = Math.max(0, Number(oData.total) || 0);
                 const unitPrice = totalItems > 0 ? Number((totalValue / totalItems).toFixed(2)) : totalValue;
                 const paymentToken = String(oData.payment || '').toLowerCase();
                 const checkoutMode = paymentToken.includes('cod')
@@ -5846,7 +5858,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const createdOrder = await apiRequest('/orders', {
                     method: 'POST',
-                    role: 'cashier',
                     body: {
                         customerId: String((customer && customer.id) || 'CUS-001').trim() || 'CUS-001',
                         staffId: String(activeUser.id || 'USR-002').trim() || 'USR-002',
@@ -5883,7 +5894,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const payClass = 'b-' + oData.payment.toLowerCase();
         const statusClass = oData.status === 'Delivered' ? 'b-delivered' : oData.status === 'Processing' ? 'b-processing' : oData.status === 'Pending' ? 'b-pending' : 'b-cancelled';
-        const trHtml = `<td class="cell-main">${oData.id}</td><td>${oData.customer}</td><td>${oData.items}</td><td>₹${oData.total.toLocaleString()}</td><td><span class="badge ${payClass}">${oData.payment}</span></td><td><span class="badge ${statusClass}">${oData.status}</span></td><td>${oData.date}</td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('${oData.id}')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('${oData.id}')">Delete</button></td>`;
+        const orderActionsHtml = hasOrderDeleteAccess()
+            ? `<button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="window.editOrder('${oData.id}')">Edit</button><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem; color: var(--red); border-color: var(--red);" onclick="window.deleteOrder('${oData.id}')">Delete</button>`
+            : `<button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" onclick="window.editOrder('${oData.id}')">Edit</button>`;
+        const trHtml = `<td class="cell-main">${oData.id}</td><td>${oData.customer}</td><td>${oData.items}</td><td>₹${oData.total.toLocaleString()}</td><td><span class="badge ${payClass}">${oData.payment}</span></td><td><span class="badge ${statusClass}">${oData.status}</span></td><td>${oData.date}</td><td>${orderActionsHtml}</td>`;
 
         let existingRow = null;
         document.querySelectorAll('tr').forEach(r => { if(r.children[0] && r.children[0].textContent === oid) existingRow = r; });
@@ -6178,7 +6192,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('orderStatus').value = o.status;
     };
     window.deleteOrder = function(id) {
-        if (!hasActionAccess('orders')) {
+        if (!hasActionAccess('orders') || !hasOrderDeleteAccess()) {
             denyAction('Order delete');
             return;
         }
@@ -6190,8 +6204,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const index = orders.findIndex(i => i.id === id);
                 if (index === -1) return true;
                 await apiRequest(`/orders/${encodeURIComponent(String(id))}`, {
-                    method: 'DELETE',
-                    role: 'cashier'
+                    method: 'DELETE'
                 });
                 orders.splice(index, 1);
                 persistOperationalData();

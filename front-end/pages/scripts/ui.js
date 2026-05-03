@@ -752,7 +752,7 @@ const UI = (() => {
 
     function bindCheckout() {
         if (el.btnCheckout) {
-            el.btnCheckout.addEventListener('click', () => {
+            el.btnCheckout.addEventListener('click', async () => {
                 if (cart.length === 0) {
                     showStep(2);
                     return;
@@ -779,12 +779,25 @@ const UI = (() => {
                 if (el.checkoutModeError) el.checkoutModeError.textContent = '';
 
                 let createdOrder = null;
-                if (callbacks.onCheckout) {
-                    createdOrder = callbacks.onCheckout({
-                        customer: customerPayload,
-                        cart,
-                        discount: currentDiscount
-                    }) || null;
+                const originalLabel = el.btnCheckout.textContent;
+                el.btnCheckout.disabled = true;
+                try {
+                    if (callbacks.onCheckout) {
+                        createdOrder = await Promise.resolve(callbacks.onCheckout({
+                            customer: customerPayload,
+                            cart,
+                            discount: currentDiscount
+                        })) || null;
+                    }
+                } catch (error) {
+                    console.error('Checkout failed:', error);
+                    if (el.checkoutModeError) {
+                        el.checkoutModeError.textContent = 'Could not save this order right now. Please try again.';
+                    }
+                    return;
+                } finally {
+                    el.btnCheckout.disabled = false;
+                    el.btnCheckout.textContent = originalLabel;
                 }
 
                 if (createdOrder) renderCheckoutSummary(createdOrder, customerPayload);

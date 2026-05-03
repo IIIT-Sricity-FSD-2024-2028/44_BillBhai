@@ -94,6 +94,7 @@ const DataStore = (() => {
 
         customers[phone] = {
             ...existing,
+            id: String(order && (order.customerId || order.backendCustomerId || order.id) || existing.id || '').trim(),
             phone,
             name: String(order && order.customer || existing.name || '').trim(),
             email: String(order && order.email || existing.email || '').trim(),
@@ -375,6 +376,7 @@ const DataStore = (() => {
     function buildOperationalOrder(order, cartItems) {
         return {
             id: order.id,
+            companyId: String(order.companyId || '').trim(),
             customer: order.customer,
             items: cartItems.reduce((sum, item) => sum + (Math.max(1, Number(item.qty) || 1)), 0),
             total: order.total,
@@ -521,7 +523,9 @@ const DataStore = (() => {
         return 'ORD-' + (orders.length + 5001 + Date.now().toString().slice(-3));
     }
 
-    function createOrder(customerData, cartItems, discountApplied) {
+    function createOrder(customerData, cartItems, discountApplied, options) {
+        const opts = options && typeof options === 'object' ? options : {};
+        const backendOrder = opts.backendOrder && typeof opts.backendOrder === 'object' ? opts.backendOrder : null;
         const businessContext = resolveBusinessContext();
         const checkoutMode = String(customerData && customerData.checkoutMode || '').trim().toLowerCase();
         const deliveryOption = checkoutMode === 'prepaid_delivery' || checkoutMode === 'cod_delivery'
@@ -535,8 +539,13 @@ const DataStore = (() => {
         const orderStatus = checkoutMode === 'takeaway_now'
             ? 'Delivered'
             : (String(customerData && customerData.orderStatus || 'Processing').trim() || 'Processing');
+        const backendItems = Array.isArray(backendOrder && backendOrder.items) ? backendOrder.items : [];
+        const backendItemCount = backendItems.reduce((sum, item) => sum + Math.max(0, Number(item && item.quantity || 0)), 0);
+        const itemCount = backendItemCount || cartItems.reduce((sum, item) => sum + (Math.max(1, Number(item.qty) || 1)), 0);
         const order = {
-            id: generateId(),
+            id: String(backendOrder && backendOrder.id || generateId()).trim(),
+            companyId: String(backendOrder && backendOrder.companyId || businessContext.id).trim(),
+            customerId: String(opts.customerId || customerData && customerData.id || backendOrder && backendOrder.customerId || '').trim(),
             customer: String(customerData && customerData.name || '').trim(),
             phone: normalizePhone(customerData && customerData.phone || ''),
             email: String(customerData && customerData.email || '').trim(),
@@ -557,9 +566,9 @@ const DataStore = (() => {
             deliveryCharge,
             promoCode: discountApplied.active ? discountApplied.code : null,
             total: 0,
-            status: orderStatus,
+            status: String(backendOrder && backendOrder.status || orderStatus).trim() || orderStatus,
             paymentMethod,
-            date: new Date().toISOString()
+            date: String(backendOrder && backendOrder.orderDate || new Date().toISOString()).trim()
         };
 
         if (deliveryOption !== 'delivery') {
@@ -567,7 +576,9 @@ const DataStore = (() => {
             order.deliveryPartnerPhone = '';
         }
 
-        order.total = Math.max(0, order.subtotal - order.discount + order.deliveryCharge);
+        const computedTotal = Math.max(0, order.subtotal - order.discount + order.deliveryCharge);
+        order.total = Math.max(0, Number(backendOrder && backendOrder.total || computedTotal));
+        order.itemsCount = itemCount;
         orders.unshift(order);
         saveOrders();
         upsertCustomerProfile(order);
