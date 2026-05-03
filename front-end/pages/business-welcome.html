@@ -80,7 +80,6 @@
         </section>
         <div class="actions">
             <a class="btn primary" id="goLoginBtn" href="login.html">Go To Login</a>
-            <a class="btn" id="goUsersBtn" href="users.html">Add New Users</a>
             <a class="btn" id="goDashboardBtn" href="dashboard.html">Open Dashboard</a>
         </div>
     </main>
@@ -109,27 +108,11 @@
                 }
 
                 var goLoginBtn = document.getElementById('goLoginBtn');
-                var goUsersBtn = document.getElementById('goUsersBtn');
                 var goDashboardBtn = document.getElementById('goDashboardBtn');
 
                 if (goLoginBtn) {
                     goLoginBtn.addEventListener('click', function () {
                         prepareBusinessContext('dashboard.html');
-                    });
-                }
-                if (goUsersBtn) {
-                    goUsersBtn.addEventListener('click', function (event) {
-                        var currentUser = null;
-                        try {
-                            currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-                        } catch (err) {
-                            currentUser = null;
-                        }
-                        var role = String(localStorage.getItem('userRole') || '').trim().toLowerCase();
-                        prepareBusinessContext('users.html');
-                        if (currentUser && role === 'admin') return;
-                        event.preventDefault();
-                        window.location.href = 'login.html';
                     });
                 }
                 if (goDashboardBtn) {

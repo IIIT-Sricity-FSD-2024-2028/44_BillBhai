@@ -922,7 +922,11 @@ inventory = cloneRows(mappedInventory);
                         users: usersByCompanyId.get(String(company && company.id || '').trim()) || company.users || existing.users || []
                     }, company.id, company.name);
                 });
-                businesses.splice(0, businesses.length, ...mapped);
+                const scopedCompanyId = String(activeBusinessId || currentSessionCompanyId || '').trim();
+                const visibleBusinesses = activeRoleKey === 'superuser'
+                    ? mapped
+                    : mapped.filter((business) => String(business && business.id || '').trim() === scopedCompanyId);
+                businesses.splice(0, businesses.length, ...visibleBusinesses);
                 saveList('bb_businesses', businesses);
             }
 

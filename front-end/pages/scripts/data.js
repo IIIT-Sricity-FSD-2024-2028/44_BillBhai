@@ -50,11 +50,7 @@ const DataStore = (() => {
         return Array.from(map.values());
     }
 
-    function saveOrders() {
-        try {
-            localStorage.setItem('bb_pos_orders', JSON.stringify(Array.isArray(orders) ? orders : []));
-        } catch (error) {}
-    }
+    function saveOrders() {}
 
     function loadStoredValue(key, fallbackValue, parseJson) {
         try {
@@ -76,11 +72,7 @@ const DataStore = (() => {
         return String(role || '').toLowerCase().replace(/\s+/g, '');
     }
 
-    function saveCustomers() {
-        try {
-            localStorage.setItem('bb_pos_customers', JSON.stringify(customers && typeof customers === 'object' ? customers : {}));
-        } catch (error) {}
-    }
+    function saveCustomers() {}
 
     function mapBackendCustomersToLookup(rows) {
         const next = {};
@@ -447,8 +439,12 @@ const DataStore = (() => {
     }
 
     async function init() {
-        orders = loadStoredValue('bb_pos_orders', [], true);
-        customers = loadStoredValue('bb_pos_customers', {}, true);
+        try {
+            localStorage.removeItem('bb_pos_orders');
+            localStorage.removeItem('bb_pos_customers');
+        } catch (err) {}
+        orders = [];
+        customers = {};
 
         await loadProductsFromBackend();
         try {

@@ -67,30 +67,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function resolveBackendCustomer(dataPayload, companyId, userRole) {
         const customerPayload = dataPayload && dataPayload.customer ? dataPayload.customer : {};
         const normalizedPhone = String(customerPayload.phone || '').replace(/\D/g, '').slice(0, 10);
-        const normalizedName = String(customerPayload.name || '').trim().toLowerCase();
+        const normalizedName = String(customerPayload.name || '').trim();
+        const normalizedEmail = String(customerPayload.email || '').trim();
+        const normalizedAddress = String(customerPayload.address || '').trim();
 
-        // Try to lookup existing customer, but never make lookup failures fatal for order placement.
-        try {
-            const response = await fetch(`http://localhost:3000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-role': userRole
-                }
-            });
-
-            if (response.ok) {
-                const rows = await response.json();
-                const match = (Array.isArray(rows) ? rows : []).find((row) => {
-                    const rowPhone = String(row && row.mobileNo || '').replace(/\D/g, '').slice(0, 10);
-                    const rowName = String(row && row.name || '').trim().toLowerCase();
-                    return (normalizedPhone && rowPhone === normalizedPhone) || (normalizedName && rowName === normalizedName);
+        // Strict phone-based lookup only to avoid accidentally reusing seeded customers by name.
+        if (normalizedPhone) {
+            try {
+                const byPhoneResponse = await fetch(`http://localhost:3000/api/customers/phone/${encodeURIComponent(normalizedPhone)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-role': userRole
+                    }
                 });
-                if (match && match.id) return match;
+                if (byPhoneResponse.ok) {
+                    const existing = await byPhoneResponse.json();
+                    if (existing && existing.id) {
+                        const needsUpdate = (
+                            (normalizedName && normalizedName !== String(existing.name || '').trim()) ||
+                            (normalizedEmail && normalizedEmail !== String(existing.email || '').trim()) ||
+                            (normalizedAddress && normalizedAddress !== String(existing.address || '').trim())
+                        );
+                        if (needsUpdate) {
+                            try {
+                                const updateResponse = await fetch(`http://localhost:3000/api/customers/${encodeURIComponent(String(existing.id))}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'x-role': userRole
+                                    },
+                                    body: JSON.stringify({
+                                        name: normalizedName || String(existing.name || '').trim() || 'Walk-in Customer',
+                                        email: normalizedEmail,
+                                        address: normalizedAddress
+                                    })
+                                });
+                                if (updateResponse.ok) return updateResponse.json();
+                            } catch (err) {
+                                console.warn('Customer update failed; proceeding with existing customer:', err);
+                            }
+                        }
+                        return existing;
+                    }
+                }
+            } catch (error) {
+                console.warn('Customer phone lookup failed before order submit (continuing):', error);
             }
-        } catch (error) {
-            // Non-fatal: proceed to create or fall back
-            console.warn('Customer lookup failed before order submit (continuing):', error);
         }
 
         try {
@@ -102,10 +125,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 body: JSON.stringify({
                     companyId,
-                    name: String(customerPayload.name || 'Walk-in Customer').trim() || 'Walk-in Customer',
+                    name: normalizedName || 'Walk-in Customer',
                     mobileNo: normalizedPhone || `9${Date.now().toString().slice(-9)}`,
-                    email: String(customerPayload.email || '').trim(),
-                    address: String(customerPayload.address || '').trim()
+                    email: normalizedEmail,
+                    address: normalizedAddress
                 })
             });
 
