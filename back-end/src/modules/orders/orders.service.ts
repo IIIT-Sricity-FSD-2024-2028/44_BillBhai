@@ -106,6 +106,7 @@ export class OrdersService {
 
     const newOrder = {
       id: orderId,
+      customerName: String(dto.customerName || '').trim() || undefined,
       customerId: dto.customerId,
       staffId: dto.staffId,
       companyId: dto.companyId,

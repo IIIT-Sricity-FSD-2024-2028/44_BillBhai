@@ -75,9 +75,55 @@ document.addEventListener('DOMContentLoaded', async () => {
                 userId = 'USR-002';
             }
             const companyId = localStorage.getItem('activeBusinessId') || 'BIZ-101';
+            const customerPayload = dataPayload && dataPayload.customer ? dataPayload.customer : {};
+
+            async function resolveCustomerId() {
+                const phoneDigits = String(customerPayload.phone || '').replace(/\D/g, '').slice(-10);
+                if (phoneDigits.length === 10) {
+                    try {
+                        const byPhoneRes = await fetch(`http://localhost:3000/api/customers/phone/${encodeURIComponent(phoneDigits)}`, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-role': userRole
+                            }
+                        });
+                        if (byPhoneRes.ok) {
+                            const found = await byPhoneRes.json();
+                            if (found && found.id) return found.id;
+                        }
+                    } catch (err) {}
+                }
+
+                try {
+                    const createdRes = await fetch('http://localhost:3000/api/customers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-role': userRole
+                        },
+                        body: JSON.stringify({
+                            companyId,
+                            name: String(customerPayload.name || 'Walk-in Customer').trim() || 'Walk-in Customer',
+                            mobileNo: phoneDigits.length === 10 ? phoneDigits : `9${Date.now().toString().slice(-9)}`,
+                            email: String(customerPayload.email || '').trim() || undefined,
+                            address: String(customerPayload.address || '').trim() || undefined
+                        })
+                    });
+                    if (createdRes.ok) {
+                        const created = await createdRes.json();
+                        if (created && created.id) return created.id;
+                    }
+                } catch (err) {}
+
+                return 'CUS-001';
+            }
+
+            const resolvedCustomerId = await resolveCustomerId();
 
             const backendPayload = {
-                customerId: dataPayload.customer?.id || 'CUS-001',
+                customerName: String(customerPayload.name || '').trim() || undefined,
+                customerId: resolvedCustomerId,
                 staffId: userId,
                 companyId: companyId,
                 orderType: dataPayload.orderType || 'delivery',

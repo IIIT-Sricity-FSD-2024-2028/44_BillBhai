@@ -27,6 +27,15 @@ export class OrderItemDto {
 }
 
 export class CreateOrderDto {
+  @ApiProperty({
+    example: 'Rahul Sharma',
+    description: 'Customer display name',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
   @ApiProperty({ example: 'CUS-001', description: 'Customer ID' })
   @IsString()
   customerId: string;

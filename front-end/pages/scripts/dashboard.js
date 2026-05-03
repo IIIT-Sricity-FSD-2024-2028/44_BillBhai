@@ -726,7 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     customer: String(customer.name || order.customerId || 'Unknown Customer').trim(),
                     product: String(product.name || ret.product || 'Unknown Product').trim(),
                     reason: String(ret.reason || '').trim(),
-                    amount: Math.max(0, Number(ret.refundAmount || 0)),
+                    amount: Math.max(0, Number(ret.refundAmount ?? ret.amount ?? 0)),
                     qty: Math.max(1, Number(ret.qty || 1)),
                     status: String(ret.status || 'Pending').trim(),
                     requestedBy: String(ret.requestedBy || '').trim() || 'Operator',
@@ -6479,7 +6479,7 @@ inventory = cloneRows(mappedInventory);
                 await apiRequest(`/returns/${encodeURIComponent(String(item.id))}`, {
                     method: 'PUT',
                     role: 'returnhandler',
-                    body: { status: 'Refunded' }
+                    body: { status: 'Refunded', refundAmount: Math.max(0, Number(item.amount) || 0) }
                 });
             } catch (error) {
                 if (!isNotFoundError(error)) throw error;
@@ -6487,7 +6487,7 @@ inventory = cloneRows(mappedInventory);
                 await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
                     method: 'PUT',
                     role: 'returnhandler',
-                    body: { status: 'Refunded' }
+                    body: { status: 'Refunded', refundAmount: Math.max(0, Number(item.amount) || 0) }
                 });
             }
             item.status = 'Refunded';
