@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { seedCompanies } from '../../common/seed/seed-data';
 import { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 
@@ -9,7 +13,7 @@ import { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 @Injectable()
 export class CompaniesService {
   // Initialize in-memory store with seed data
-  private companies = seedCompanies.map(c => ({ ...c }));
+  private companies = seedCompanies.map((c) => ({ ...c }));
   private counter = 105; // Starting point for new BIZ IDs
 
   findAll() {
@@ -17,14 +21,15 @@ export class CompaniesService {
   }
 
   findOne(id: string) {
-    const company = this.companies.find(c => c.id === id);
+    const company = this.companies.find((c) => c.id === id);
     if (!company) throw new NotFoundException(`Company ${id} not found`);
     return company;
   }
 
   create(dto: CreateCompanyDto) {
-    const exists = this.companies.find(c => c.email === dto.email);
-    if (exists) throw new ConflictException('A company with this email already exists');
+    const exists = this.companies.find((c) => c.email === dto.email);
+    if (exists)
+      throw new ConflictException('A company with this email already exists');
     const newCompany = {
       ...dto,
       id: `BIZ-${this.counter++}`,
@@ -42,14 +47,14 @@ export class CompaniesService {
   }
 
   update(id: string, dto: UpdateCompanyDto) {
-    const idx = this.companies.findIndex(c => c.id === id);
+    const idx = this.companies.findIndex((c) => c.id === id);
     if (idx === -1) throw new NotFoundException(`Company ${id} not found`);
     this.companies[idx] = { ...this.companies[idx], ...dto };
     return this.companies[idx];
   }
 
   remove(id: string) {
-    const idx = this.companies.findIndex(c => c.id === id);
+    const idx = this.companies.findIndex((c) => c.id === id);
     if (idx === -1) throw new NotFoundException(`Company ${id} not found`);
     const [removed] = this.companies.splice(idx, 1);
     return { message: `Company ${id} deleted`, company: removed };

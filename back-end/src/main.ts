@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, RequestMethod } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as fs from 'fs';
@@ -11,7 +11,11 @@ import * as path from 'path';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // 1. Enable CORS: This allows your frontend (HTML/JS files) 
+  app.setGlobalPrefix('api', {
+    exclude: [{ path: '', method: RequestMethod.GET }],
+  });
+
+  // 1. Enable CORS: This allows your frontend (HTML/JS files)
   // to make requests to this backend server from different origins.
   app.enableCors({
     origin: '*',
@@ -19,7 +23,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'x-role'], // 'x-role' is essential for RBAC
   });
 
-  // 2. Global Validation: Automatically validates incoming data 
+  // 2. Global Validation: Automatically validates incoming data
   // against the rules defined in our DTO files (Data Transfer Objects).
   app.useGlobalPipes(
     new ValidationPipe({
@@ -32,7 +36,9 @@ async function bootstrap() {
   // 3. Swagger Setup: Documentation for API testing
   const config = new DocumentBuilder()
     .setTitle('BillBhai API')
-    .setDescription('The BillBhai Retail Order Processing System API Documentation')
+    .setDescription(
+      'The BillBhai Retail Order Processing System API Documentation',
+    )
     .setVersion('1.0')
     .addApiKey({ type: 'apiKey', name: 'x-role', in: 'header' }, 'x-role')
     .addSecurityRequirements('x-role')
@@ -53,8 +59,12 @@ async function bootstrap() {
   // 5. Start the server on port 3000
   await app.listen(3000);
   console.log('----------------------------------------------------');
-  console.log('🚀 BillBhai Backend is running on: http://localhost:3000');
-  console.log('📖 Swagger Docs available at: http://localhost:3000/api');
+  console.log('BillBhai Backend is running on: http://localhost:3000');
+  console.log('Swagger Docs available at: http://localhost:3000/api');
+  console.log('API prefix: http://localhost:3000/api');
+  console.log(
+    'Example endpoints: /api/auth/login, /api/products, /api/orders',
+  );
   console.log('----------------------------------------------------');
 }
-bootstrap();
+void bootstrap();

@@ -467,6 +467,240 @@ document.addEventListener('DOMContentLoaded', () => {
         return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
     }
 
+    const API_BASE_URL = 'http://localhost:3000/api';
+
+    function normalizeBackendRole(role) {
+        const key = normalizeRole(role);
+        if (key === 'superuser' || key === 'super') return 'superuser';
+        if (key === 'admin' || key === 'opshead' || key === 'storemanager' || key === 'accountant' || key === 'supportagent') return 'admin';
+        if (key === 'cashier') return 'cashier';
+        if (key === 'returnhandler' || key === 'returns') return 'returnhandler';
+        if (key === 'inventorymanager' || key === 'inventory') return 'inventorymanager';
+        if (key === 'deliveryops' || key === 'delivery' || key === 'deliverymanager' || key === 'deliverydriver') return 'deliveryops';
+        if (key === 'customer' || key === 'user') return 'customer';
+        return 'admin';
+    }
+
+    function mapBackendRoleToLabel(role) {
+        const normalized = normalizeBackendRole(role);
+        if (normalized === 'superuser') return 'Super User';
+        if (normalized === 'admin') return 'Admin';
+        if (normalized === 'cashier') return 'Cashier';
+        if (normalized === 'returnhandler') return 'Return Handler';
+        if (normalized === 'inventorymanager') return 'Inventory Manager';
+        if (normalized === 'deliveryops') return 'Delivery Ops';
+        return 'Customer';
+    }
+
+    function mapRoleLabelToBackendRole(role) {
+        return normalizeBackendRole(role);
+    }
+
+    function getCurrentSessionRole() {
+        return normalizeBackendRole(localStorage.getItem('userRole') || activeRoleKey || 'admin');
+    }
+
+    async function apiRequest(path, options) {
+        const opts = options && typeof options === 'object' ? options : {};
+        const method = String(opts.method || 'GET').toUpperCase();
+        const role = normalizeBackendRole(opts.role || getCurrentSessionRole());
+        const headers = {
+            'Content-Type': 'application/json',
+            'x-role': role
+        };
+
+        const request = {
+            method,
+            headers,
+            cache: 'no-store'
+        };
+
+        if (opts.body !== undefined) {
+            request.body = JSON.stringify(opts.body);
+        }
+
+        const response = await fetch(`${API_BASE_URL}${path}`, request);
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json')
+            ? await response.json()
+            : await response.text();
+
+        if (!response.ok) {
+            const message = payload && typeof payload === 'object' && payload.message
+                ? payload.message
+                : `HTTP ${response.status}`;
+            throw new Error(message);
+        }
+
+        return payload;
+    }
+
+    function formatBackendDate(value) {
+        if (!value) return formatDate();
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return String(value);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const hh = String(parsed.getHours()).padStart(2, '0');
+        const mm = String(parsed.getMinutes()).padStart(2, '0');
+        return `${parsed.getDate()} ${months[parsed.getMonth()]} ${hh}:${mm}`;
+    }
+
+    async function loadOperationalDataFromBackend() {
+        try {
+            const scopedCompanyId = String(activeBusinessId || '').trim();
+
+            const [
+                productsData,
+                suppliersData,
+                inventoryData,
+                ordersData,
+                customersData,
+                deliveriesData,
+                returnsData,
+                usersData,
+                companiesData
+            ] = await Promise.all([
+                apiRequest('/products', { role: 'cashier' }).catch(() => []),
+                apiRequest('/suppliers', { role: 'inventorymanager' }).catch(() => []),
+                apiRequest('/inventory', { role: 'inventorymanager' }).catch(() => []),
+                apiRequest(scopedCompanyId ? `/orders?companyId=${encodeURIComponent(scopedCompanyId)}` : '/orders', { role: 'cashier' }).catch(() => []),
+                apiRequest(scopedCompanyId ? `/customers?companyId=${encodeURIComponent(scopedCompanyId)}` : '/customers', { role: 'cashier' }).catch(() => []),
+                apiRequest('/deliveries', { role: 'deliveryops' }).catch(() => []),
+                apiRequest('/returns', { role: 'returnhandler' }).catch(() => []),
+                apiRequest(scopedCompanyId ? `/users?companyId=${encodeURIComponent(scopedCompanyId)}` : '/users', { role: 'admin' }).catch(() => []),
+                apiRequest('/companies', { role: 'superuser' }).catch(() => [])
+            ]);
+
+            if (!Array.isArray(productsData) || !Array.isArray(inventoryData) || !Array.isArray(ordersData)) {
+                return false;
+            }
+
+            const supplierById = new Map(
+                (Array.isArray(suppliersData) ? suppliersData : []).map((item) => [String(item.id || ''), item])
+            );
+            const productById = new Map(
+                (Array.isArray(productsData) ? productsData : []).map((item) => [String(item.id || ''), item])
+            );
+            const customerById = new Map(
+                (Array.isArray(customersData) ? customersData : []).map((item) => [String(item.id || ''), item])
+            );
+            const orderById = new Map(
+                (Array.isArray(ordersData) ? ordersData : []).map((item) => [String(item.id || ''), item])
+            );
+
+            const mappedInventory = inventoryData.map((inv, idx) => {
+                const product = productById.get(String(inv.productId || '')) || {};
+                const supplier = supplierById.get(String(product.supplierId || '')) || {};
+                const fallbackSku = `SKU-${String(idx + 1).padStart(2, '0')}`;
+                return {
+                    sku: String(inv.id || fallbackSku).replace('INV-', 'SKU-'),
+                    inventoryId: inv.id,
+                    productId: inv.productId,
+                    name: String(product.name || inv.productId || 'Unknown Product').trim(),
+                    cat: String(product.category || 'Uncategorized').trim(),
+                    supplier: String(supplier.name || product.supplierId || 'Unknown Supplier').trim(),
+                    stock: Math.max(0, Number(inv.stockAvailable || 0)),
+                    price: Math.max(0, Number(product.price || 0)),
+                    status: String(inv.status || 'In Stock').trim(),
+                    reorderLevel: Math.max(0, Number(inv.reorderLevel || 0)),
+                    location: String(inv.location || '').trim()
+                };
+            });
+
+            const mappedOrders = ordersData.map((order) => {
+                const customer = customerById.get(String(order.customerId || ''));
+                const itemCount = Array.isArray(order.items)
+                    ? order.items.reduce((sum, item) => sum + Math.max(0, Number(item && item.quantity || 0)), 0)
+                    : 0;
+                return {
+                    id: String(order.id || '').trim(),
+                    customer: String((customer && customer.name) || order.customerId || 'Unknown Customer').trim(),
+                    items: itemCount,
+                    total: Math.max(0, Number(order.total || 0)),
+                    payment: String(order.paymentMethod || 'Pending').trim(),
+                    status: String(order.status || 'Pending').trim(),
+                    date: formatBackendDate(order.orderDate),
+                    companyId: String(order.companyId || '').trim()
+                };
+            });
+
+            const mappedDeliveries = (Array.isArray(deliveriesData) ? deliveriesData : []).map((delivery) => {
+                const order = orderById.get(String(delivery.orderId || '')) || {};
+                const customer = customerById.get(String(order.customerId || '')) || {};
+                const status = String(delivery.status || 'Pending').trim();
+                const updatedAtRaw = delivery.deliveryDate || delivery.dispatchDate || '';
+                return {
+                    id: String(delivery.id || '').trim(),
+                    oid: String(delivery.orderId || '').trim(),
+                    orderId: String(delivery.orderId || '').trim(),
+                    customer: String(customer.name || order.customerId || 'Unknown Customer').trim(),
+                    address: String(customer.address || 'Address unavailable').trim(),
+                    partner: String(delivery.partnerName || 'Unassigned').trim(),
+                    status,
+                    etaMin: status === 'In Transit' ? 20 : (status === 'Pending' ? 35 : 0),
+                    updatedAt: formatBackendDate(updatedAtRaw || new Date().toISOString()),
+                    time: formatBackendDate(updatedAtRaw || new Date().toISOString()).split(' ').slice(-1)[0]
+                };
+            });
+
+            const mappedReturns = (Array.isArray(returnsData) ? returnsData : []).map((ret) => {
+                const order = orderById.get(String(ret.orderId || '')) || {};
+                const customer = customerById.get(String(order.customerId || '')) || {};
+                const product = productById.get(String(ret.product || '')) || {};
+                return {
+                    id: String(ret.id || '').trim(),
+                    oid: String(ret.orderId || '').trim(),
+                    customer: String(customer.name || order.customerId || 'Unknown Customer').trim(),
+                    product: String(product.name || ret.product || 'Unknown Product').trim(),
+                    reason: String(ret.reason || '').trim(),
+                    amount: Math.max(0, Number(ret.refundAmount || 0)),
+                    qty: Math.max(1, Number(ret.qty || 1)),
+                    status: String(ret.status || 'Pending').trim(),
+                    requestedBy: String(ret.requestedBy || '').trim() || 'Operator',
+                    updatedAt: formatBackendDate(ret.returnDate || new Date().toISOString())
+                };
+            });
+
+            const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((user) => ({
+                id: String(user.id || '').trim(),
+                companyId: String(user.companyId || '').trim(),
+                name: String(user.name || '').trim(),
+                role: mapBackendRoleToLabel(user.role),
+                status: String(user.status || 'Active').trim(),
+                email: String(user.email || '').trim(),
+                phone: String(user.mobileNo || '').trim(),
+                username: String(user.username || '').trim()
+            }));
+
+            // Keep backend as source-of-truth for existing IDs, but preserve local-only rows
+            // that may not exist in backend yet (for example, newly added frontend rows).
+            inventory = mergeSeedRecords(mappedInventory, inventory, 'sku');
+            orders = mergeSeedRecords(mappedOrders, orders, 'id');
+            deliveries = mergeSeedRecords(mappedDeliveries, deliveries, 'id');
+            returns = mergeSeedRecords(mappedReturns, returns, 'id');
+            users = mergeSeedRecords(mappedUsers, users, 'name');
+
+            if (Array.isArray(companiesData) && companiesData.length) {
+                const existingById = new Map(businesses.map((item) => [item.id, item]));
+                const mapped = companiesData.map((company) => {
+                    const existing = existingById.get(String(company.id || '').trim()) || {};
+                    return normalizeBusinessRecord({
+                        ...existing,
+                        ...company
+                    }, company.id, company.name);
+                });
+                businesses.splice(0, businesses.length, ...mapped);
+                saveList('bb_businesses', businesses);
+            }
+
+            persistOperationalData({ silentSync: true });
+            return true;
+        } catch (error) {
+            console.warn('Backend sync unavailable, using local fallback.', error);
+            return false;
+        }
+    }
+
     function normalizeBusinessRecord(raw, fallbackId, fallbackName) {
         const safe = raw && typeof raw === 'object' ? raw : {};
         const id = String(safe.id || fallbackId || 'BIZ-000').trim();
@@ -5164,7 +5398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'In Stock';
     }
 
-    function handleAddProduct(e) {
+    async function handleAddProduct(e) {
         e.preventDefault();
         if (!hasActionAccess('inventory')) {
             denyAction('Inventory create/update');
@@ -5232,7 +5466,9 @@ document.addEventListener('DOMContentLoaded', () => {
             : supplierDefaults.leadTimeDays;
 
         const existingIdx = inventory.findIndex(i => i.sku === sku);
+        const existingRecord = existingIdx !== -1 ? inventory[existingIdx] : null;
         const pData = {
+            ...(existingRecord || {}),
             sku: sku,
             name: document.getElementById('prodName').value.trim(),
             cat: document.getElementById('prodCategory').value,
@@ -5253,12 +5489,78 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        try {
+            if (existingRecord && existingRecord.productId) {
+                await apiRequest(`/products/${encodeURIComponent(String(existingRecord.productId))}`, {
+                    method: 'PUT',
+                    role: 'inventorymanager',
+                    body: {
+                        supplierId: String(existingRecord.supplierId || 'SUP-001').trim() || 'SUP-001',
+                        name: pData.name,
+                        category: pData.cat,
+                        price: Number(pData.price || 0),
+                        barcode: String(existingRecord.barcode || pData.sku || '').trim(),
+                        size: String(existingRecord.size || '1 unit').trim(),
+                        description: String(existingRecord.description || `${pData.name} (${pData.cat})`).trim()
+                    }
+                });
+            } else {
+                const supplierRows = await apiRequest('/suppliers', {
+                    role: 'inventorymanager'
+                }).catch(() => []);
+                const normalizedSupplier = String(pData.supplier || '').trim().toLowerCase();
+                const matchedSupplier = (Array.isArray(supplierRows) ? supplierRows : []).find((row) =>
+                    String(row && row.name || '').trim().toLowerCase() === normalizedSupplier
+                );
+
+                const createdProduct = await apiRequest('/products', {
+                    method: 'POST',
+                    role: 'inventorymanager',
+                    body: {
+                        supplierId: String((matchedSupplier && matchedSupplier.id) || existingRecord?.supplierId || 'SUP-001').trim() || 'SUP-001',
+                        name: pData.name,
+                        category: pData.cat,
+                        price: Number(pData.price || 0),
+                        barcode: String(existingRecord?.barcode || pData.sku || '').trim(),
+                        size: String(existingRecord?.size || '1 unit').trim(),
+                        description: String(existingRecord?.description || `${pData.name} (${pData.cat})`).trim()
+                    }
+                });
+
+                if (createdProduct && createdProduct.id) {
+                    pData.productId = createdProduct.id;
+                    pData.supplierId = createdProduct.supplierId || pData.supplierId;
+                    pData.barcode = createdProduct.barcode || pData.barcode || pData.sku;
+                    pData.size = createdProduct.size || pData.size || '1 unit';
+                    pData.description = createdProduct.description || pData.description || `${pData.name} (${pData.cat})`;
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to sync product with backend:', error);
+        }
+
         if (existingIdx !== -1) {
             inventory[existingIdx] = pData;
         } else {
             inventory.push(pData);
         }
         persistOperationalData();
+
+        if (existingIdx !== -1 && pData.inventoryId) {
+            try {
+                await apiRequest(`/inventory/${encodeURIComponent(String(pData.inventoryId))}`, {
+                    method: 'PUT',
+                    role: 'inventorymanager',
+                    body: {
+                        stockAvailable: pData.stock,
+                        reorderLevel: Number(pData.reorderLevel || 10),
+                        location: String(pData.location || 'Shelf').trim()
+                    }
+                });
+            } catch (error) {
+                console.warn('Failed to sync inventory update with backend:', error);
+            }
+        }
 
         if (currentPage === 'inventory') {
             renderPage('inventory');
@@ -5355,7 +5657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (overlay) overlay.classList.remove('active');
     }
 
-    function handleNewOrder(e) {
+    async function handleNewOrder(e) {
         e.preventDefault();
         if (!hasActionAccess('orders')) {
             denyAction('Order create/update');
@@ -5384,6 +5686,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const oid = document.getElementById('orderId').value || getNextOrderId();
         const existingIdx = orders.findIndex(o => o.id === oid);
+        const existingOrder = existingIdx !== -1 ? orders[existingIdx] : null;
         
         const oData = {
             id: oid,
@@ -5394,6 +5697,83 @@ document.addEventListener('DOMContentLoaded', () => {
             status: document.getElementById('orderStatus').value,
             date: existingIdx !== -1 ? orders[existingIdx].date : formatDate()
         };
+
+        const activeCompanyId = String(activeBusinessId || 'BIZ-101').trim() || 'BIZ-101';
+        const activeUser = loadObject('currentUser', {});
+        const fallbackProduct = inventory.find(item => String(item && item.productId || '').trim());
+        const fallbackProductId = String((fallbackProduct && fallbackProduct.productId) || 'P001').trim() || 'P001';
+
+        try {
+            if (existingOrder && existingOrder.id) {
+                await apiRequest(`/orders/${encodeURIComponent(String(existingOrder.id))}`, {
+                    method: 'PUT',
+                    role: 'cashier',
+                    body: {
+                        status: oData.status,
+                        paymentMethod: oData.payment
+                    }
+                });
+            } else {
+                const customerRows = await apiRequest(`/customers?companyId=${encodeURIComponent(activeCompanyId)}`, {
+                    role: 'cashier'
+                }).catch(() => []);
+                const normalizedName = String(oData.customer || '').trim().toLowerCase();
+                let customer = (Array.isArray(customerRows) ? customerRows : []).find((row) =>
+                    String(row && row.name || '').trim().toLowerCase() === normalizedName
+                );
+
+                if (!customer) {
+                    const generatedPhone = `9${Date.now().toString().slice(-9)}`;
+                    customer = await apiRequest('/customers', {
+                        method: 'POST',
+                        role: 'cashier',
+                        body: {
+                            companyId: activeCompanyId,
+                            name: oData.customer,
+                            mobileNo: generatedPhone
+                        }
+                    }).catch(() => null);
+                }
+
+                const totalItems = Math.max(1, Number(oData.items) || 1);
+                const totalValue = Math.max(0, Number(oData.total) || 0);
+                const unitPrice = totalItems > 0 ? Number((totalValue / totalItems).toFixed(2)) : totalValue;
+                const paymentToken = String(oData.payment || '').toLowerCase();
+                const checkoutMode = paymentToken.includes('cod')
+                    ? 'cod_delivery'
+                    : (paymentToken.includes('paid') || paymentToken.includes('upi') || paymentToken.includes('card')
+                        ? 'prepaid_delivery'
+                        : 'takeaway_now');
+                const orderType = checkoutMode === 'takeaway_now' ? 'pickup' : 'delivery';
+
+                const createdOrder = await apiRequest('/orders', {
+                    method: 'POST',
+                    role: 'cashier',
+                    body: {
+                        customerId: String((customer && customer.id) || 'CUS-001').trim() || 'CUS-001',
+                        staffId: String(activeUser.id || 'USR-002').trim() || 'USR-002',
+                        companyId: activeCompanyId,
+                        orderType,
+                        checkoutMode,
+                        paymentMethod: oData.payment,
+                        discountAmount: 0,
+                        items: [
+                            {
+                                productId: fallbackProductId,
+                                quantity: totalItems,
+                                itemPrice: unitPrice
+                            }
+                        ]
+                    }
+                });
+
+                if (createdOrder && createdOrder.id) {
+                    oData.id = createdOrder.id;
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to sync order with backend:', error);
+        }
 
         if (existingIdx !== -1) {
             orders[existingIdx] = oData;
@@ -5484,7 +5864,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (overlay) overlay.classList.remove('active');
     }
 
-    function handleAddUser(e) {
+    async function handleAddUser(e) {
         e.preventDefault();
         if (!hasActionAccess('users')) {
             denyAction('User create/update');
@@ -5528,10 +5908,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         uData.username = credential.username;
 
-        if (existingIdx !== -1) {
-            users[existingIdx] = uData;
-        } else {
-            users.push(uData);
+        if (existingIdx !== -1) users[existingIdx] = uData;
+        else users.push(uData);
+
+        try {
+            if (existingUser && existingUser.id) {
+                const backendUser = await apiRequest(`/users/${encodeURIComponent(String(existingUser.id))}`, {
+                    method: 'PUT',
+                    role: 'admin',
+                    body: {
+                        name: uData.name,
+                        role: mapRoleLabelToBackendRole(uData.role),
+                        email: uData.email,
+                        mobileNo: uData.phone || '',
+                        status: uData.status
+                    }
+                });
+                uData.id = backendUser.id || existingUser.id;
+            } else {
+                const backendUser = await apiRequest('/users', {
+                    method: 'POST',
+                    role: 'admin',
+                    body: {
+                        companyId: String(activeBusinessId || 'BIZ-101').trim() || 'BIZ-101',
+                        name: uData.name,
+                        role: mapRoleLabelToBackendRole(uData.role),
+                        email: uData.email,
+                        mobileNo: uData.phone || '0000000000',
+                        username: uData.username,
+                        password: credential.password || 'user123'
+                    }
+                });
+                uData.id = backendUser.id;
+            }
+        } catch (error) {
+            console.warn('Failed to sync user with backend:', error);
         }
         persistOperationalData();
 
@@ -5613,8 +6024,17 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmLabel: 'Delete',
             onConfirm: () => {
                 const index = inventory.findIndex(i => i.sku === sku);
+                const target = index !== -1 ? inventory[index] : null;
                 if (index !== -1) inventory.splice(index, 1);
                 persistOperationalData();
+                if (target && target.productId) {
+                    apiRequest(`/products/${encodeURIComponent(String(target.productId))}`, {
+                        method: 'DELETE',
+                        role: 'inventorymanager'
+                    }).catch((error) => {
+                        console.warn('Failed to delete product in backend:', error);
+                    });
+                }
                 if (currentPage === 'inventory') {
                     renderPage('inventory');
                 }
@@ -5695,6 +6115,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (index !== -1) users.splice(index, 1);
                 if (targetUser) removeAuthCredentialsForUser(targetUser);
                 persistOperationalData();
+                if (targetUser && targetUser.id) {
+                    apiRequest(`/users/${encodeURIComponent(String(targetUser.id))}`, {
+                        method: 'DELETE',
+                        role: 'admin'
+                    }).catch((error) => {
+                        console.warn('Failed to delete user in backend:', error);
+                    });
+                }
                 if (currentPage === 'users') {
                     renderPage('users');
                 } else {
@@ -5807,10 +6235,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 { name: 'amount', label: 'Refund Amount', type: 'number', required: true, min: 0, step: 0.01 }
             ],
             initialValues: { product: productOptions[0] || '', qty: 1, reason: 'Damaged', amount: 0 },
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 const productName = String(values.product || '').trim();
                 const invItem = inventory.find(i => String((i && i.name) || '').trim() === productName);
-                returns.unshift({
+                const returnRecord = {
                     id: getNextReturnId(),
                     oid: String(values.oid).trim().toUpperCase(),
                     product: productName,
@@ -5822,7 +6250,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     status: 'Pending',
                     requestedBy: localStorage.getItem('userName') || 'Operator',
                     updatedAt: formatDate()
-                });
+                };
+                returns.unshift(returnRecord);
+
+                try {
+                    const currentUser = loadObject('currentUser', {});
+                    const created = await apiRequest('/returns', {
+                        method: 'POST',
+                        role: 'returnhandler',
+                        body: {
+                            orderId: returnRecord.oid,
+                            staffId: String(currentUser.id || 'USR-005').trim() || 'USR-005',
+                            reason: returnRecord.reason,
+                            refundAmount: Number(returnRecord.amount),
+                            returnType: 'refund',
+                            product: returnRecord.product,
+                            qty: Number(returnRecord.qty),
+                            requestedBy: returnRecord.requestedBy
+                        }
+                    });
+                    returnRecord.id = created.id || returnRecord.id;
+                } catch (error) {
+                    console.warn('Failed to create return in backend:', error);
+                }
                 persistOperationalData();
                 renderPage('returns');
                 closeModal();
@@ -5841,6 +6291,13 @@ document.addEventListener('DOMContentLoaded', () => {
         item.status = 'Approved';
         item.updatedAt = formatDate();
         persistOperationalData();
+        apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
+            method: 'PUT',
+            role: 'returnhandler',
+            body: { status: 'Approved' }
+        }).catch((error) => {
+            console.warn('Failed to sync return approval:', error);
+        });
         renderPage('returns');
         showToast(`Return ${id} approved.`);
     };
@@ -5855,6 +6312,13 @@ document.addEventListener('DOMContentLoaded', () => {
         item.status = 'Refunded';
         item.updatedAt = formatDate();
         persistOperationalData();
+        apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
+            method: 'PUT',
+            role: 'returnhandler',
+            body: { status: 'Refunded' }
+        }).catch((error) => {
+            console.warn('Failed to sync return refund:', error);
+        });
         renderPage('returns');
         showToast(`Return ${id} refunded.`);
     };
@@ -5869,6 +6333,13 @@ document.addEventListener('DOMContentLoaded', () => {
         item.status = 'Rejected';
         item.updatedAt = formatDate();
         persistOperationalData();
+        apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
+            method: 'PUT',
+            role: 'returnhandler',
+            body: { status: 'Rejected' }
+        }).catch((error) => {
+            console.warn('Failed to sync return rejection:', error);
+        });
         renderPage('returns');
         showToast(`Return ${id} rejected.`);
     };
@@ -5904,6 +6375,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.updatedAt = formatDate();
                 item.time = item.updatedAt.split(' ').slice(-1)[0];
                 persistOperationalData();
+                apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
+                    method: 'PUT',
+                    role: 'deliveryops',
+                    body: {
+                        partnerName: item.partner,
+                        dispatchDate: new Date().toISOString().slice(0, 10),
+                        status: 'In Transit'
+                    }
+                }).catch((error) => {
+                    console.warn('Failed to sync delivery assignment:', error);
+                });
                 renderPage(currentPage);
                 closeModal();
                 showToast(`Partner assigned for ${id}.`);
@@ -5923,6 +6405,16 @@ document.addEventListener('DOMContentLoaded', () => {
         item.time = item.updatedAt.split(' ').slice(-1)[0];
         item.etaMin = 0;
         persistOperationalData();
+        apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
+            method: 'PUT',
+            role: 'deliveryops',
+            body: {
+                status: 'Delivered',
+                deliveryDate: new Date().toISOString().slice(0, 10)
+            }
+        }).catch((error) => {
+            console.warn('Failed to sync delivered status:', error);
+        });
         renderPage(currentPage);
         showToast(`${id} marked delivered.`);
     };
@@ -5940,6 +6432,13 @@ document.addEventListener('DOMContentLoaded', () => {
         item.time = item.updatedAt.split(' ').slice(-1)[0];
         item.etaMin = 0;
         persistOperationalData();
+        apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
+            method: 'PUT',
+            role: 'deliveryops',
+            body: { status: 'Failed' }
+        }).catch((error) => {
+            console.warn('Failed to sync failed status:', error);
+        });
         renderPage(currentPage);
         showToast(`${id} marked failed.`);
     };
@@ -5959,6 +6458,16 @@ document.addEventListener('DOMContentLoaded', () => {
         item.updatedAt = formatDate();
         item.time = '-';
         persistOperationalData();
+        apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
+            method: 'PUT',
+            role: 'deliveryops',
+            body: {
+                status: 'Pending',
+                partnerName: 'Unassigned'
+            }
+        }).catch((error) => {
+            console.warn('Failed to sync retry state:', error);
+        });
         renderPage(currentPage);
         showToast(`${id} moved back to pending.`);
     };
@@ -6019,7 +6528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { name: 'productsPlan', label: 'Products Plan', type: 'text', required: true }
             ],
             initialValues: { status: 'Active', productsPlan: 'Billing Starter', tenureMonths: 1, storesCount: 1, profit: 0, paymentDue: 0 },
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
                     showToast('Please enter a valid email.');
                     return;
@@ -6051,6 +6560,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     ]
                 };
 
+                try {
+                    const created = await apiRequest('/companies', {
+                        method: 'POST',
+                        role: 'superuser',
+                        body: {
+                            name: record.name,
+                            owner: record.owner,
+                            adminName: record.adminName,
+                            type: record.type,
+                            email: record.email,
+                            phone: record.phone,
+                            productsPlan: record.productsPlan,
+                            tenureMonths: Number(record.tenureMonths),
+                            storesCount: Number(record.storesCount)
+                        }
+                    });
+                    record.id = created.id || record.id;
+                    record.status = created.status || record.status;
+                } catch (error) {
+                    console.warn('Failed to create company in backend:', error);
+                }
                 upsertBusiness(record);
                 renderPage('superuser');
                 closeModal();
@@ -6085,7 +6615,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { name: 'productsPlan', label: 'Products Plan', type: 'text', required: true }
             ],
             initialValues: existing,
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
                     showToast('Please enter a valid email.');
                     return;
@@ -6107,6 +6637,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     productsPlan: String(values.productsPlan).trim()
                 };
 
+                try {
+                    await apiRequest(`/companies/${encodeURIComponent(String(existing.id))}`, {
+                        method: 'PUT',
+                        role: 'superuser',
+                        body: {
+                            name: updated.name,
+                            owner: updated.owner,
+                            adminName: updated.adminName,
+                            type: updated.type,
+                            email: updated.email,
+                            phone: updated.phone,
+                            productsPlan: updated.productsPlan,
+                            tenureMonths: Number(updated.tenureMonths),
+                            storesCount: Number(updated.storesCount),
+                            profit: Number(updated.profit),
+                            paymentDue: Number(updated.paymentDue),
+                            status: updated.status
+                        }
+                    });
+                } catch (error) {
+                    console.warn('Failed to update company in backend:', error);
+                }
                 upsertBusiness(updated, existing.id);
                 renderBusinessDetails(updated.id);
                 closeModal();
@@ -6389,8 +6941,11 @@ document.addEventListener('DOMContentLoaded', () => {
             initRealtimeSync();
             renderPage(currentPage);
 
-            // Refresh from JSON files in the background and repaint when done.
-            await hydrateDataFromJsonFiles();
+            // Prefer live backend data; fallback to JSON snapshots when backend is unavailable.
+            const loadedFromBackend = await loadOperationalDataFromBackend();
+            if (!loadedFromBackend) {
+                await hydrateDataFromJsonFiles();
+            }
             renderPage(currentPage);
         } catch (err) {
             console.error('Dashboard startup failed; showing fallback shell.', err);
@@ -6407,7 +6962,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     })();
 });
-
-
-
-

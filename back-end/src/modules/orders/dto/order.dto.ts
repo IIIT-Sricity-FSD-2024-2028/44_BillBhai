@@ -1,36 +1,141 @@
-import { IsString, IsNumber, IsOptional, IsArray, ValidateNested, Min, IsIn } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  Min,
+  IsIn,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class OrderItemDto {
-  @IsString() productId: string;
-  @IsNumber() @Min(1) quantity: number;
-  @IsNumber() @Min(0) itemPrice: number;
+  @ApiProperty({ example: 'P001', description: 'Product ID' })
+  @IsString()
+  productId: string;
+
+  @ApiProperty({ example: 2, description: 'Quantity ordered', minimum: 1 })
+  @IsNumber()
+  @Min(1)
+  quantity: number;
+
+  @ApiProperty({ example: 380, description: 'Price per item', minimum: 0 })
+  @IsNumber()
+  @Min(0)
+  itemPrice: number;
 }
 
 export class CreateOrderDto {
-  @IsString() customerId: string;
-  @IsString() staffId: string;
-  @IsString() companyId: string;
-  @IsIn(['pickup', 'delivery']) orderType: string;
-  @IsIn(['takeaway_now', 'prepaid_delivery', 'cod_delivery']) checkoutMode: string;
-  @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
-  @IsOptional() @IsString() paymentMethod?: string;
-  @IsArray() @ValidateNested({ each: true }) @Type(() => OrderItemDto) items: OrderItemDto[];
+  @ApiProperty({ example: 'CUS-001', description: 'Customer ID' })
+  @IsString()
+  customerId: string;
+
+  @ApiProperty({ example: 'USR-002', description: 'Staff ID' })
+  @IsString()
+  staffId: string;
+
+  @ApiProperty({ example: 'BIZ-101', description: 'Company ID' })
+  @IsString()
+  companyId: string;
+
+  @ApiProperty({ enum: ['pickup', 'delivery'], description: 'Order type' })
+  @IsIn(['pickup', 'delivery'])
+  orderType: string;
+
+  @ApiProperty({
+    enum: ['takeaway_now', 'prepaid_delivery', 'cod_delivery'],
+    description: 'Checkout mode',
+  })
+  @IsIn(['takeaway_now', 'prepaid_delivery', 'cod_delivery'])
+  checkoutMode: string;
+
+  @ApiProperty({
+    example: 100,
+    description: 'Discount amount',
+    minimum: 0,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discountAmount?: number;
+
+  @ApiProperty({
+    example: 'UPI',
+    description: 'Payment method',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @ApiProperty({ type: [OrderItemDto], description: 'Order items' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  items: OrderItemDto[];
 }
 
 export class UpdateOrderDto {
-  @IsOptional() @IsIn(['Pending', 'Processing', 'Delivered', 'Cancelled']) status?: string;
-  @IsOptional() @IsString() paymentMethod?: string;
+  @ApiProperty({
+    enum: ['Pending', 'Processing', 'Delivered', 'Cancelled'],
+    description: 'Order status',
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(['Pending', 'Processing', 'Delivered', 'Cancelled'])
+  status?: string;
+
+  @ApiProperty({
+    example: 'Card',
+    description: 'Payment method',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 }
 
 export class CreateBillDto {
-  @IsString() orderId: string;
-  @IsOptional() @IsNumber() @Min(0) taxAmount?: number;
-  @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
+  @ApiProperty({ example: 'ORD-4821', description: 'Order ID' })
+  @IsString()
+  orderId: string;
+
+  @ApiProperty({
+    example: 50,
+    description: 'Tax amount',
+    minimum: 0,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxAmount?: number;
+
+  @ApiProperty({
+    example: 0,
+    description: 'Discount amount',
+    minimum: 0,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discountAmount?: number;
 }
 
 export class CreatePaymentDto {
-  @IsString() billNo: string;
-  @IsString() paymentMethod: string;
-  @IsNumber() @Min(0) amountPaid: number;
+  @ApiProperty({ example: 'BILL-001', description: 'Bill number' })
+  @IsString()
+  billNo: string;
+
+  @ApiProperty({ example: 'Card', description: 'Payment method' })
+  @IsString()
+  paymentMethod: string;
+
+  @ApiProperty({ example: 1250, description: 'Amount paid', minimum: 0 })
+  @IsNumber()
+  @Min(0)
+  amountPaid: number;
 }

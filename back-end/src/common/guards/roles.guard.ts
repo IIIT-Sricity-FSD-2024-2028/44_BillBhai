@@ -5,11 +5,12 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
 /**
  * RolesGuard: The core of the Role-Based Access Control (RBAC) system.
- * 
+ *
  * It intercepts every request and:
  * 1. Checks if the route/controller has a @Roles() decorator.
  * 2. If yes, it reads the 'x-role' header from the request.
@@ -33,8 +34,11 @@ export class RolesGuard implements CanActivate {
     }
 
     // 2. Extract the 'x-role' header from the request
-    const request = context.switchToHttp().getRequest();
-    const rawHeaderRole = request.headers['x-role'];
+    const request = context.switchToHttp().getRequest<Request>();
+    const headerValue = request.headers['x-role'];
+    const rawHeaderRole = Array.isArray(headerValue)
+      ? headerValue[0]
+      : headerValue;
 
     if (!rawHeaderRole) {
       throw new ForbiddenException(
@@ -43,8 +47,13 @@ export class RolesGuard implements CanActivate {
     }
 
     // 3. Normalize the roles for consistent comparison
-    const userRole = String(rawHeaderRole).trim().toLowerCase().replace(/\s+/g, '');
-    const allowedRoles = requiredRoles.map((r) => r.toLowerCase().replace(/\s+/g, ''));
+    const userRole = String(rawHeaderRole)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '');
+    const allowedRoles = requiredRoles.map((r) =>
+      r.toLowerCase().replace(/\s+/g, ''),
+    );
 
     // 4. Check if the user's role is in the list of allowed roles
     if (!allowedRoles.includes(userRole)) {

@@ -59,6 +59,54 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     UI.setSessionContext(session);
 
+    async function submitOrderToBackend(orderData, dataPayload) {
+        try {
+            const userRole = localStorage.getItem('userRole') || 'cashier';
+            let userId = 'USR-002';
+            try {
+                const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                userId = currentUser && currentUser.id ? currentUser.id : userId;
+            } catch (err) {
+                userId = 'USR-002';
+            }
+            const companyId = localStorage.getItem('activeBusinessId') || 'BIZ-101';
+
+            const backendPayload = {
+                customerId: dataPayload.customer?.id || 'CUS-001',
+                staffId: userId,
+                companyId: companyId,
+                orderType: dataPayload.orderType || 'delivery',
+                checkoutMode: dataPayload.checkoutMode || 'prepaid_delivery',
+                discountAmount: dataPayload.discount || 0,
+                paymentMethod: dataPayload.paymentMethod || 'UPI',
+                items: dataPayload.cart.map(item => ({
+                    productId: item.id,
+                    quantity: Number(item.qty || item.quantity || 1),
+                    itemPrice: item.price
+                }))
+            };
+
+            const response = await fetch('http://localhost:3000/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-role': userRole
+                },
+                body: JSON.stringify(backendPayload)
+            });
+
+            if (!response.ok) {
+                console.warn('Failed to submit order to backend:', response.status);
+                return;
+            }
+
+            const backendOrder = await response.json();
+            console.log('Order submitted to backend:', backendOrder.id);
+        } catch (error) {
+            console.error('Error submitting order to backend:', error);
+        }
+    }
+
     UI.setCallbacks({
         onCheckout: (dataPayload) => {
             const newOrder = DataStore.createOrder(
@@ -68,6 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             );
 
             console.log('Simulating gateway redirect for order:', newOrder);
+            // Submit order to backend API without blocking the UI flow.
+            submitOrderToBackend(newOrder, dataPayload);
             return newOrder;
         }
     });

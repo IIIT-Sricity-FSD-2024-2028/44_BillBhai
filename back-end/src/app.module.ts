@@ -13,9 +13,11 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './common/guards/roles.guard';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
+    AuthModule,
     CompaniesModule,
     UsersModule,
     CustomersModule,

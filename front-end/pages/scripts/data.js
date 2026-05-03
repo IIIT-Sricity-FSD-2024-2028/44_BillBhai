@@ -271,6 +271,45 @@ const DataStore = (() => {
         }
     }
 
+    async function loadProductsFromBackend() {
+        try {
+            const userRole = localStorage.getItem('userRole') || 'cashier';
+            const response = await fetch('http://localhost:3000/api/products', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-role': userRole
+                }
+            });
+
+            if (!response.ok) {
+                console.warn('Failed to load products from backend, falling back to JSON');
+                await loadCashierDataFromJson();
+                return;
+            }
+
+            const products = await response.json();
+            if (Array.isArray(products)) {
+                catalog = products.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    category: p.category,
+                    price: p.price,
+                    barcode: p.barcode,
+                    size: p.size,
+                    description: p.description,
+                    image: `images/${p.id}.png`
+                }));
+                return;
+            }
+
+            await loadCashierDataFromJson();
+        } catch (error) {
+            console.error('Error loading products from backend:', error);
+            await loadCashierDataFromJson();
+        }
+    }
+
     function resolveBusinessContext() {
         const fallbackId = 'BIZ-101';
         const currentScopedId = String(localStorage.getItem('activeBusinessId') || '').trim();
@@ -423,7 +462,7 @@ const DataStore = (() => {
             customers = {};
         }
 
-        await loadCashierDataFromJson();
+        await loadProductsFromBackend();
     }
 
     function getCategories() {

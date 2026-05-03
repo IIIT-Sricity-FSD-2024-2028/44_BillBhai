@@ -1,0 +1,13 @@
+{
+  "name": "retail-order-system-dev-runner",
+  "private": true,
+  "scripts": {
+    "dev:backend": "npm --prefix back-end run start:dev",
+    "dev:frontend": "live-server front-end/pages --host=127.0.0.1 --port=5500 --watch=front-end/pages --verbose",
+    "dev": "concurrently -k -n BACKEND,FRONTEND -c cyan,magenta \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "live-server": "^1.2.2"
+  }
+}

@@ -7,5 +7,7 @@ export class AppController {
 
   @Get()
   @Redirect('/api', 301)
-  getHello() {}
+  getHello() {
+    return { url: '/api', statusCode: 301 };
+  }
 }

@@ -15,8 +15,11 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should redirect to Swagger UI at /api', () => {
+      expect(appController.getHello()).toEqual({
+        url: '/api',
+        statusCode: 301,
+      });
     });
   });
 });

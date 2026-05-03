@@ -4,7 +4,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { ReturnsService } from '../returns/returns.service';
 
 /**
- * ReportsService: Aggregates data from multiple modules to provide 
+ * ReportsService: Aggregates data from multiple modules to provide
  * high-level business analytics and summaries.
  */
 @Injectable()
@@ -32,24 +32,31 @@ export class ReportsService {
 
   getInventoryStatus() {
     const inventory = this.inventoryService.findAll();
-    const lowStockCount = inventory.filter(i => i.status === 'Low Stock' || i.status === 'Critical').length;
-    const outOfStockCount = inventory.filter(i => i.status === 'Out of Stock').length;
+    const lowStockCount = inventory.filter(
+      (i) => i.status === 'Low Stock' || i.status === 'Critical',
+    ).length;
+    const outOfStockCount = inventory.filter(
+      (i) => i.status === 'Out of Stock',
+    ).length;
 
     return {
       totalSKUs: inventory.length,
       lowStockCount,
       outOfStockCount,
-      inventoryHealth: lowStockCount + outOfStockCount > 5 ? 'Attention Required' : 'Healthy',
+      inventoryHealth:
+        lowStockCount + outOfStockCount > 5 ? 'Attention Required' : 'Healthy',
     };
   }
 
   getReturnsSummary() {
     const returns = this.returnsService.findAll();
-    const totalRefunded = returns.filter(r => r.status === 'Refunded').reduce((sum, r) => sum + r.refundAmount, 0);
+    const totalRefunded = returns
+      .filter((r) => r.status === 'Refunded')
+      .reduce((sum, r) => sum + r.refundAmount, 0);
 
     return {
       totalReturns: returns.length,
-      pendingReturns: returns.filter(r => r.status === 'Pending').length,
+      pendingReturns: returns.filter((r) => r.status === 'Pending').length,
       totalRefunded,
     };
   }
