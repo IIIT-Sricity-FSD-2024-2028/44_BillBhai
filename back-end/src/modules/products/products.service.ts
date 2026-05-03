@@ -6,9 +6,20 @@ import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
  * ProductsService: Manages the product catalog.
  * Supports searching by ID or barcode for quick POS integration.
  */
+export interface Product {
+  id: string;
+  supplierId: string;
+  name: string;
+  category: string;
+  barcode?: string;
+  price: number;
+  size?: string;
+  description?: string;
+}
+
 @Injectable()
 export class ProductsService {
-  private products = seedProducts.map(p => ({ ...p }));
+  private products: Product[] = seedProducts.map(p => ({ ...p }));
   private counter = this.products.length + 1;
 
   findAll(category?: string) {

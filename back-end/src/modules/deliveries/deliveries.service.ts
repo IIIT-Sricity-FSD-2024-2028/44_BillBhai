@@ -2,9 +2,18 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { seedDeliveries } from '../../common/seed/seed-data';
 import { CreateDeliveryDto, UpdateDeliveryDto } from './dto/delivery.dto';
 
+export interface Delivery {
+  id: string;
+  orderId: string;
+  partnerName: string;
+  dispatchDate: string | null;
+  deliveryDate: string | null;
+  status: string;
+}
+
 @Injectable()
 export class DeliveriesService {
-  private deliveries = seedDeliveries.map(d => ({ ...d }));
+  private deliveries: Delivery[] = seedDeliveries.map(d => ({ ...d }));
   private counter = 902;
 
   findAll(status?: string) {

@@ -2,9 +2,18 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { seedSuppliers } from '../../common/seed/seed-data';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/supplier.dto';
 
+export interface Supplier {
+  id: string;
+  name: string;
+  mobileNo: string;
+  email: string;
+  address: string;
+  gstNo?: string;
+}
+
 @Injectable()
 export class SuppliersService {
-  private suppliers = seedSuppliers.map(s => ({ ...s }));
+  private suppliers: Supplier[] = seedSuppliers.map(s => ({ ...s }));
   private counter = 8;
 
   findAll() {

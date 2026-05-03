@@ -6,9 +6,18 @@ import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
  * CustomersService: Manages customer profiles and loyalty info.
  * Includes phone-number normalization for reliable lookup during checkout.
  */
+export interface Customer {
+  id: string;
+  companyId: string;
+  name: string;
+  mobileNo: string;
+  email?: string;
+  address?: string;
+}
+
 @Injectable()
 export class CustomersService {
-  private customers = seedCustomers.map(c => ({ ...c }));
+  private customers: Customer[] = seedCustomers.map(c => ({ ...c }));
   private counter = this.customers.length + 1;
 
   findAll(companyId?: string) {
