@@ -1001,16 +1001,17 @@ inventory = cloneRows(mappedInventory);
     const businesses = [];
 
     let activeBusinessId = String(localStorage.getItem('activeBusinessId') || '').trim();
+    const currentSessionUser = loadObject('currentUser', {});
+    const currentSessionCompanyId = String(currentSessionUser && currentSessionUser.companyId || '').trim();
     const activeBusinessName = String(localStorage.getItem('activeBusinessName') || '').trim();
 
     // Some roles should always be scoped to a business (defaults to first business or BIZ-101).
     // - admin: full owner access within one business
     // - deliveryops / returnhandler / inventorymanager: operational access within one business
     if (activeRoleKey === 'admin' || activeRoleKey === 'cashier' || activeRoleKey === 'deliveryops' || activeRoleKey === 'returnhandler' || activeRoleKey === 'inventorymanager') {
-        const fallbackBusinessId = String((businesses[0] && businesses[0].id) || 'BIZ-101').trim();
-        const hasValidBusiness = activeBusinessId && businesses.some(b => b.id === activeBusinessId);
-        if (!hasValidBusiness) {
-            activeBusinessId = fallbackBusinessId;
+        const preferredBusinessId = activeBusinessId || currentSessionCompanyId;
+        if (preferredBusinessId) {
+            activeBusinessId = preferredBusinessId;
             localStorage.setItem('activeBusinessId', activeBusinessId);
             localStorage.removeItem('activeBusinessName');
         }
