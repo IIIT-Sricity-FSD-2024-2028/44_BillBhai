@@ -66,10 +66,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function resolveBackendCustomer(dataPayload, companyId, userRole) {
         const customerPayload = dataPayload && dataPayload.customer ? dataPayload.customer : {};
-        const normalizedPhone = String(customerPayload.phone || '').replace(/\D/g, '').slice(0, 10);
+        const normalizedPhone = String(customerPayload.phone || '').replace(/\D/g, '').slice(-10);
         const normalizedName = String(customerPayload.name || '').trim();
         const normalizedEmail = String(customerPayload.email || '').trim();
         const normalizedAddress = String(customerPayload.address || '').trim();
+        const hasEmail = normalizedEmail.length > 0;
+        const hasAddress = normalizedAddress.length > 0;
 
         // Strict phone-based lookup only to avoid accidentally reusing seeded customers by name.
         if (normalizedPhone) {
@@ -91,17 +93,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                         );
                         if (needsUpdate) {
                             try {
+                                const updateBody = {
+                                    name: normalizedName || String(existing.name || '').trim() || 'Walk-in Customer'
+                                };
+                                if (hasEmail) updateBody.email = normalizedEmail;
+                                if (hasAddress) updateBody.address = normalizedAddress;
+
                                 const updateResponse = await fetch(`http://localhost:3000/api/customers/${encodeURIComponent(String(existing.id))}`, {
                                     method: 'PUT',
                                     headers: {
                                         'Content-Type': 'application/json',
                                         'x-role': userRole
                                     },
-                                    body: JSON.stringify({
-                                        name: normalizedName || String(existing.name || '').trim() || 'Walk-in Customer',
-                                        email: normalizedEmail,
-                                        address: normalizedAddress
-                                    })
+                                    body: JSON.stringify(updateBody)
                                 });
                                 if (updateResponse.ok) return updateResponse.json();
                             } catch (err) {
@@ -117,19 +121,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
+            const createBody = {
+                companyId,
+                name: normalizedName || 'Walk-in Customer',
+                mobileNo: normalizedPhone || `9${Date.now().toString().slice(-9)}`
+            };
+            if (hasEmail) createBody.email = normalizedEmail;
+            if (hasAddress) createBody.address = normalizedAddress;
+
             const createResponse = await fetch('http://localhost:3000/api/customers', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'x-role': userRole
                 },
-                body: JSON.stringify({
-                    companyId,
-                    name: normalizedName || 'Walk-in Customer',
-                    mobileNo: normalizedPhone || `9${Date.now().toString().slice(-9)}`,
-                    email: normalizedEmail,
-                    address: normalizedAddress
-                })
+                body: JSON.stringify(createBody)
             });
 
             if (createResponse.ok) return createResponse.json();
@@ -163,6 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const backendPayload = {
                 customerName: String(customerRecord && customerRecord.name || customerPayload.name || '').trim() || undefined,
+                customerAddress: String(customerPayload.address || '').trim() || undefined,
                 customerId: String(customerRecord && customerRecord.id || customerPayload.id || 'CUS-001').trim() || 'CUS-001',
                 staffId: userId,
                 companyId,
@@ -200,6 +207,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (orderType === 'delivery') {
                 const deliveryPayload = {
                     orderId: String(backendOrder.id || '').trim(),
+                    customerName: String(customerRecord && customerRecord.name || customerPayload.name || '').trim() || undefined,
+                    address: String(customerPayload.address || '').trim() || undefined,
                     partnerName: String(customerPayload.deliveryPartner || '').trim() || undefined,
                     partnerPhone: String(customerPayload.deliveryPartnerPhone || '').trim() || undefined,
                     dispatchDate: new Date().toISOString().slice(0, 10)
@@ -231,6 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const updatePayload = {
                 customerName: String(customerRecord && customerRecord.name || customerPayload.name || '').trim(),
+                customerAddress: String(customerPayload.address || '').trim() || undefined,
                 itemsCount: itemCount,
                 total: Math.max(0, total - discountAmount + Math.max(0, Number(customerPayload.deliveryCharge || 0))),
                 status: String(customerPayload.orderStatus || 'Processing').trim() || 'Processing',

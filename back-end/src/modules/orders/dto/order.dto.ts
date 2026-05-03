@@ -36,6 +36,15 @@ export class CreateOrderDto {
   @IsString()
   customerName?: string;
 
+  @ApiProperty({
+    example: '12, MG Road, Sector 14',
+    description: 'Customer delivery address captured at checkout',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  customerAddress?: string;
+
   @ApiProperty({ example: 'CUS-001', description: 'Customer ID' })
   @IsString()
   customerId: string;
@@ -115,6 +124,15 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsString()
   customerName?: string;
+
+  @ApiProperty({
+    example: '12, MG Road, Sector 14',
+    description: 'Editable customer delivery address',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  customerAddress?: string;
 
   @ApiProperty({
     example: 3,
