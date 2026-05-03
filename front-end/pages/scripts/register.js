@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const API_BASE_URL = 'http://localhost:3000/api';
 
     // ===== Typewriter subtitle =====
     const subtitleEl = document.getElementById('brandSubtitle');
@@ -102,13 +103,92 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    function toTitleCase(value) {
+        return String(value || '')
+            .replace(/[_-]+/g, ' ')
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(' ');
+    }
+
+    function deriveAdminUsername(ownerName, email) {
+        const emailSeed = String(email || '').trim().split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '');
+        if (emailSeed) return emailSeed;
+        const ownerSeed = String(ownerName || '').trim().toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9._-]/g, '');
+        return ownerSeed || `owner${Date.now().toString().slice(-4)}`;
+    }
+
+    async function createBusinessAccount(payload) {
+        const companyPayload = {
+            name: payload.businessName,
+            owner: payload.ownerName,
+            adminName: payload.ownerName,
+            type: toTitleCase(payload.businessType),
+            email: payload.email,
+            phone: payload.phone,
+            gstNo: payload.gstin || undefined,
+            address: 'India',
+            productsPlan: 'Core POS + Inventory',
+            tenureMonths: 0,
+            storesCount: 1
+        };
+
+        const companyResponse = await fetch(`${API_BASE_URL}/companies`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-role': 'superuser'
+            },
+            body: JSON.stringify(companyPayload)
+        });
+        if (!companyResponse.ok) {
+            const bodyText = await companyResponse.text().catch(() => '');
+            throw new Error(`Company creation failed (${companyResponse.status}): ${bodyText || 'Unknown error'}`);
+        }
+        const companyRecord = await companyResponse.json();
+
+        const username = deriveAdminUsername(payload.ownerName, payload.email);
+        const userPayload = {
+            companyId: String(companyRecord && companyRecord.id || '').trim(),
+            name: payload.ownerName,
+            role: 'admin',
+            email: payload.email,
+            mobileNo: payload.phone,
+            username,
+            password: payload.password
+        };
+
+        const userResponse = await fetch(`${API_BASE_URL}/users`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-role': 'superuser'
+            },
+            body: JSON.stringify(userPayload)
+        });
+        if (!userResponse.ok) {
+            const bodyText = await userResponse.text().catch(() => '');
+            throw new Error(`Admin user creation failed (${userResponse.status}): ${bodyText || 'Unknown error'}`);
+        }
+        const userRecord = await userResponse.json();
+
+        return {
+            company: companyRecord,
+            user: userRecord,
+            username,
+            password: payload.password
+        };
+    }
+
     // ===== Form submission validation =====
     const form = document.getElementById('registerForm');
     const btnRegister = document.getElementById('btnRegister');
     const formError = document.getElementById('formError');
 
     if (form && btnRegister) {
-        form.addEventListener('submit', e => {
+        form.addEventListener('submit', async e => {
             e.preventDefault();
             if (formError) formError.textContent = '';
             document.querySelectorAll('.input-group').forEach(g => g.classList.remove('error', 'shake'));
@@ -186,17 +266,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (hasError) return;
 
-            // Simulate success
+            const submitPayload = {
+                businessName: document.getElementById('businessName').value.trim(),
+                ownerName: document.getElementById('ownerName').value.trim(),
+                email: document.getElementById('email').value.trim().toLowerCase(),
+                phone: document.getElementById('phone').value.trim().replace(/\s+/g, ''),
+                gstin: document.getElementById('gstin').value.trim(),
+                businessType: document.getElementById('businessType').value.trim(),
+                password: document.getElementById('password').value
+            };
+
             btnRegister.classList.add('loading');
             btnRegister.disabled = true;
-
-            setTimeout(() => {
+            try {
+                const created = await createBusinessAccount(submitPayload);
+                sessionStorage.setItem('bb_recent_business_signup', JSON.stringify({
+                    createdAt: new Date().toISOString(),
+                    businessId: created.company && created.company.id,
+                    businessName: created.company && created.company.name,
+                    ownerName: submitPayload.ownerName,
+                    username: created.username,
+                    password: created.password,
+                    email: submitPayload.email,
+                    phone: submitPayload.phone
+                }));
                 btnRegister.classList.remove('loading');
                 btnRegister.classList.add('success');
                 setTimeout(() => {
-                    window.location.href = 'login.html';
+                    window.location.href = 'business-welcome.html';
                 }, 1000);
-            }, 2000);
+            } catch (error) {
+                console.error('Business registration failed:', error);
+                if (formError) {
+                    formError.textContent = error && error.message
+                        ? error.message
+                        : 'Could not create business account right now.';
+                }
+                btnRegister.classList.remove('loading');
+                btnRegister.disabled = false;
+            }
         });
     }
 

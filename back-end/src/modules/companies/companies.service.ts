@@ -41,6 +41,9 @@ export class CompaniesService {
       tenureMonths: dto.tenureMonths ?? 0,
       storesCount: dto.storesCount ?? 1,
       productsPlan: dto.productsPlan ?? 'Billing Starter',
+      users: Array.isArray(dto.users) ? dto.users : [],
+      stores: Array.isArray(dto.stores) ? dto.stores : [],
+      payments: Array.isArray(dto.payments) ? dto.payments : [],
     };
     this.companies.push(newCompany);
     return newCompany;

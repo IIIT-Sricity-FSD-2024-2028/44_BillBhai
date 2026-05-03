@@ -165,7 +165,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const businessScopedRoles = ['admin', 'cashier', 'inventorymanager', 'deliveryops', 'returnhandler', 'customer'];
             if (businessScopedRoles.includes(normalizedRole)) {
                 localStorage.setItem('activeBusinessId', userRecord.companyId || 'BIZ-101');
-                localStorage.removeItem('activeBusinessName');
+                try {
+                    const companyResp = await fetch(`http://localhost:3000/api/companies/${encodeURIComponent(String(userRecord.companyId || 'BIZ-101'))}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-role': normalizedRole === 'admin' ? 'admin' : 'superuser'
+                        }
+                    });
+                    if (companyResp.ok) {
+                        const company = await companyResp.json();
+                        localStorage.setItem('activeBusinessName', String(company && company.name || '').trim());
+                    } else {
+                        localStorage.removeItem('activeBusinessName');
+                    }
+                } catch (err) {
+                    localStorage.removeItem('activeBusinessName');
+                }
             } else {
                 localStorage.removeItem('activeBusinessId');
                 localStorage.removeItem('activeBusinessName');
@@ -192,6 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnLogin.classList.remove('loading');
                 btnLogin.classList.add('success');
                 setTimeout(() => {
+                    const requestedRedirect = String(sessionStorage.getItem('bb_post_login_redirect') || '').trim();
+                    const safeRedirect = requestedRedirect && /\.html$/i.test(requestedRedirect) ? requestedRedirect : '';
+                    if (safeRedirect && normalizedRole === 'admin') {
+                        sessionStorage.removeItem('bb_post_login_redirect');
+                        window.location.href = safeRedirect;
+                        return;
+                    }
+                    sessionStorage.removeItem('bb_post_login_redirect');
                     window.location.href = routeByRole(normalizedRole);
                 }, 800);
             }, 1200);

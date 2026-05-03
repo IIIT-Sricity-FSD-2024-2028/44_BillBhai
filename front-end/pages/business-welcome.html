@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillBhai - Business Ready</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0c0c10;
+            --card: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #f4f5f7;
+            --muted: rgba(244, 245, 247, 0.68);
+            --accent: #dc3545;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top right, rgba(220,53,69,0.14), transparent 45%), var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+        }
+        .card {
+            width: 100%;
+            max-width: 760px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px;
+        }
+        h1 { margin: 0 0 8px; font-size: 1.65rem; }
+        .muted { color: var(--muted); margin: 0 0 20px; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .row {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            background: rgba(255,255,255,0.02);
+        }
+        .label { font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+        .value { font-size: 0.98rem; font-weight: 600; word-break: break-word; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+        .btn {
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.92rem;
+        }
+        .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <h1>Your Business Is Ready</h1>
+        <p class="muted">Use these credentials to sign in and manage your business, then add more users from the Users section.</p>
+        <section class="grid">
+            <div class="row"><div class="label">Business ID</div><div class="value" id="businessId">-</div></div>
+            <div class="row"><div class="label">Business Name</div><div class="value" id="businessName">-</div></div>
+            <div class="row"><div class="label">Owner</div><div class="value" id="ownerName">-</div></div>
+            <div class="row"><div class="label">Admin Username</div><div class="value" id="username">-</div></div>
+            <div class="row"><div class="label">Admin Password</div><div class="value" id="password">-</div></div>
+            <div class="row"><div class="label">Email</div><div class="value" id="email">-</div></div>
+        </section>
+        <div class="actions">
+            <a class="btn primary" id="goLoginBtn" href="login.html">Go To Login</a>
+            <a class="btn" id="goUsersBtn" href="users.html">Add New Users</a>
+            <a class="btn" id="goDashboardBtn" href="dashboard.html">Open Dashboard</a>
+        </div>
+    </main>
+    <script>
+        (function () {
+            var raw = sessionStorage.getItem('bb_recent_business_signup');
+            if (!raw) {
+                window.location.href = 'register-business.html';
+                return;
+            }
+            try {
+                var data = JSON.parse(raw);
+                document.getElementById('businessId').textContent = data.businessId || '-';
+                document.getElementById('businessName').textContent = data.businessName || '-';
+                document.getElementById('ownerName').textContent = data.ownerName || '-';
+                document.getElementById('username').textContent = data.username || '-';
+                document.getElementById('password').textContent = data.password || '-';
+                document.getElementById('email').textContent = data.email || '-';
+
+                function prepareBusinessContext(targetPage) {
+                    localStorage.setItem('activeBusinessId', String(data.businessId || '').trim());
+                    localStorage.setItem('activeBusinessName', String(data.businessName || '').trim());
+                    if (targetPage) {
+                        sessionStorage.setItem('bb_post_login_redirect', String(targetPage).trim());
+                    }
+                }
+
+                var goLoginBtn = document.getElementById('goLoginBtn');
+                var goUsersBtn = document.getElementById('goUsersBtn');
+                var goDashboardBtn = document.getElementById('goDashboardBtn');
+
+                if (goLoginBtn) {
+                    goLoginBtn.addEventListener('click', function () {
+                        prepareBusinessContext('dashboard.html');
+                    });
+                }
+                if (goUsersBtn) {
+                    goUsersBtn.addEventListener('click', function (event) {
+                        var currentUser = null;
+                        try {
+                            currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                        } catch (err) {
+                            currentUser = null;
+                        }
+                        var role = String(localStorage.getItem('userRole') || '').trim().toLowerCase();
+                        prepareBusinessContext('users.html');
+                        if (currentUser && role === 'admin') return;
+                        event.preventDefault();
+                        window.location.href = 'login.html';
+                    });
+                }
+                if (goDashboardBtn) {
+                    goDashboardBtn.addEventListener('click', function (event) {
+                        var currentUser = null;
+                        try {
+                            currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                        } catch (err) {
+                            currentUser = null;
+                        }
+                        var role = String(localStorage.getItem('userRole') || '').trim().toLowerCase();
+                        prepareBusinessContext('dashboard.html');
+                        if (currentUser && role === 'admin') return;
+                        event.preventDefault();
+                        window.location.href = 'login.html';
+                    });
+                }
+            } catch (error) {
+                window.location.href = 'register-business.html';
+            }
+        })();
+    </script>
+</body>
+</html>

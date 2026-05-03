@@ -478,6 +478,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const API_BASE_URL = 'http://localhost:3000/api';
+    const API_BASE_CANDIDATES = [
+        'http://localhost:3000/api',
+        'http://127.0.0.1:3000/api',
+        '/api'
+    ];
 
     function normalizeBackendRole(role) {
         const key = normalizeRole(role);
@@ -529,22 +534,40 @@ document.addEventListener('DOMContentLoaded', () => {
             request.body = JSON.stringify(opts.body);
         }
 
-        const response = await fetch(`${API_BASE_URL}${path}`, request);
-        const contentType = response.headers.get('content-type') || '';
-        const payload = contentType.includes('application/json')
-            ? await response.json()
-            : await response.text();
+        const candidateBases = [API_BASE_URL, ...API_BASE_CANDIDATES].filter((base, idx, arr) => arr.indexOf(base) === idx);
+        let lastNetworkError = null;
 
-        if (!response.ok) {
-            const message = payload && typeof payload === 'object' && payload.message
-                ? payload.message
-                : `HTTP ${response.status}`;
-            const error = new Error(message);
-            error.status = response.status;
-            throw error;
+        for (const baseUrl of candidateBases) {
+            try {
+                const response = await fetch(`${baseUrl}${path}`, request);
+                const contentType = response.headers.get('content-type') || '';
+                const payload = contentType.includes('application/json')
+                    ? await response.json()
+                    : await response.text();
+
+                if (!response.ok) {
+                    const message = payload && typeof payload === 'object' && payload.message
+                        ? payload.message
+                        : `HTTP ${response.status}`;
+                    const error = new Error(message);
+                    error.status = response.status;
+                    throw error;
+                }
+
+                return payload;
+            } catch (error) {
+                if (error && typeof error.status === 'number') {
+                    throw error;
+                }
+                lastNetworkError = error;
+            }
         }
 
-        return payload;
+        const networkError = new Error(
+            `Cannot connect to backend API. Ensure backend is running on http://localhost:3000`
+        );
+        networkError.cause = lastNetworkError || null;
+        throw networkError;
     }
 
     function mutationErrorMessage(actionLabel, error) {
@@ -715,6 +738,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadOperationalDataFromBackend() {
         try {
             const scopedCompanyId = String(activeBusinessId || '').trim();
+            const isScopedBusiness = Boolean(scopedCompanyId);
+            const isSeedBusiness = scopedCompanyId === 'BIZ-101' || scopedCompanyId === 'BIZ-102';
+            const shouldUseEmptyOperationalSeed = isScopedBusiness && !isSeedBusiness;
 
             const [
                 productsData,
@@ -735,19 +761,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 apiRequest('/deliveries', { role: 'deliveryops' }).catch(() => []),
                 apiRequest('/returns', { role: 'returnhandler' }).catch(() => []),
                 apiRequest(scopedCompanyId ? `/users?companyId=${encodeURIComponent(scopedCompanyId)}` : '/users', { role: 'admin' }).catch(() => []),
-                apiRequest('/companies', { role: 'superuser' }).catch(() => [])
+                activeRoleKey === 'superuser'
+                    ? apiRequest('/companies', { role: 'superuser' }).catch(() => [])
+                    : (scopedCompanyId
+                        ? apiRequest(`/companies/${encodeURIComponent(scopedCompanyId)}`, { role: 'admin' }).then((company) => (company ? [company] : [])).catch(() => [])
+                        : [])
             ]);
 
             if (!Array.isArray(productsData) || !Array.isArray(inventoryData) || !Array.isArray(ordersData)) {
                 return false;
             }
 
-            const supplierById = new Map(
-                (Array.isArray(suppliersData) ? suppliersData : []).map((item) => [String(item.id || ''), item])
-            );
-            const productById = new Map(
-                (Array.isArray(productsData) ? productsData : []).map((item) => [String(item.id || ''), item])
-            );
             const customerById = new Map(
                 (Array.isArray(customersData) ? customersData : []).map((item) => [String(item.id || ''), item])
             );
@@ -755,7 +779,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 (Array.isArray(ordersData) ? ordersData : []).map((item) => [String(item.id || ''), item])
             );
 
-            const mappedInventory = inventoryData.map((inv, idx) => {
+            const effectiveProductsData = shouldUseEmptyOperationalSeed ? [] : productsData;
+            const effectiveSuppliersData = shouldUseEmptyOperationalSeed ? [] : suppliersData;
+            const effectiveInventoryData = shouldUseEmptyOperationalSeed ? [] : inventoryData;
+
+            const effectiveDeliveryRows = (Array.isArray(deliveriesData) ? deliveriesData : []).filter((delivery) => {
+                if (!isScopedBusiness) return true;
+                return orderById.has(String(delivery && delivery.orderId || '').trim());
+            });
+
+            const effectiveReturnRows = (Array.isArray(returnsData) ? returnsData : []).filter((ret) => {
+                if (!isScopedBusiness) return true;
+                return orderById.has(String(ret && ret.orderId || '').trim());
+            });
+
+            const supplierById = new Map(
+                (Array.isArray(effectiveSuppliersData) ? effectiveSuppliersData : []).map((item) => [String(item.id || ''), item])
+            );
+            const productById = new Map(
+                (Array.isArray(effectiveProductsData) ? effectiveProductsData : []).map((item) => [String(item.id || ''), item])
+            );
+
+            const mappedInventory = effectiveInventoryData.map((inv, idx) => {
                 const product = productById.get(String(inv.productId || '')) || {};
                 const supplier = supplierById.get(String(product.supplierId || '')) || {};
                 const fallbackSku = `SKU-${String(idx + 1).padStart(2, '0')}`;
@@ -791,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
 
-            const mappedDeliveries = (Array.isArray(deliveriesData) ? deliveriesData : []).map((delivery) => {
+            const mappedDeliveries = effectiveDeliveryRows.map((delivery) => {
                 const order = orderById.get(String(delivery.orderId || '')) || {};
                 const customer = customerById.get(String(order.customerId || '')) || {};
                 const status = String(delivery.status || 'Pending').trim();
@@ -815,7 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
 
-            const mappedReturns = (Array.isArray(returnsData) ? returnsData : []).map((ret) => {
+            const mappedReturns = effectiveReturnRows.map((ret) => {
                 const order = orderById.get(String(ret.orderId || '')) || {};
                 const customer = customerById.get(String(order.customerId || '')) || {};
                 const product = productById.get(String(ret.product || '')) || {};
@@ -858,11 +903,23 @@ inventory = cloneRows(mappedInventory);
 
             if (Array.isArray(companiesData) && companiesData.length) {
                 const existingById = new Map(businesses.map((item) => [item.id, item]));
+                const usersByCompanyId = new Map();
+                mappedUsers.forEach((user) => {
+                    const cid = String(user.companyId || '').trim();
+                    if (!cid) return;
+                    if (!usersByCompanyId.has(cid)) usersByCompanyId.set(cid, []);
+                    usersByCompanyId.get(cid).push({
+                        name: String(user.name || '').trim(),
+                        role: String(user.role || '').trim() || 'Staff',
+                        status: String(user.status || 'Active').trim() || 'Active'
+                    });
+                });
                 const mapped = companiesData.map((company) => {
                     const existing = existingById.get(String(company.id || '').trim()) || {};
                     return normalizeBusinessRecord({
                         ...existing,
-                        ...company
+                        ...company,
+                        users: usersByCompanyId.get(String(company && company.id || '').trim()) || company.users || existing.users || []
                     }, company.id, company.name);
                 });
                 businesses.splice(0, businesses.length, ...mapped);
@@ -4096,6 +4153,24 @@ inventory = cloneRows(mappedInventory);
         renderBusinessDetails(id);
     }
 
+    async function syncBusinessSnapshotToBackend(businessId) {
+        const idx = findBusinessIndex(businessId);
+        if (idx === -1) throw new Error('Business not found');
+        const business = businesses[idx];
+        recalcBusinessDerivedFields(business);
+        await apiRequest(`/companies/${encodeURIComponent(String(businessId))}`, {
+            method: 'PUT',
+            role: 'superuser',
+            body: {
+                users: Array.isArray(business.users) ? business.users : [],
+                stores: Array.isArray(business.stores) ? business.stores : [],
+                payments: Array.isArray(business.payments) ? business.payments : [],
+                storesCount: Number(business.storesCount || 0),
+                paymentDue: Number(business.paymentDue || 0),
+            },
+        });
+    }
+
     const USER_MANAGED_ROLE_OPTIONS = ['Admin', 'Cashier', 'Return Handler', 'Inventory Manager', 'Delivery Ops', 'Customer', 'Super User'];
     const CORE_AUTH_USER_KEYS = new Set(['superuser', 'admin', 'cashier', 'returnhandler', 'inventorymanager', 'deliveryops', 'customer', 'chirag']);
 
@@ -6847,8 +6922,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business user changes are disabled (no backend endpoint).');
-        return;
         openQuickFormModal({
             title: 'Add Business User',
             submitLabel: 'Add User',
@@ -6858,9 +6931,15 @@ inventory = cloneRows(mappedInventory);
                 { name: 'status', label: 'Status', type: 'select', required: true, options: ['Active', 'Inactive'] }
             ],
             initialValues: { role: 'Cashier', status: 'Active' },
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 businesses[idx].users = Array.isArray(businesses[idx].users) ? businesses[idx].users : [];
                 businesses[idx].users.push({ name: String(values.name).trim(), role: String(values.role).trim(), status: String(values.status).trim() });
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business user create', error);
+                    return;
+                }
                 saveBusinessAndRefresh(businessId);
                 closeModal();
                 showToast('Business user added.');
@@ -6875,8 +6954,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business user changes are disabled (no backend endpoint).');
-        return;
         const arr = Array.isArray(businesses[idx].users) ? businesses[idx].users : [];
         const user = arr[userIndex];
         if (!user) return;
@@ -6889,9 +6966,15 @@ inventory = cloneRows(mappedInventory);
                 { name: 'status', label: 'Status', type: 'select', required: true, options: ['Active', 'Inactive'] }
             ],
             initialValues: user,
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 arr[userIndex] = { name: String(values.name).trim(), role: String(values.role).trim(), status: String(values.status).trim() };
                 businesses[idx].users = arr;
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business user update', error);
+                    return;
+                }
                 saveBusinessAndRefresh(businessId);
                 closeModal();
                 showToast('Business user updated.');
@@ -6906,8 +6989,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business user changes are disabled (no backend endpoint).');
-        return;
         const arr = Array.isArray(businesses[idx].users) ? businesses[idx].users : [];
         const user = arr[userIndex];
         if (!user) return;
@@ -6915,11 +6996,18 @@ inventory = cloneRows(mappedInventory);
             title: 'Delete Business User',
             message: `Delete user ${user.name}?`,
             confirmLabel: 'Delete',
-            onConfirm: () => {
+            onConfirm: async () => {
                 arr.splice(userIndex, 1);
                 businesses[idx].users = arr;
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business user delete', error);
+                    return false;
+                }
                 saveBusinessAndRefresh(businessId);
                 showToast('Business user deleted.');
+                return true;
             }
         });
     };
@@ -6931,8 +7019,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business store changes are disabled (no backend endpoint).');
-        return;
         openQuickFormModal({
             title: 'Add Store',
             submitLabel: 'Add Store',
@@ -6942,9 +7028,15 @@ inventory = cloneRows(mappedInventory);
                 { name: 'status', label: 'Status', type: 'select', required: true, options: ['Active', 'Maintenance', 'Inactive'] }
             ],
             initialValues: { code: `${businessId}-S${(businesses[idx].stores || []).length + 1}`, status: 'Active' },
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 businesses[idx].stores = Array.isArray(businesses[idx].stores) ? businesses[idx].stores : [];
                 businesses[idx].stores.push({ code: String(values.code).trim(), city: String(values.city).trim(), status: String(values.status).trim() });
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business store create', error);
+                    return;
+                }
                 saveBusinessAndRefresh(businessId);
                 closeModal();
                 showToast('Store added.');
@@ -6959,8 +7051,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business store changes are disabled (no backend endpoint).');
-        return;
         const arr = Array.isArray(businesses[idx].stores) ? businesses[idx].stores : [];
         const store = arr[storeIndex];
         if (!store) return;
@@ -6973,9 +7063,15 @@ inventory = cloneRows(mappedInventory);
                 { name: 'status', label: 'Status', type: 'select', required: true, options: ['Active', 'Maintenance', 'Inactive'] }
             ],
             initialValues: store,
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 arr[storeIndex] = { code: String(values.code).trim(), city: String(values.city).trim(), status: String(values.status).trim() };
                 businesses[idx].stores = arr;
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business store update', error);
+                    return;
+                }
                 saveBusinessAndRefresh(businessId);
                 closeModal();
                 showToast('Store updated.');
@@ -6990,8 +7086,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business store changes are disabled (no backend endpoint).');
-        return;
         const arr = Array.isArray(businesses[idx].stores) ? businesses[idx].stores : [];
         const store = arr[storeIndex];
         if (!store) return;
@@ -6999,11 +7093,18 @@ inventory = cloneRows(mappedInventory);
             title: 'Delete Store',
             message: `Delete store ${store.code}?`,
             confirmLabel: 'Delete',
-            onConfirm: () => {
+            onConfirm: async () => {
                 arr.splice(storeIndex, 1);
                 businesses[idx].stores = arr;
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business store delete', error);
+                    return false;
+                }
                 saveBusinessAndRefresh(businessId);
                 showToast('Store deleted.');
+                return true;
             }
         });
     };
@@ -7015,8 +7116,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business payment changes are disabled (no backend endpoint).');
-        return;
         openQuickFormModal({
             title: 'Add Payment Entry',
             submitLabel: 'Add Payment',
@@ -7026,9 +7125,15 @@ inventory = cloneRows(mappedInventory);
                 { name: 'status', label: 'Status', type: 'select', required: true, options: ['Paid', 'Partial', 'Due'] }
             ],
             initialValues: { month: 'Apr 2026', amount: 0, status: 'Due' },
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 businesses[idx].payments = Array.isArray(businesses[idx].payments) ? businesses[idx].payments : [];
                 businesses[idx].payments.push({ month: String(values.month).trim(), amount: Number(values.amount), status: String(values.status).trim() });
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business payment create', error);
+                    return;
+                }
                 saveBusinessAndRefresh(businessId);
                 closeModal();
                 showToast('Payment entry added.');
@@ -7043,8 +7148,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business payment changes are disabled (no backend endpoint).');
-        return;
         const arr = Array.isArray(businesses[idx].payments) ? businesses[idx].payments : [];
         const payment = arr[paymentIndex];
         if (!payment) return;
@@ -7057,9 +7160,15 @@ inventory = cloneRows(mappedInventory);
                 { name: 'status', label: 'Status', type: 'select', required: true, options: ['Paid', 'Partial', 'Due'] }
             ],
             initialValues: payment,
-            onSubmit: (values, closeModal) => {
+            onSubmit: async (values, closeModal) => {
                 arr[paymentIndex] = { month: String(values.month).trim(), amount: Number(values.amount), status: String(values.status).trim() };
                 businesses[idx].payments = arr;
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business payment update', error);
+                    return;
+                }
                 saveBusinessAndRefresh(businessId);
                 closeModal();
                 showToast('Payment entry updated.');
@@ -7074,8 +7183,6 @@ inventory = cloneRows(mappedInventory);
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
-        showToast('Backend-only mode: business payment changes are disabled (no backend endpoint).');
-        return;
         const arr = Array.isArray(businesses[idx].payments) ? businesses[idx].payments : [];
         const payment = arr[paymentIndex];
         if (!payment) return;
@@ -7083,11 +7190,18 @@ inventory = cloneRows(mappedInventory);
             title: 'Delete Payment Entry',
             message: `Delete payment record ${payment.month}?`,
             confirmLabel: 'Delete',
-            onConfirm: () => {
+            onConfirm: async () => {
                 arr.splice(paymentIndex, 1);
                 businesses[idx].payments = arr;
+                try {
+                    await syncBusinessSnapshotToBackend(businessId);
+                } catch (error) {
+                    showMutationError('Business payment delete', error);
+                    return false;
+                }
                 saveBusinessAndRefresh(businessId);
                 showToast('Payment entry deleted.');
+                return true;
             }
         });
     };

@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsNumber, Min } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsNumber, Min, IsArray } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateCompanyDto {
@@ -77,6 +77,36 @@ export class CreateCompanyDto {
   @IsNumber()
   @Min(0)
   storesCount?: number;
+
+  @ApiProperty({
+    description: 'Business users summary',
+    required: false,
+    type: 'array',
+    example: [{ name: 'Arjun Mehta', role: 'Admin', status: 'Active' }],
+  })
+  @IsOptional()
+  @IsArray()
+  users?: Array<{ name: string; role: string; status: string }>;
+
+  @ApiProperty({
+    description: 'Business stores',
+    required: false,
+    type: 'array',
+    example: [{ code: 'BIZ-101-S1', city: 'Delhi', status: 'Active' }],
+  })
+  @IsOptional()
+  @IsArray()
+  stores?: Array<{ code: string; city: string; status: string }>;
+
+  @ApiProperty({
+    description: 'Business payment entries',
+    required: false,
+    type: 'array',
+    example: [{ month: 'Apr 2026', amount: 0, status: 'Due' }],
+  })
+  @IsOptional()
+  @IsArray()
+  payments?: Array<{ month: string; amount: number; status: string }>;
 }
 
 export class UpdateCompanyDto {
@@ -213,4 +243,31 @@ export class UpdateCompanyDto {
   @IsNumber()
   @Min(0)
   paymentDue?: number;
+
+  @ApiProperty({
+    description: 'Business users summary',
+    required: false,
+    type: 'array',
+  })
+  @IsOptional()
+  @IsArray()
+  users?: Array<{ name: string; role: string; status: string }>;
+
+  @ApiProperty({
+    description: 'Business stores',
+    required: false,
+    type: 'array',
+  })
+  @IsOptional()
+  @IsArray()
+  stores?: Array<{ code: string; city: string; status: string }>;
+
+  @ApiProperty({
+    description: 'Business payment entries',
+    required: false,
+    type: 'array',
+  })
+  @IsOptional()
+  @IsArray()
+  payments?: Array<{ month: string; amount: number; status: string }>;
 }
