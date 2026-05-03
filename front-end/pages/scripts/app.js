@@ -134,23 +134,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (err) {
                 userId = 'USR-002';
             }
+
             const companyId = localStorage.getItem('activeBusinessId') || 'BIZ-101';
             const customerRecord = await resolveBackendCustomer(dataPayload, companyId, userRole);
 
             const backendPayload = {
-                customerId: String(customerRecord && customerRecord.id || dataPayload.customer && dataPayload.customer.id || 'CUS-001').trim() || 'CUS-001',
+                customerName: String(customerRecord && customerRecord.name || customerPayload.name || '').trim() || undefined,
+                customerId: String(customerRecord && customerRecord.id || customerPayload.id || 'CUS-001').trim() || 'CUS-001',
                 staffId: userId,
-                companyId: companyId,
+                companyId,
                 orderType,
                 checkoutMode,
                 discountAmount,
                 promoCode: dataPayload.discount && dataPayload.discount.active ? dataPayload.discount.code : undefined,
                 paymentMethod,
-                items: dataPayload.cart.map(item => ({
-                    productId: item.id,
-                    quantity: Number(item.qty || item.quantity || 1),
-                    itemPrice: item.price
-                }))
+                items: Array.isArray(dataPayload.cart)
+                    ? dataPayload.cart.map(item => ({
+                        productId: item.id,
+                        quantity: Number(item.qty || item.quantity || 1),
+                        itemPrice: item.price
+                    }))
+                    : []
             };
 
             const response = await fetch('http://localhost:3000/api/orders', {
@@ -169,6 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const backendOrder = await response.json();
+
             if (orderType === 'delivery') {
                 const deliveryPayload = {
                     orderId: String(backendOrder.id || '').trim(),
@@ -191,6 +196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.warn('Delivery create failed after order submit:', error);
                 }
             }
+
             const itemCount = Array.isArray(dataPayload.cart)
                 ? dataPayload.cart.reduce((sum, item) => sum + Math.max(1, Number(item && (item.qty || item.quantity) || 1)), 0)
                 : 0;
@@ -217,7 +223,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 const updateText = await updateResponse.text().catch(() => '');
                 let updateJson = null;
-                try { updateJson = updateText ? JSON.parse(updateText) : null } catch (e) { updateJson = null }
+                try {
+                    updateJson = updateText ? JSON.parse(updateText) : null;
+                } catch (error) {
+                    updateJson = null;
+                }
                 console.debug('Order post-create update response:', updateResponse.status, updateJson || updateText);
                 if (updateResponse.ok) {
                     return {
@@ -230,11 +240,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             console.debug('Returning initial backendOrder after create:', backendOrder);
-            // Rescue: if caller expects backend result but something caused it to be lost,
-            // try to fetch recently created orders and match by total to avoid false error.
             const computedTotal = Array.isArray(dataPayload.cart)
                 ? dataPayload.cart.reduce((sum, item) => sum + (Math.max(0, Number(item && item.price || 0)) * Math.max(1, Number(item && (item.qty || item.quantity) || 1))), 0)
                 : 0;
+
             try {
                 const listResp = await fetch(`http://localhost:3000/api/orders?companyId=${encodeURIComponent(companyId)}`, {
                     method: 'GET',

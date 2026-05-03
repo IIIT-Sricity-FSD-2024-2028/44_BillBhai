@@ -828,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     product: String(product.name || ret.product || 'Unknown Product').trim(),
                     backendProduct: String(ret.product || '').trim(),
                     reason: String(ret.reason || '').trim(),
-                    amount: Math.max(0, Number(ret.refundAmount || 0)),
+                    amount: Math.max(0, Number(ret.refundAmount ?? ret.amount ?? 0)),
                     qty: Math.max(1, Number(ret.qty || 1)),
                     status: String(ret.status || 'Pending').trim(),
                     requestedBy: String(ret.requestedBy || '').trim() || 'Operator',
@@ -6325,7 +6325,10 @@ inventory = cloneRows(mappedInventory);
         const item = returns.find(r => r.id === id);
         if (!item) return;
         try {
-            await updateReturnOnBackend(item, { status: 'Refunded' });
+            await updateReturnOnBackend(item, {
+                status: 'Refunded',
+                refundAmount: Math.max(0, Number(item.amount) || 0)
+            });
             item.status = 'Refunded';
             item.updatedAt = formatDate();
             persistOperationalData();
