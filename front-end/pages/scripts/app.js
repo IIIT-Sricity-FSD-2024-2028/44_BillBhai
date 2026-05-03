@@ -71,18 +71,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const normalizedEmail = String(customerPayload.email || '').trim();
         const normalizedAddress = String(customerPayload.address || '').trim();
 
-        // Strict phone-based lookup only to avoid accidentally reusing seeded customers by name.
+        // Company-scoped lookup by phone only (prevents cross-business customer/address bleed).
         if (normalizedPhone) {
             try {
-                const byPhoneResponse = await fetch(`http://localhost:3000/api/customers/phone/${encodeURIComponent(normalizedPhone)}`, {
+                const scopedResponse = await fetch(`http://localhost:3000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                         'x-role': userRole
                     }
                 });
-                if (byPhoneResponse.ok) {
-                    const existing = await byPhoneResponse.json();
+                if (scopedResponse.ok) {
+                    const scopedRows = await scopedResponse.json();
+                    const existing = (Array.isArray(scopedRows) ? scopedRows : []).find((row) => {
+                        const rowPhone = String(row && row.mobileNo || '').replace(/\D/g, '').slice(0, 10);
+                        return rowPhone && rowPhone === normalizedPhone;
+                    });
                     if (existing && existing.id) {
                         const needsUpdate = (
                             (normalizedName && normalizedName !== String(existing.name || '').trim()) ||
@@ -112,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             } catch (error) {
-                console.warn('Customer phone lookup failed before order submit (continuing):', error);
+                console.warn('Scoped customer lookup failed before order submit (continuing):', error);
             }
         }
 
@@ -202,7 +206,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     orderId: String(backendOrder.id || '').trim(),
                     partnerName: String(customerPayload.deliveryPartner || '').trim() || undefined,
                     partnerPhone: String(customerPayload.deliveryPartnerPhone || '').trim() || undefined,
-                    dispatchDate: new Date().toISOString().slice(0, 10)
+                    dispatchDate: new Date().toISOString().slice(0, 10),
+                    customerName: String(customerPayload.name || (customerRecord && customerRecord.name) || '').trim() || undefined,
+                    address: String(customerPayload.address || (customerRecord && customerRecord.address) || '').trim() || undefined
                 };
                 try {
                     const deliveryResponse = await fetch('http://localhost:3000/api/deliveries', {

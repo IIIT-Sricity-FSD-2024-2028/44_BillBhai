@@ -104,6 +104,37 @@ const DataStore = (() => {
         return clone(customers[normalized]);
     }
 
+    async function getCustomerByPhoneAsync(phone) {
+        const normalized = normalizePhone(phone);
+        if (normalized.length !== 10) return null;
+
+        const cached = getCustomerByPhone(normalized);
+        if (cached) return cached;
+
+        try {
+            const userRole = localStorage.getItem('userRole') || 'cashier';
+            const companyId = String(localStorage.getItem('activeBusinessId') || 'BIZ-101').trim() || 'BIZ-101';
+            const response = await fetch(`http://localhost:3000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-role': userRole
+                }
+            });
+            if (!response.ok) return null;
+            const rows = await response.json();
+            const matched = (Array.isArray(rows) ? rows : []).filter((row) => normalizePhone(row && row.mobileNo) === normalized);
+            if (!matched.length) return null;
+
+            const mapped = mapBackendCustomersToLookup(matched);
+            customers = { ...customers, ...mapped };
+            saveCustomers();
+            return mapped[normalized] ? clone(mapped[normalized]) : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
     function upsertCustomerProfile(order) {
         const phone = normalizePhone(order && order.phone);
         if (phone.length !== 10) return;
@@ -593,6 +624,7 @@ const DataStore = (() => {
         applyPromo,
         getCheckoutSettings: () => ({ ...checkoutSettings }),
         getCustomerByPhone,
+        getCustomerByPhoneAsync,
         createOrder,
         getSessionContext
     };

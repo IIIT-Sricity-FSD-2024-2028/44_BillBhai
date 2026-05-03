@@ -11,6 +11,7 @@ const UI = (() => {
     let currentCategory = 'All';
     let searchQuery = '';
     let currentCustomerProfile = null;
+    let customerLookupRequestId = 0;
     let currentCheckoutMode = 'takeaway_now';
     let checkoutSettings = { deliveryCharge: 0 };
     let sessionContext = { roleKey: 'cashier', roleLabel: 'Cashier', isCustomerTerminal: false };
@@ -324,10 +325,11 @@ const UI = (() => {
         toggleDeliveryFields();
     }
 
-    function runCustomerLookup() {
+    async function runCustomerLookup() {
         if (!el.inpPhone) return;
         const phone = sanitizePhone(el.inpPhone.value);
         el.inpPhone.value = phone;
+        const requestId = ++customerLookupRequestId;
 
         if (phone.length < 10) {
             currentCustomerProfile = null;
@@ -335,7 +337,20 @@ const UI = (() => {
             return;
         }
 
-        const profile = DataStore.getCustomerByPhone(phone);
+        let profile = null;
+        try {
+            if (DataStore.getCustomerByPhoneAsync) {
+                profile = await DataStore.getCustomerByPhoneAsync(phone);
+            } else {
+                profile = DataStore.getCustomerByPhone(phone);
+            }
+        } catch (error) {
+            profile = DataStore.getCustomerByPhone(phone);
+        }
+
+        // Ignore stale async responses from older lookups.
+        if (requestId !== customerLookupRequestId) return;
+
         const hadExistingProfile = Boolean(currentCustomerProfile);
         currentCustomerProfile = profile;
 
@@ -450,10 +465,12 @@ const UI = (() => {
         if (el.inpPhone) {
             el.inpPhone.addEventListener('input', () => {
                 if (el.errPhone) el.errPhone.textContent = '';
-                runCustomerLookup();
+                void runCustomerLookup();
             });
 
-            el.inpPhone.addEventListener('blur', runCustomerLookup);
+            el.inpPhone.addEventListener('blur', () => {
+                void runCustomerLookup();
+            });
         }
 
         if (el.inpEmail) {

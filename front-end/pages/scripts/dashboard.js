@@ -133,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentUser = loadObject('currentUser', {});
         const storedName = String(localStorage.getItem('userName') || currentUser.name || '').trim();
         const storedRole = String(localStorage.getItem('userRole') || currentUser.role || '').trim();
+        const sessionCompanyId = String(currentUser && currentUser.companyId || '').trim();
 
         if (!storedName || !storedRole) {
             clearSession();
@@ -149,6 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
             clearSession();
             goToLogin();
             return;
+        }
+
+        if (roleKey !== 'superuser' && sessionCompanyId) {
+            localStorage.setItem('activeBusinessId', sessionCompanyId);
         }
 
         activeRoleKey = roleKey;
@@ -1013,7 +1018,7 @@ inventory = cloneRows(mappedInventory);
     // - admin: full owner access within one business
     // - deliveryops / returnhandler / inventorymanager: operational access within one business
     if (activeRoleKey === 'admin' || activeRoleKey === 'cashier' || activeRoleKey === 'deliveryops' || activeRoleKey === 'returnhandler' || activeRoleKey === 'inventorymanager') {
-        const preferredBusinessId = activeBusinessId || currentSessionCompanyId;
+        const preferredBusinessId = currentSessionCompanyId || activeBusinessId;
         if (preferredBusinessId) {
             activeBusinessId = preferredBusinessId;
             localStorage.setItem('activeBusinessId', activeBusinessId);
@@ -1149,7 +1154,10 @@ inventory = cloneRows(mappedInventory);
     let isBusinessScoped = !!selectedBusiness;
     let businessScopedData = isBusinessScoped ? businessDataStore[selectedBusiness.id] : null;
 
-    if (activeBusinessId && !selectedBusiness) {
+    // Do not clear activeBusinessId before businesses are loaded from backend.
+    // At bootstrap time, `businesses` is still empty, so clearing here incorrectly
+    // drops valid new-business scope and causes fallback data leakage.
+    if (activeBusinessId && businesses.length > 0 && !selectedBusiness) {
         localStorage.removeItem('activeBusinessId');
         localStorage.removeItem('activeBusinessName');
         activeBusinessId = '';

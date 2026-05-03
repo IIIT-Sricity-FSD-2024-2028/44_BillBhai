@@ -47,10 +47,12 @@ export class CustomersService {
   }
 
   create(dto: CreateCustomerDto) {
-    const exists = this.customers.find((c) => c.mobileNo === dto.mobileNo);
+    const exists = this.customers.find(
+      (c) => c.companyId === dto.companyId && c.mobileNo === dto.mobileNo,
+    );
     if (exists)
       throw new ConflictException(
-        'Customer with this mobile number already exists',
+        'Customer with this mobile number already exists for this company',
       );
     const newCustomer = {
       id: `CUS-${String(this.counter++).padStart(3, '0')}`,

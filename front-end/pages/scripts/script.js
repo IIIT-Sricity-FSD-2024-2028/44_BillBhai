@@ -164,9 +164,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const businessScopedRoles = ['admin', 'cashier', 'inventorymanager', 'deliveryops', 'returnhandler', 'customer'];
             if (businessScopedRoles.includes(normalizedRole)) {
-                localStorage.setItem('activeBusinessId', userRecord.companyId || 'BIZ-101');
+                const resolvedCompanyId = String(userRecord.companyId || '').trim();
+                if (!resolvedCompanyId) {
+                    loginError.textContent = 'This account has no business mapped. Contact superuser.';
+                    btnLogin.classList.remove('loading');
+                    btnLogin.disabled = false;
+                    return;
+                }
+                localStorage.setItem('activeBusinessId', resolvedCompanyId);
                 try {
-                    const companyResp = await fetch(`http://localhost:3000/api/companies/${encodeURIComponent(String(userRecord.companyId || 'BIZ-101'))}`, {
+                    const companyResp = await fetch(`http://localhost:3000/api/companies/${encodeURIComponent(resolvedCompanyId)}`, {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json',
@@ -193,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: userRecord.username,
                 role: normalizedRole,
                 email: userRecord.email || '',
-                companyId: userRecord.companyId || null
+                companyId: String(userRecord.companyId || '').trim() || null
             }));
 
             if (normalizedRole === 'customer') {
