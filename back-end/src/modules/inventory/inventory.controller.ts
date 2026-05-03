@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Param, Body } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Param, Body } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { UpdateInventoryDto, AdjustStockDto } from './dto/inventory.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -54,5 +54,12 @@ export class InventoryController {
   @ApiOperation({ summary: 'Adjust inventory stock for a product' })
   adjustStock(@Body() dto: AdjustStockDto) {
     return this.inventoryService.adjustStock(dto);
+  }
+
+  @Delete(':id')
+  @Roles('superuser', 'admin', 'inventorymanager')
+  @ApiOperation({ summary: 'Delete inventory record' })
+  remove(@Param('id') id: string) {
+    return this.inventoryService.remove(id);
   }
 }

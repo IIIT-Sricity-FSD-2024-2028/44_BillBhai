@@ -29,11 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const ROLE_ALLOWED_PAGES = {
         superuser: ['superuser', 'businesses', 'dashboard', 'orders', 'inventory', 'delivery', 'returns', 'reports', 'users', 'profile', 'notifications'],
         admin: ['dashboard', 'orders', 'inventory', 'delivery', 'returns', 'reports', 'users', 'profile', 'notifications'],
-        cashier: ['dashboard', 'orders', 'reports', 'profile', 'notifications'],
+        cashier: ['cashier', 'dashboard', 'orders', 'reports', 'profile', 'notifications'],
         returnhandler: ['dashboard', 'returns', 'orders', 'reports', 'profile', 'notifications'],
         inventorymanager: ['dashboard', 'inventory', 'reports', 'profile', 'notifications'],
         deliveryops: ['dashboard', 'delivery', 'reports', 'profile', 'notifications'],
-        customer: ['profile', 'reports', 'notifications']
+        customer: ['cashier', 'profile', 'reports', 'notifications']
     };
 
     const ROLE_ACTIONS = {
@@ -162,6 +162,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPage = document.body.getAttribute('data-page') || 'dashboard';
         const allowedPages = ROLE_ALLOWED_PAGES[roleKey] || [];
         let activeBusinessName = localStorage.getItem('activeBusinessName') || '';
+
+        // Cashier/customer sessions should run in the dedicated POS terminal page.
+        if ((roleKey === 'cashier' || roleKey === 'customer') && currentPage !== 'cashier') {
+            window.location.href = 'cashier.html';
+            return;
+        }
 
         const shouldHideSidebarLayout = roleKey === 'superuser' && ['superuser', 'profile', 'notifications'].includes(currentPage);
         document.body.classList.toggle('no-sidebar-layout', shouldHideSidebarLayout);
@@ -529,10 +535,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const message = payload && typeof payload === 'object' && payload.message
                 ? payload.message
                 : `HTTP ${response.status}`;
-            throw new Error(message);
+            const error = new Error(message);
+            error.status = response.status;
+            throw error;
         }
 
         return payload;
+    }
+
+    function mutationErrorMessage(actionLabel, error) {
+        const message = error && error.message ? error.message : 'Backend unavailable';
+        return `${actionLabel} failed: ${message}`;
+    }
+
+    function showMutationError(actionLabel, error) {
+        console.warn(`${actionLabel} failed`, error);
+        showToast(mutationErrorMessage(actionLabel, error));
+    }
+
+    function isNotFoundError(error) {
+        return Number(error && error.status) === 404
+            || /not found/i.test(String(error && error.message || ''));
     }
 
     function formatBackendDate(value) {
@@ -672,13 +695,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 username: String(user.username || '').trim()
             }));
 
-            // Keep backend as source-of-truth for existing IDs, but preserve local-only rows
-            // that may not exist in backend yet (for example, newly added frontend rows).
-            inventory = mergeSeedRecords(mappedInventory, inventory, 'sku');
-            orders = mergeSeedRecords(mappedOrders, orders, 'id');
-            deliveries = mergeSeedRecords(mappedDeliveries, deliveries, 'id');
-            returns = mergeSeedRecords(mappedReturns, returns, 'id');
-            users = mergeSeedRecords(mappedUsers, users, 'name');
+            // Keep backend as source-of-truth for existing keys and only append local-only rows.
+            inventory = mergePrimaryWithSecondary(mappedInventory, inventory, 'sku');
+            orders = mergePrimaryWithSecondary(mappedOrders, orders, 'id');
+            deliveries = mergePrimaryWithSecondary(mappedDeliveries, deliveries, 'id');
+            returns = mergePrimaryWithSecondary(mappedReturns, returns, 'id');
+            users = mergePrimaryWithSecondary(mappedUsers, users, 'name');
 
             if (Array.isArray(companiesData) && companiesData.length) {
                 const existingById = new Map(businesses.map((item) => [item.id, item]));
@@ -1013,6 +1035,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return cloneRows(merged);
     }
 
+    function mergePrimaryWithSecondary(primaryRows, secondaryRows, key) {
+        const primary = Array.isArray(primaryRows) ? primaryRows : [];
+        const secondary = Array.isArray(secondaryRows) ? secondaryRows : [];
+        if (!primary.length) return cloneRows(secondary);
+        if (!secondary.length) return cloneRows(primary);
+
+        const getKey = (row) => String(row && row[key] ? row[key] : '').trim();
+        const primaryKeys = new Set(primary.map(getKey).filter(Boolean));
+        const merged = cloneRows(primary);
+
+        secondary.forEach((row) => {
+            const k = getKey(row);
+            if (!k || primaryKeys.has(k)) return;
+            merged.push(cloneRows([row])[0]);
+        });
+
+        return merged;
+    }
+
     function buildBusinessSeedData(business, idx) {
         const userList = Array.isArray(business.users) ? business.users : [];
         const adminName = userList.find(u => String(u.role || '').toLowerCase() === 'admin')?.name || business.adminName || 'Store Admin';
@@ -1125,11 +1166,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         businessDataStore[business.id] = {
-            orders: Array.isArray(existing.orders) ? mergeSeedRecords(existing.orders, seed.orders, 'id') : seed.orders,
-            inventory: Array.isArray(existing.inventory) ? mergeSeedRecords(existing.inventory, seed.inventory, 'sku') : seed.inventory,
-            deliveries: Array.isArray(existing.deliveries) ? mergeSeedRecords(existing.deliveries, seed.deliveries, 'id') : seed.deliveries,
-            returns: Array.isArray(existing.returns) ? mergeSeedRecords(existing.returns, seed.returns, 'id') : seed.returns,
-            users: Array.isArray(existing.users) ? mergeSeedRecords(existing.users, seed.users, 'name') : seed.users
+            orders: Array.isArray(existing.orders) ? cloneRows(existing.orders) : seed.orders,
+            inventory: Array.isArray(existing.inventory) ? cloneRows(existing.inventory) : seed.inventory,
+            deliveries: Array.isArray(existing.deliveries) ? cloneRows(existing.deliveries) : seed.deliveries,
+            returns: Array.isArray(existing.returns) ? cloneRows(existing.returns) : seed.returns,
+            users: Array.isArray(existing.users) ? cloneRows(existing.users) : seed.users
         };
     });
     saveObject('bb_business_data', businessDataStore);
@@ -1168,20 +1209,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ? (Array.isArray(businessScopedData.users) ? businessScopedData.users : cloneRows(defaultUsers))
         : loadList('bb_users', defaultUsers);
 
-    // Enrich small/global datasets with the latest seed records so charts/tables have enough data.
-    if (!isBusinessScoped) {
-        orders = mergeSeedRecords(orders, defaultOrders, 'id');
-        inventory = mergeSeedRecords(inventory, defaultInventory, 'sku');
-        deliveries = mergeSeedRecords(deliveries, defaultDeliveries, 'id');
-        returns = mergeSeedRecords(returns, defaultReturns, 'id');
-        users = mergeSeedRecords(users, defaultUsers, 'name');
-        saveList('bb_orders', orders);
-        saveList('bb_inventory', inventory);
-        saveList('bb_deliveries', deliveries);
-        saveList('bb_returns', returns);
-        saveList('bb_users', users);
-    }
-
     function publishDataSync(domains) {
         const payload = {
             sourceId: syncSourceId,
@@ -1207,19 +1234,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!scoped || typeof scoped !== 'object') return;
 
             businessDataStore[selectedBusiness.id] = scoped;
-            if (Array.isArray(scoped.orders)) orders = mergeSeedRecords(scoped.orders, defaultOrders, 'id');
-            if (Array.isArray(scoped.inventory)) inventory = mergeSeedRecords(scoped.inventory, defaultInventory, 'sku');
+            if (Array.isArray(scoped.orders)) orders = cloneRows(scoped.orders);
+            if (Array.isArray(scoped.inventory)) inventory = cloneRows(scoped.inventory);
             if (Array.isArray(scoped.deliveries)) deliveries = cloneRows(scoped.deliveries);
             if (Array.isArray(scoped.returns)) returns = cloneRows(scoped.returns);
-            if (Array.isArray(scoped.users)) users = mergeSeedRecords(scoped.users, defaultUsers, 'name');
+            if (Array.isArray(scoped.users)) users = cloneRows(scoped.users);
             return;
         }
 
-        orders = mergeSeedRecords(loadList('bb_orders', orders), defaultOrders, 'id');
-        inventory = mergeSeedRecords(loadList('bb_inventory', inventory), defaultInventory, 'sku');
-        deliveries = mergeSeedRecords(loadList('bb_deliveries', deliveries), defaultDeliveries, 'id');
-        returns = mergeSeedRecords(loadList('bb_returns', returns), defaultReturns, 'id');
-        users = mergeSeedRecords(loadList('bb_users', users), defaultUsers, 'name');
+        orders = loadList('bb_orders', orders);
+        inventory = loadList('bb_inventory', inventory);
+        deliveries = loadList('bb_deliveries', deliveries);
+        returns = loadList('bb_returns', returns);
+        users = loadList('bb_users', users);
     }
 
     function shouldApplyIncomingSync(payload) {
@@ -5346,7 +5373,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             errEl.style.display = 'none';
-            onSubmit(values, closeModal);
+            Promise.resolve(onSubmit(values, closeModal)).catch(() => {
+                // Keep modal open on submission failure.
+            });
         });
 
         document.body.appendChild(overlay);
@@ -5378,9 +5407,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         overlay.querySelector('.modal-close').addEventListener('click', closeModal);
         overlay.querySelector('[data-action="cancel"]').addEventListener('click', closeModal);
-        overlay.querySelector('[data-action="confirm"]').addEventListener('click', () => {
-            onConfirm();
-            closeModal();
+        overlay.querySelector('[data-action="confirm"]').addEventListener('click', async () => {
+            try {
+                const shouldClose = await onConfirm();
+                if (shouldClose !== false) closeModal();
+            } catch (error) {
+                showMutationError('Action', error);
+                // Keep modal open if confirm action fails.
+            }
         });
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) closeModal();
@@ -5489,62 +5523,69 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        const createProductInBackend = async () => {
+            const supplierRows = await apiRequest('/suppliers', {
+                role: 'inventorymanager'
+            });
+            const normalizedSupplier = String(pData.supplier || '').trim().toLowerCase();
+            const matchedSupplier = (Array.isArray(supplierRows) ? supplierRows : []).find((row) =>
+                String(row && row.name || '').trim().toLowerCase() === normalizedSupplier
+            );
+
+            const createdProduct = await apiRequest('/products', {
+                method: 'POST',
+                role: 'inventorymanager',
+                body: {
+                    supplierId: String((matchedSupplier && matchedSupplier.id) || existingRecord?.supplierId || 'SUP-001').trim() || 'SUP-001',
+                    name: pData.name,
+                    category: pData.cat,
+                    price: Number(pData.price || 0),
+                    barcode: String(existingRecord?.barcode || pData.sku || '').trim(),
+                    size: String(existingRecord?.size || '1 unit').trim(),
+                    description: String(existingRecord?.description || `${pData.name} (${pData.cat})`).trim()
+                }
+            });
+
+            if (createdProduct && createdProduct.id) {
+                pData.productId = createdProduct.id;
+                pData.supplierId = createdProduct.supplierId || pData.supplierId;
+                pData.barcode = createdProduct.barcode || pData.barcode || pData.sku;
+                pData.size = createdProduct.size || pData.size || '1 unit';
+                pData.description = createdProduct.description || pData.description || `${pData.name} (${pData.cat})`;
+            }
+        };
+
         try {
             if (existingRecord && existingRecord.productId) {
-                await apiRequest(`/products/${encodeURIComponent(String(existingRecord.productId))}`, {
-                    method: 'PUT',
-                    role: 'inventorymanager',
-                    body: {
-                        supplierId: String(existingRecord.supplierId || 'SUP-001').trim() || 'SUP-001',
-                        name: pData.name,
-                        category: pData.cat,
-                        price: Number(pData.price || 0),
-                        barcode: String(existingRecord.barcode || pData.sku || '').trim(),
-                        size: String(existingRecord.size || '1 unit').trim(),
-                        description: String(existingRecord.description || `${pData.name} (${pData.cat})`).trim()
+                try {
+                    await apiRequest(`/products/${encodeURIComponent(String(existingRecord.productId))}`, {
+                        method: 'PUT',
+                        role: 'inventorymanager',
+                        body: {
+                            supplierId: String(existingRecord.supplierId || 'SUP-001').trim() || 'SUP-001',
+                            name: pData.name,
+                            category: pData.cat,
+                            price: Number(pData.price || 0),
+                            barcode: String(existingRecord.barcode || pData.sku || '').trim(),
+                            size: String(existingRecord.size || '1 unit').trim(),
+                            description: String(existingRecord.description || `${pData.name} (${pData.cat})`).trim()
+                        }
+                    });
+                } catch (error) {
+                    if (isNotFoundError(error)) {
+                        // Backend may have restarted and lost older in-memory product IDs.
+                        await createProductInBackend();
+                    } else {
+                        throw error;
                     }
-                });
-            } else {
-                const supplierRows = await apiRequest('/suppliers', {
-                    role: 'inventorymanager'
-                }).catch(() => []);
-                const normalizedSupplier = String(pData.supplier || '').trim().toLowerCase();
-                const matchedSupplier = (Array.isArray(supplierRows) ? supplierRows : []).find((row) =>
-                    String(row && row.name || '').trim().toLowerCase() === normalizedSupplier
-                );
-
-                const createdProduct = await apiRequest('/products', {
-                    method: 'POST',
-                    role: 'inventorymanager',
-                    body: {
-                        supplierId: String((matchedSupplier && matchedSupplier.id) || existingRecord?.supplierId || 'SUP-001').trim() || 'SUP-001',
-                        name: pData.name,
-                        category: pData.cat,
-                        price: Number(pData.price || 0),
-                        barcode: String(existingRecord?.barcode || pData.sku || '').trim(),
-                        size: String(existingRecord?.size || '1 unit').trim(),
-                        description: String(existingRecord?.description || `${pData.name} (${pData.cat})`).trim()
-                    }
-                });
-
-                if (createdProduct && createdProduct.id) {
-                    pData.productId = createdProduct.id;
-                    pData.supplierId = createdProduct.supplierId || pData.supplierId;
-                    pData.barcode = createdProduct.barcode || pData.barcode || pData.sku;
-                    pData.size = createdProduct.size || pData.size || '1 unit';
-                    pData.description = createdProduct.description || pData.description || `${pData.name} (${pData.cat})`;
                 }
+            } else {
+                await createProductInBackend();
             }
         } catch (error) {
-            console.warn('Failed to sync product with backend:', error);
+            showMutationError('Product save', error);
+            return;
         }
-
-        if (existingIdx !== -1) {
-            inventory[existingIdx] = pData;
-        } else {
-            inventory.push(pData);
-        }
-        persistOperationalData();
 
         if (existingIdx !== -1 && pData.inventoryId) {
             try {
@@ -5558,9 +5599,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             } catch (error) {
-                console.warn('Failed to sync inventory update with backend:', error);
+                if (isNotFoundError(error)) {
+                    // Stale local pointer after backend restart; stop retrying this missing inventory row.
+                    pData.inventoryId = undefined;
+                } else {
+                    showMutationError('Inventory update', error);
+                    return;
+                }
             }
         }
+
+        if (existingIdx !== -1) {
+            inventory[existingIdx] = pData;
+        } else {
+            inventory.push(pData);
+        }
+        persistOperationalData();
 
         if (currentPage === 'inventory') {
             renderPage('inventory');
@@ -5716,7 +5770,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 const customerRows = await apiRequest(`/customers?companyId=${encodeURIComponent(activeCompanyId)}`, {
                     role: 'cashier'
-                }).catch(() => []);
+                });
                 const normalizedName = String(oData.customer || '').trim().toLowerCase();
                 let customer = (Array.isArray(customerRows) ? customerRows : []).find((row) =>
                     String(row && row.name || '').trim().toLowerCase() === normalizedName
@@ -5732,7 +5786,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             name: oData.customer,
                             mobileNo: generatedPhone
                         }
-                    }).catch(() => null);
+                    });
                 }
 
                 const totalItems = Math.max(1, Number(oData.items) || 1);
@@ -5772,7 +5826,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch (error) {
-            console.warn('Failed to sync order with backend:', error);
+            showMutationError('Order save', error);
+            return;
         }
 
         if (existingIdx !== -1) {
@@ -5908,9 +5963,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         uData.username = credential.username;
 
-        if (existingIdx !== -1) users[existingIdx] = uData;
-        else users.push(uData);
-
         try {
             if (existingUser && existingUser.id) {
                 const backendUser = await apiRequest(`/users/${encodeURIComponent(String(existingUser.id))}`, {
@@ -5942,8 +5994,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 uData.id = backendUser.id;
             }
         } catch (error) {
-            console.warn('Failed to sync user with backend:', error);
+            showMutationError('User save', error);
+            return;
         }
+
+        if (existingIdx !== -1) users[existingIdx] = uData;
+        else users.push(uData);
         persistOperationalData();
 
         closeAddUserModal();
@@ -6022,23 +6078,41 @@ document.addEventListener('DOMContentLoaded', () => {
             title: 'Delete Product',
             message: `Delete Product ${sku}?`,
             confirmLabel: 'Delete',
-            onConfirm: () => {
+            onConfirm: async () => {
                 const index = inventory.findIndex(i => i.sku === sku);
                 const target = index !== -1 ? inventory[index] : null;
-                if (index !== -1) inventory.splice(index, 1);
-                persistOperationalData();
-                if (target && target.productId) {
-                    apiRequest(`/products/${encodeURIComponent(String(target.productId))}`, {
-                        method: 'DELETE',
-                        role: 'inventorymanager'
-                    }).catch((error) => {
-                        console.warn('Failed to delete product in backend:', error);
-                    });
+                if (!target) return true;
+                if (!target.inventoryId && !target.productId) {
+                    throw new Error('Missing backend identifiers for this inventory row');
                 }
+
+                if (target.inventoryId) {
+                    try {
+                        await apiRequest(`/inventory/${encodeURIComponent(String(target.inventoryId))}`, {
+                            method: 'DELETE',
+                            role: 'inventorymanager'
+                        });
+                    } catch (error) {
+                        if (!isNotFoundError(error)) throw error;
+                    }
+                }
+                if (target.productId) {
+                    try {
+                        await apiRequest(`/products/${encodeURIComponent(String(target.productId))}`, {
+                            method: 'DELETE',
+                            role: 'inventorymanager'
+                        });
+                    } catch (error) {
+                        if (!isNotFoundError(error)) throw error;
+                    }
+                }
+                inventory.splice(index, 1);
+                persistOperationalData();
                 if (currentPage === 'inventory') {
                     renderPage('inventory');
                 }
                 showToast(`Product "${sku}" deleted!`);
+                return true;
             }
         });
     };
@@ -6068,12 +6142,18 @@ document.addEventListener('DOMContentLoaded', () => {
             title: 'Delete Order',
             message: `Delete Order ${id}?`,
             confirmLabel: 'Delete',
-            onConfirm: () => {
+            onConfirm: async () => {
                 const index = orders.findIndex(i => i.id === id);
-                if (index !== -1) orders.splice(index, 1);
+                if (index === -1) return true;
+                await apiRequest(`/orders/${encodeURIComponent(String(id))}`, {
+                    method: 'DELETE',
+                    role: 'cashier'
+                });
+                orders.splice(index, 1);
                 persistOperationalData();
                 document.querySelectorAll('tr').forEach(r => { if(r.children[0] && r.children[0].textContent === id) r.remove(); });
                 showToast(`Order "${id}" deleted!`);
+                return true;
             }
         });
     };
@@ -6109,26 +6189,28 @@ document.addEventListener('DOMContentLoaded', () => {
             title: 'Delete User',
             message: `Delete User ${name}?`,
             confirmLabel: 'Delete',
-            onConfirm: () => {
+            onConfirm: async () => {
                 const index = users.findIndex(i => i.name === name);
                 const targetUser = index !== -1 ? users[index] : null;
-                if (index !== -1) users.splice(index, 1);
-                if (targetUser) removeAuthCredentialsForUser(targetUser);
-                persistOperationalData();
-                if (targetUser && targetUser.id) {
-                    apiRequest(`/users/${encodeURIComponent(String(targetUser.id))}`, {
-                        method: 'DELETE',
-                        role: 'admin'
-                    }).catch((error) => {
-                        console.warn('Failed to delete user in backend:', error);
-                    });
+                if (!targetUser) return true;
+                if (!targetUser.id) {
+                    throw new Error('Missing backend user id');
                 }
+
+                await apiRequest(`/users/${encodeURIComponent(String(targetUser.id))}`, {
+                    method: 'DELETE',
+                    role: 'admin'
+                });
+                users.splice(index, 1);
+                removeAuthCredentialsForUser(targetUser);
+                persistOperationalData();
                 if (currentPage === 'users') {
                     renderPage('users');
                 } else {
                     document.querySelectorAll('tr').forEach(r => { if (r.children[0] && r.children[0].textContent === name) r.remove(); });
                 }
                 showToast(`User "${name}" deleted!`);
+                return true;
             }
         });
     };
@@ -6152,19 +6234,30 @@ document.addEventListener('DOMContentLoaded', () => {
             initialValues: {
                 role: mapUserRoleToAuthRole(user.role)
             },
-            onSubmit: (values, closeModal) => {
-                user.role = String(values.role || '').trim();
-                const credential = upsertAuthCredentialsForUser(user, { existingUsername: user.username });
-                user.username = credential.username;
-                persistOperationalData();
-                closeModal();
-                renderUserProfile(user.name);
-                showToast(`${user.name}'s role updated to ${user.role}.`);
+            onSubmit: async (values, closeModal) => {
+                try {
+                    const nextRole = String(values.role || '').trim();
+                    if (!user.id) throw new Error('Missing backend user id');
+                    await apiRequest(`/users/${encodeURIComponent(String(user.id))}`, {
+                        method: 'PUT',
+                        role: 'admin',
+                        body: { role: mapRoleLabelToBackendRole(nextRole) }
+                    });
+                    user.role = nextRole;
+                    const credential = upsertAuthCredentialsForUser(user, { existingUsername: user.username });
+                    user.username = credential.username;
+                    persistOperationalData();
+                    closeModal();
+                    renderUserProfile(user.name);
+                    showToast(`${user.name}'s role updated to ${user.role}.`);
+                } catch (error) {
+                    showMutationError('User role update', error);
+                }
             }
         });
     };
 
-    window.sendUserPasswordReset = function(nameToken) {
+    window.sendUserPasswordReset = async function(nameToken) {
         if (!hasActionAccess('users')) {
             denyAction('User password reset');
             return;
@@ -6178,21 +6271,31 @@ document.addEventListener('DOMContentLoaded', () => {
             existingUsername: user.username,
             forcePassword: tempPassword
         });
-        user.username = credential.username;
-        persistOperationalData();
+        try {
+            if (!user.id) throw new Error('Missing backend user id');
+            await apiRequest(`/users/${encodeURIComponent(String(user.id))}`, {
+                method: 'PUT',
+                role: 'admin',
+                body: { password: credential.password }
+            });
+            user.username = credential.username;
+            persistOperationalData();
 
-        showCredentialsModal('Temporary Password Generated', {
-            name: user.name,
-            username: credential.username,
-            password: credential.password,
-            role: mapUserRoleToAuthRole(user.role),
-            email: user.email
-        });
-        renderUserProfile(user.name);
-        showToast(`Temporary password generated for ${user.name}.`);
+            showCredentialsModal('Temporary Password Generated', {
+                name: user.name,
+                username: credential.username,
+                password: credential.password,
+                role: mapUserRoleToAuthRole(user.role),
+                email: user.email
+            });
+            renderUserProfile(user.name);
+            showToast(`Temporary password generated for ${user.name}.`);
+        } catch (error) {
+            showMutationError('Password reset', error);
+        }
     };
 
-    window.toggleUserSuspension = function(nameToken) {
+    window.toggleUserSuspension = async function(nameToken) {
         if (!hasActionAccess('users')) {
             denyAction('User status update');
             return;
@@ -6203,12 +6306,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = users[userIndex];
         const currentlySuspended = String(user.status || '').toLowerCase() === 'suspended';
 
-        user.status = currentlySuspended ? 'Active' : 'Suspended';
-        const credential = upsertAuthCredentialsForUser(user, { existingUsername: user.username });
-        user.username = credential.username;
-        persistOperationalData();
-        renderUserProfile(user.name);
-        showToast(currentlySuspended ? `${user.name} reactivated.` : `${user.name} suspended.`);
+        try {
+            const nextStatus = currentlySuspended ? 'Active' : 'Suspended';
+            if (!user.id) throw new Error('Missing backend user id');
+            await apiRequest(`/users/${encodeURIComponent(String(user.id))}`, {
+                method: 'PUT',
+                role: 'admin',
+                body: { status: nextStatus }
+            });
+            user.status = nextStatus;
+            const credential = upsertAuthCredentialsForUser(user, { existingUsername: user.username });
+            user.username = credential.username;
+            persistOperationalData();
+            renderUserProfile(user.name);
+            showToast(currentlySuspended ? `${user.name} reactivated.` : `${user.name} suspended.`);
+        } catch (error) {
+            showMutationError('User status update', error);
+        }
     };
 
     window.raiseReturnRequest = function() {
@@ -6236,24 +6350,22 @@ document.addEventListener('DOMContentLoaded', () => {
             ],
             initialValues: { product: productOptions[0] || '', qty: 1, reason: 'Damaged', amount: 0 },
             onSubmit: async (values, closeModal) => {
-                const productName = String(values.product || '').trim();
-                const invItem = inventory.find(i => String((i && i.name) || '').trim() === productName);
-                const returnRecord = {
-                    id: getNextReturnId(),
-                    oid: String(values.oid).trim().toUpperCase(),
-                    product: productName,
-                    sku: invItem ? invItem.sku : undefined,
-                    cat: invItem ? invItem.cat : undefined,
-                    qty: Math.max(1, Number(values.qty) || 1),
-                    reason: String(values.reason).trim(),
-                    amount: Number(values.amount),
-                    status: 'Pending',
-                    requestedBy: localStorage.getItem('userName') || 'Operator',
-                    updatedAt: formatDate()
-                };
-                returns.unshift(returnRecord);
-
                 try {
+                    const productName = String(values.product || '').trim();
+                    const invItem = inventory.find(i => String((i && i.name) || '').trim() === productName);
+                    const returnRecord = {
+                        id: getNextReturnId(),
+                        oid: String(values.oid).trim().toUpperCase(),
+                        product: productName,
+                        sku: invItem ? invItem.sku : undefined,
+                        cat: invItem ? invItem.cat : undefined,
+                        qty: Math.max(1, Number(values.qty) || 1),
+                        reason: String(values.reason).trim(),
+                        amount: Number(values.amount),
+                        status: 'Pending',
+                        requestedBy: localStorage.getItem('userName') || 'Operator',
+                        updatedAt: formatDate()
+                    };
                     const currentUser = loadObject('currentUser', {});
                     const created = await apiRequest('/returns', {
                         method: 'POST',
@@ -6270,78 +6382,85 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
                     returnRecord.id = created.id || returnRecord.id;
+                    returns.unshift(returnRecord);
+                    persistOperationalData();
+                    renderPage('returns');
+                    closeModal();
+                    showToast('Return request raised successfully.');
                 } catch (error) {
-                    console.warn('Failed to create return in backend:', error);
+                    showMutationError('Return create', error);
                 }
-                persistOperationalData();
-                renderPage('returns');
-                closeModal();
-                showToast('Return request raised successfully.');
             }
         });
     };
 
-    window.approveReturn = function(id) {
+    window.approveReturn = async function(id) {
         if (!hasActionAccess('returns')) {
             denyAction('Return approve');
             return;
         }
         const item = returns.find(r => r.id === id);
         if (!item) return;
-        item.status = 'Approved';
-        item.updatedAt = formatDate();
-        persistOperationalData();
-        apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
-            method: 'PUT',
-            role: 'returnhandler',
-            body: { status: 'Approved' }
-        }).catch((error) => {
-            console.warn('Failed to sync return approval:', error);
-        });
-        renderPage('returns');
-        showToast(`Return ${id} approved.`);
+        try {
+            await apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
+                method: 'PUT',
+                role: 'returnhandler',
+                body: { status: 'Approved' }
+            });
+            item.status = 'Approved';
+            item.updatedAt = formatDate();
+            persistOperationalData();
+            renderPage('returns');
+            showToast(`Return ${id} approved.`);
+        } catch (error) {
+            showMutationError('Return approval', error);
+        }
     };
 
-    window.refundReturn = function(id) {
+    window.refundReturn = async function(id) {
         if (!hasActionAccess('returns')) {
             denyAction('Return refund');
             return;
         }
         const item = returns.find(r => r.id === id);
         if (!item) return;
-        item.status = 'Refunded';
-        item.updatedAt = formatDate();
-        persistOperationalData();
-        apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
-            method: 'PUT',
-            role: 'returnhandler',
-            body: { status: 'Refunded' }
-        }).catch((error) => {
-            console.warn('Failed to sync return refund:', error);
-        });
-        renderPage('returns');
-        showToast(`Return ${id} refunded.`);
+        try {
+            await apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
+                method: 'PUT',
+                role: 'returnhandler',
+                body: { status: 'Refunded' }
+            });
+            item.status = 'Refunded';
+            item.updatedAt = formatDate();
+            persistOperationalData();
+            renderPage('returns');
+            showToast(`Return ${id} refunded.`);
+        } catch (error) {
+            showMutationError('Return refund', error);
+        }
     };
 
-    window.rejectReturn = function(id) {
+    window.rejectReturn = async function(id) {
         if (!hasActionAccess('returns')) {
             denyAction('Return reject');
             return;
         }
         const item = returns.find(r => r.id === id);
         if (!item) return;
-        item.status = 'Rejected';
-        item.updatedAt = formatDate();
-        persistOperationalData();
-        apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
-            method: 'PUT',
-            role: 'returnhandler',
-            body: { status: 'Rejected' }
-        }).catch((error) => {
-            console.warn('Failed to sync return rejection:', error);
-        });
-        renderPage('returns');
-        showToast(`Return ${id} rejected.`);
+        try {
+            await apiRequest(`/returns/${encodeURIComponent(String(id))}`, {
+                method: 'PUT',
+                role: 'returnhandler',
+                body: { status: 'Rejected' }
+            });
+            item.status = 'Rejected';
+            item.updatedAt = formatDate();
+            persistOperationalData();
+            renderPage('returns');
+            showToast(`Return ${id} rejected.`);
+        } catch (error) {
+            showMutationError('Return rejection', error);
+        }
     };
 
     window.assignDeliveryPartner = function(id) {
@@ -6366,60 +6485,68 @@ document.addEventListener('DOMContentLoaded', () => {
                 partnerAgency: item.partnerAgency || '',
                 partnerVehicle: item.partnerVehicle || ''
             },
-            onSubmit: (values, closeModal) => {
-                item.partner = String(values.partner).trim();
-                item.partnerPhone = String(values.partnerPhone || '').trim();
-                item.partnerAgency = String(values.partnerAgency || '').trim();
-                item.partnerVehicle = String(values.partnerVehicle || '').trim();
-                if (normalizeDeliveryStatus(item.status) !== 'Delivered') item.status = 'In Transit';
-                item.updatedAt = formatDate();
-                item.time = item.updatedAt.split(' ').slice(-1)[0];
-                persistOperationalData();
-                apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
-                    method: 'PUT',
-                    role: 'deliveryops',
-                    body: {
-                        partnerName: item.partner,
-                        dispatchDate: new Date().toISOString().slice(0, 10),
-                        status: 'In Transit'
-                    }
-                }).catch((error) => {
-                    console.warn('Failed to sync delivery assignment:', error);
-                });
-                renderPage(currentPage);
-                closeModal();
-                showToast(`Partner assigned for ${id}.`);
+            onSubmit: async (values, closeModal) => {
+                const partner = String(values.partner).trim();
+                const partnerPhone = String(values.partnerPhone || '').trim();
+                const partnerAgency = String(values.partnerAgency || '').trim();
+                const partnerVehicle = String(values.partnerVehicle || '').trim();
+                try {
+                    await apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
+                        method: 'PUT',
+                        role: 'deliveryops',
+                        body: {
+                            partnerName: partner,
+                            dispatchDate: new Date().toISOString().slice(0, 10),
+                            status: 'In Transit'
+                        }
+                    });
+                    item.partner = partner;
+                    item.partnerPhone = partnerPhone;
+                    item.partnerAgency = partnerAgency;
+                    item.partnerVehicle = partnerVehicle;
+                    if (normalizeDeliveryStatus(item.status) !== 'Delivered') item.status = 'In Transit';
+                    item.updatedAt = formatDate();
+                    item.time = item.updatedAt.split(' ').slice(-1)[0];
+                    persistOperationalData();
+                    renderPage(currentPage);
+                    closeModal();
+                    showToast(`Partner assigned for ${id}.`);
+                } catch (error) {
+                    showMutationError('Delivery assignment', error);
+                }
             }
         });
     };
 
-    window.markDeliveryDelivered = function(id) {
+    window.markDeliveryDelivered = async function(id) {
         if (!hasActionAccess('delivery')) {
             denyAction('Delivery close');
             return;
         }
         const item = deliveries.find(d => d.id === id);
         if (!item) return;
-        item.status = 'Delivered';
-        item.updatedAt = formatDate();
-        item.time = item.updatedAt.split(' ').slice(-1)[0];
-        item.etaMin = 0;
-        persistOperationalData();
-        apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
-            method: 'PUT',
-            role: 'deliveryops',
-            body: {
-                status: 'Delivered',
-                deliveryDate: new Date().toISOString().slice(0, 10)
-            }
-        }).catch((error) => {
-            console.warn('Failed to sync delivered status:', error);
-        });
-        renderPage(currentPage);
-        showToast(`${id} marked delivered.`);
+        try {
+            await apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
+                method: 'PUT',
+                role: 'deliveryops',
+                body: {
+                    status: 'Delivered',
+                    deliveryDate: new Date().toISOString().slice(0, 10)
+                }
+            });
+            item.status = 'Delivered';
+            item.updatedAt = formatDate();
+            item.time = item.updatedAt.split(' ').slice(-1)[0];
+            item.etaMin = 0;
+            persistOperationalData();
+            renderPage(currentPage);
+            showToast(`${id} marked delivered.`);
+        } catch (error) {
+            showMutationError('Delivery completion', error);
+        }
     };
 
-    window.markDeliveryFailed = function(id) {
+    window.markDeliveryFailed = async function(id) {
         if (!hasActionAccess('delivery')) {
             denyAction('Delivery failure');
             return;
@@ -6427,49 +6554,53 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = deliveries.find(d => d.id === id);
         if (!item) return;
         if (normalizeDeliveryStatus(item.status) === 'Delivered') return;
-        item.status = 'Failed';
-        item.updatedAt = formatDate();
-        item.time = item.updatedAt.split(' ').slice(-1)[0];
-        item.etaMin = 0;
-        persistOperationalData();
-        apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
-            method: 'PUT',
-            role: 'deliveryops',
-            body: { status: 'Failed' }
-        }).catch((error) => {
-            console.warn('Failed to sync failed status:', error);
-        });
-        renderPage(currentPage);
-        showToast(`${id} marked failed.`);
+        try {
+            await apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
+                method: 'PUT',
+                role: 'deliveryops',
+                body: { status: 'Failed' }
+            });
+            item.status = 'Failed';
+            item.updatedAt = formatDate();
+            item.time = item.updatedAt.split(' ').slice(-1)[0];
+            item.etaMin = 0;
+            persistOperationalData();
+            renderPage(currentPage);
+            showToast(`${id} marked failed.`);
+        } catch (error) {
+            showMutationError('Delivery failure update', error);
+        }
     };
 
-    window.retryDelivery = function(id) {
+    window.retryDelivery = async function(id) {
         if (!hasActionAccess('delivery')) {
             denyAction('Delivery retry');
             return;
         }
         const item = deliveries.find(d => d.id === id);
         if (!item) return;
-        item.status = 'Pending';
-        item.partner = '';
-        item.partnerPhone = '';
-        item.partnerAgency = '';
-        item.partnerVehicle = '';
-        item.updatedAt = formatDate();
-        item.time = '-';
-        persistOperationalData();
-        apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
-            method: 'PUT',
-            role: 'deliveryops',
-            body: {
-                status: 'Pending',
-                partnerName: 'Unassigned'
-            }
-        }).catch((error) => {
-            console.warn('Failed to sync retry state:', error);
-        });
-        renderPage(currentPage);
-        showToast(`${id} moved back to pending.`);
+        try {
+            await apiRequest(`/deliveries/${encodeURIComponent(String(id))}`, {
+                method: 'PUT',
+                role: 'deliveryops',
+                body: {
+                    status: 'Pending',
+                    partnerName: 'Unassigned'
+                }
+            });
+            item.status = 'Pending';
+            item.partner = '';
+            item.partnerPhone = '';
+            item.partnerAgency = '';
+            item.partnerVehicle = '';
+            item.updatedAt = formatDate();
+            item.time = '-';
+            persistOperationalData();
+            renderPage(currentPage);
+            showToast(`${id} moved back to pending.`);
+        } catch (error) {
+            showMutationError('Delivery retry', error);
+        }
     };
 
     window.renderBusinessesHome = function() {
@@ -6579,7 +6710,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     record.id = created.id || record.id;
                     record.status = created.status || record.status;
                 } catch (error) {
-                    console.warn('Failed to create company in backend:', error);
+                    showMutationError('Business create', error);
+                    return;
                 }
                 upsertBusiness(record);
                 renderPage('superuser');
@@ -6657,7 +6789,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
                 } catch (error) {
-                    console.warn('Failed to update company in backend:', error);
+                    showMutationError('Business update', error);
+                    return;
                 }
                 upsertBusiness(updated, existing.id);
                 renderBusinessDetails(updated.id);
@@ -6678,12 +6811,17 @@ document.addEventListener('DOMContentLoaded', () => {
             title: 'Delete Business',
             message: `Delete Business ${existing.name}?`,
             confirmLabel: 'Delete',
-            onConfirm: () => {
+            onConfirm: async () => {
+                await apiRequest(`/companies/${encodeURIComponent(String(id))}`, {
+                    method: 'DELETE',
+                    role: 'superuser'
+                });
                 const index = businesses.findIndex(b => b.id === id);
                 if (index !== -1) businesses.splice(index, 1);
                 saveList('bb_businesses', businesses);
                 renderPage('superuser');
                 showToast(`Business "${existing.name}" deleted.`);
+                return true;
             }
         });
     };
@@ -6695,6 +6833,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business user changes are disabled (no backend endpoint).');
+        return;
         openQuickFormModal({
             title: 'Add Business User',
             submitLabel: 'Add User',
@@ -6721,6 +6861,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business user changes are disabled (no backend endpoint).');
+        return;
         const arr = Array.isArray(businesses[idx].users) ? businesses[idx].users : [];
         const user = arr[userIndex];
         if (!user) return;
@@ -6750,6 +6892,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business user changes are disabled (no backend endpoint).');
+        return;
         const arr = Array.isArray(businesses[idx].users) ? businesses[idx].users : [];
         const user = arr[userIndex];
         if (!user) return;
@@ -6773,6 +6917,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business store changes are disabled (no backend endpoint).');
+        return;
         openQuickFormModal({
             title: 'Add Store',
             submitLabel: 'Add Store',
@@ -6799,6 +6945,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business store changes are disabled (no backend endpoint).');
+        return;
         const arr = Array.isArray(businesses[idx].stores) ? businesses[idx].stores : [];
         const store = arr[storeIndex];
         if (!store) return;
@@ -6828,6 +6976,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business store changes are disabled (no backend endpoint).');
+        return;
         const arr = Array.isArray(businesses[idx].stores) ? businesses[idx].stores : [];
         const store = arr[storeIndex];
         if (!store) return;
@@ -6851,6 +7001,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business payment changes are disabled (no backend endpoint).');
+        return;
         openQuickFormModal({
             title: 'Add Payment Entry',
             submitLabel: 'Add Payment',
@@ -6877,6 +7029,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business payment changes are disabled (no backend endpoint).');
+        return;
         const arr = Array.isArray(businesses[idx].payments) ? businesses[idx].payments : [];
         const payment = arr[paymentIndex];
         if (!payment) return;
@@ -6906,6 +7060,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const idx = findBusinessIndex(businessId);
         if (idx === -1) return;
+        showToast('Backend-only mode: business payment changes are disabled (no backend endpoint).');
+        return;
         const arr = Array.isArray(businesses[idx].payments) ? businesses[idx].payments : [];
         const payment = arr[paymentIndex];
         if (!payment) return;

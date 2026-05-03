@@ -4,12 +4,25 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Request, Response, NextFunction } from 'express';
 
 /**
  * Main entry point of the BillBhai Backend.
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Log every request so mutation methods (POST/PUT/DELETE) are visible in backend console.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const startedAt = Date.now();
+    res.on('finish', () => {
+      const durationMs = Date.now() - startedAt;
+      console.log(
+        `[HTTP] ${req.method} ${req.originalUrl || req.url} -> ${res.statusCode} (${durationMs}ms)`,
+      );
+    });
+    next();
+  });
 
   app.setGlobalPrefix('api', {
     exclude: [{ path: '', method: RequestMethod.GET }],

@@ -85,4 +85,12 @@ export class InventoryService {
     this.inventory[idx].lastUpdated = new Date().toISOString();
     return this.inventory[idx];
   }
+
+  remove(id: string) {
+    const idx = this.inventory.findIndex((i) => i.id === id);
+    if (idx === -1)
+      throw new NotFoundException(`Inventory item ${id} not found`);
+    const [removed] = this.inventory.splice(idx, 1);
+    return { message: `Inventory item ${id} deleted`, inventory: removed };
+  }
 }

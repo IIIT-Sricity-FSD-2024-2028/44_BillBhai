@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnLogin.classList.remove('loading');
                 btnLogin.classList.add('success');
                 setTimeout(() => {
-                    window.location.href = routeByRole(userRecord.role);
+                    window.location.href = routeByRole(normalizedRole);
                 }, 800);
             }, 1200);
         } catch (error) {
