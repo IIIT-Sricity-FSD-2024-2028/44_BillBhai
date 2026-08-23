@@ -1,7 +1,8 @@
 import { NextFunction, Request, RequestHandler, Router, Response } from 'express';
 import { ZodError, ZodTypeAny } from 'zod';
-import { validate } from '../../../src/middleware/validate.middleware';
-import { BadRequestError, ForbiddenError } from '../../../src/errors/http-error';
+import { validate } from '../../middleware/validate.middleware';
+import { BadRequestError, ForbiddenError } from '../../errors/http-error';
+
 import { productsController, ProductsController } from './products.controller';
 import {
   createProductSchema,

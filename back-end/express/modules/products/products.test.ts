@@ -1,6 +1,7 @@
 import express, { ErrorRequestHandler, Response } from 'express';
 import request from 'supertest';
-import { HttpError } from '../../../src/errors/http-error';
+import { HttpError } from '../../errors/http-error';
+
 import { productsRouter } from './products.routes';
 import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';

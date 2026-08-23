@@ -4,6 +4,7 @@ import { validate } from '../middleware/validate.middleware';
 import { asyncHandler } from '../middleware/async-handler.middleware';
 import { NotFoundError, ConflictError } from '../errors/http-error';
 
+
 // 1. Define Zod Schemas
 const CreateProductSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -24,7 +25,7 @@ router.post(
   validate({ body: CreateProductSchema }),
   asyncHandler(async (req, res) => {
     const { name, sku } = req.body;
-    
+
     if (sku === 'PRD-EXISTS') {
       throw new ConflictError(`Product with SKU ${sku} already exists`);
     }

@@ -1,5 +1,6 @@
 import { seedProducts } from '../../../src/common/seed/seed-data';
-import { ConflictError, NotFoundError } from '../../../src/errors/http-error';
+import { ConflictError, NotFoundError } from '../../errors/http-error';
+
 import {
   CreateProductDto,
   DeleteProductResult,

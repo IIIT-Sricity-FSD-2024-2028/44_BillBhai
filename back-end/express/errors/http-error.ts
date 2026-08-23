@@ -1,15 +1,15 @@
-import { ZodIssue } from 'zod';
+import { z } from 'zod';
 
 export class HttpError extends Error {
   public readonly statusCode: number;
   public readonly error: string;
-  public readonly details?: string | ZodIssue[] | Record<string, unknown>;
+  public readonly details?: string | z.core.$ZodIssue[] | Record<string, unknown>;
 
   constructor(
     statusCode: number,
     message: string,
     error: string,
-    details?: string | ZodIssue[] | Record<string, unknown>
+    details?: string | z.core.$ZodIssue[] | Record<string, unknown>
   ) {
     super(message);
     this.statusCode = statusCode;
@@ -21,7 +21,7 @@ export class HttpError extends Error {
 }
 
 export class BadRequestError extends HttpError {
-  constructor(message = 'Bad Request', details?: string | ZodIssue[] | Record<string, unknown>) {
+  constructor(message = 'Bad Request', details?: string | z.core.$ZodIssue[] | Record<string, unknown>) {
     super(400, message, 'Bad Request', details);
   }
 }
