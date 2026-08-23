@@ -63,9 +63,7 @@ async function bootstrap() {
   console.log('BillBhai Backend is running on: http://localhost:3000');
   console.log('Swagger Docs available at: http://localhost:3000/api');
   console.log('API prefix: http://localhost:3000/api');
-  console.log(
-    'Example endpoints: /api/auth/login, /api/products, /api/orders',
-  );
+  console.log('Example endpoints: /api/auth/login, /api/products, /api/orders');
   console.log('----------------------------------------------------');
 }
 void bootstrap();

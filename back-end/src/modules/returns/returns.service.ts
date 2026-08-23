@@ -22,8 +22,8 @@ export class ReturnsService {
   create(dto: CreateReturnDto) {
     const safeDto = {
       ...dto,
-      companyId: String(dto.companyId || '').trim()
-    } as Required<Pick<CreateReturnDto, keyof CreateReturnDto>>;
+      companyId: String(dto.companyId || '').trim(),
+    };
 
     const newReturn = {
       id: `RET-${this.counter++}`,

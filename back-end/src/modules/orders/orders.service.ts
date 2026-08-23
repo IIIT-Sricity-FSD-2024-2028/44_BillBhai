@@ -54,7 +54,9 @@ export class OrdersService {
     ) + 1;
   private paymentCounter =
     Math.max(
-      ...this.payments.map((payment) => OrdersService.extractNumericId(payment.id)),
+      ...this.payments.map((payment) =>
+        OrdersService.extractNumericId(payment.id),
+      ),
       3,
     ) + 1;
   private itemCounter =
@@ -95,7 +97,9 @@ export class OrdersService {
   }
 
   validatePromotion(code: string, subtotal: number) {
-    const normalizedCode = String(code || '').trim().toUpperCase();
+    const normalizedCode = String(code || '')
+      .trim()
+      .toUpperCase();
     const safeSubtotal = Math.max(0, Number(subtotal) || 0);
     if (normalizedCode !== OrdersService.PROMO_CODE) {
       throw new BadRequestException('Invalid promo code');
