@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { exampleRouter } from '../modules/example/example.routes';
+import { productsRouter } from '../modules/products/products.routes';
 
 /**
  * Central API Router
@@ -27,6 +28,7 @@ export function createApiRouter(): Router {
       status: 'operational',
       endpoints: {
         example: '/api/example',
+        products: '/api/products',
         // Future migrated module endpoints will be listed here
       },
     });
@@ -34,6 +36,7 @@ export function createApiRouter(): Router {
 
   // Feature Module Routers
   apiRouter.use('/example', exampleRouter);
+  apiRouter.use('/products', productsRouter);
 
   // --- Future Module Mount Points (To be enabled in P4) ---
   // apiRouter.use('/auth', authRouter);
