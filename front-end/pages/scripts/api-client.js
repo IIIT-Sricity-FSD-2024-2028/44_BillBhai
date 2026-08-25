@@ -9,7 +9,7 @@
 
 class APIClient {
   constructor() {
-    this.baseURL = 'http://localhost:3000/api';
+    this.baseURL = 'http://localhost:4000/api';
     this.timeout = 10000; // 10 seconds
   }
 

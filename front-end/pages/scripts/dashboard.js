@@ -482,10 +482,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return fallback;
     }
 
-    const API_BASE_URL = 'http://localhost:3000/api';
+    const API_BASE_URL = 'http://localhost:4000/api';
     const API_BASE_CANDIDATES = [
-        'http://localhost:3000/api',
-        'http://127.0.0.1:3000/api',
+        'http://localhost:4000/api',
+        'http://127.0.0.1:4000/api',
         '/api'
     ];
 
@@ -569,7 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const networkError = new Error(
-            `Cannot connect to backend API. Ensure backend is running on http://localhost:3000`
+            `Cannot connect to backend API. Ensure backend is running on http://localhost:4000`
         );
         networkError.cause = lastNetworkError || null;
         throw networkError;

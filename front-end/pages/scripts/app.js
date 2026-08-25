@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Company-scoped lookup by phone only (prevents cross-business customer/address bleed).
         if (normalizedPhone) {
             try {
-                const scopedResponse = await fetch(`http://localhost:3000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
+                const scopedResponse = await fetch(`http://localhost:4000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 if (hasEmail) updateBody.email = normalizedEmail;
                                 if (hasAddress) updateBody.address = normalizedAddress;
 
-                                const updateResponse = await fetch(`http://localhost:3000/api/customers/${encodeURIComponent(String(existing.id))}`, {
+                                const updateResponse = await fetch(`http://localhost:4000/api/customers/${encodeURIComponent(String(existing.id))}`, {
                                     method: 'PUT',
                                     headers: {
                                         'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (hasEmail) createBody.email = normalizedEmail;
             if (hasAddress) createBody.address = normalizedAddress;
 
-            const createResponse = await fetch('http://localhost:3000/api/customers', {
+            const createResponse = await fetch('http://localhost:4000/api/customers', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     : []
             };
 
-            const response = await fetch('http://localhost:3000/api/orders', {
+            const response = await fetch('http://localhost:4000/api/orders', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     address: String(customerPayload.address || (customerRecord && customerRecord.address) || '').trim() || undefined
                 };
                 try {
-                    const deliveryResponse = await fetch('http://localhost:3000/api/deliveries', {
+                    const deliveryResponse = await fetch('http://localhost:4000/api/deliveries', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             try {
-                const updateResponse = await fetch(`http://localhost:3000/api/orders/${encodeURIComponent(String(backendOrder.id))}`, {
+                const updateResponse = await fetch(`http://localhost:4000/api/orders/${encodeURIComponent(String(backendOrder.id))}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : 0;
 
             try {
-                const listResp = await fetch(`http://localhost:3000/api/orders?companyId=${encodeURIComponent(companyId)}`, {
+                const listResp = await fetch(`http://localhost:4000/api/orders?companyId=${encodeURIComponent(companyId)}`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json', 'x-role': userRole }
                 });
