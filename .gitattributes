@@ -1,0 +1,16 @@
+# Normalize line endings for everyone. Text files are stored as LF in git
+# and checked out with the platform default. This stops Windows checkouts
+# from showing every file as modified.
+* text=auto eol=lf
+
+# Binary files git must never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.mp4 binary
+*.zip binary
+*.woff binary
+*.woff2 binary
