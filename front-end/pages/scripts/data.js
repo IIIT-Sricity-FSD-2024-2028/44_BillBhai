@@ -114,7 +114,7 @@ const DataStore = (() => {
         try {
             const userRole = localStorage.getItem('userRole') || 'cashier';
             const companyId = String(localStorage.getItem('activeBusinessId') || 'BIZ-101').trim() || 'BIZ-101';
-            const response = await fetch(`${window.BILLBHAI_CONFIG.API_BASE_URL}/customers?companyId=${encodeURIComponent(companyId)}`, {
+            const response = await fetch(`http://localhost:3000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -276,7 +276,7 @@ const DataStore = (() => {
 
     async function loadProductsFromBackend() {
         const userRole = localStorage.getItem('userRole') || 'cashier';
-        const response = await fetch(`${window.BILLBHAI_CONFIG.API_BASE_URL}/products`, {
+        const response = await fetch('http://localhost:3000/api/products', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -327,7 +327,7 @@ const DataStore = (() => {
     async function loadCustomersFromBackend() {
         const userRole = localStorage.getItem('userRole') || 'cashier';
         const companyId = String(localStorage.getItem('activeBusinessId') || 'BIZ-101').trim() || 'BIZ-101';
-        const response = await fetch(`${window.BILLBHAI_CONFIG.API_BASE_URL}/customers?companyId=${encodeURIComponent(companyId)}`, {
+        const response = await fetch(`http://localhost:3000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -512,7 +512,7 @@ const DataStore = (() => {
 
         try {
             const role = localStorage.getItem('userRole') || 'cashier';
-            const response = await fetch(`${window.BILLBHAI_CONFIG.API_BASE_URL}/orders/promotions/validate`, {
+            const response = await fetch('http://localhost:3000/api/orders/promotions/validate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

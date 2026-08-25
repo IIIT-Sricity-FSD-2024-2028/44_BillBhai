@@ -9,7 +9,7 @@
 
 class APIClient {
   constructor() {
-    this.baseURL = window.BILLBHAI_CONFIG.API_BASE_URL;
+    this.baseURL = 'http://localhost:3000/api';
     this.timeout = 10000; // 10 seconds
   }
 
