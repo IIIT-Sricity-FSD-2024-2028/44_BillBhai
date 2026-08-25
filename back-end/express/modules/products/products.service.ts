@@ -1,4 +1,4 @@
-import { seedProducts } from '../../../src/common/seed/seed-data';
+import { seedProducts } from '../../data/seed-data';
 import { ConflictError, NotFoundError } from '../../errors/http-error';
 
 import {

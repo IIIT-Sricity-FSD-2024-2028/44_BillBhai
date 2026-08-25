@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Product } from '../../data/entities';
 
 /**
  * Products Module Schemas / Types
@@ -30,6 +31,7 @@ export const createProductSchema = z.object({
   price: z.number().min(0),
   size: z.string().optional(),
   description: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 export const updateProductSchema = z.object({
@@ -40,18 +42,10 @@ export const updateProductSchema = z.object({
   price: z.number().min(0).optional(),
   size: z.string().optional(),
   description: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
-export interface Product {
-  id: string;
-  supplierId: string;
-  name: string;
-  category: string;
-  barcode?: string;
-  price: number;
-  size?: string;
-  description?: string;
-}
+export type { Product };
 
 export interface CreateProductDto {
   supplierId: string;
@@ -61,6 +55,7 @@ export interface CreateProductDto {
   price: number;
   size?: string;
   description?: string;
+  imageUrl?: string;
 }
 
 export interface UpdateProductDto {
@@ -71,6 +66,7 @@ export interface UpdateProductDto {
   price?: number;
   size?: string;
   description?: string;
+  imageUrl?: string;
 }
 
 export interface DeleteProductResult {

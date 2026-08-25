@@ -1,0 +1,2678 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              },
+              "examples": {
+                "admin": {
+                  "value": {
+                    "username": "admin",
+                    "password": "admin123"
+                  }
+                },
+                "cashier": {
+                  "value": {
+                    "username": "cashier",
+                    "password": "cashier123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "USR-001",
+                  "username": "admin",
+                  "role": "admin",
+                  "email": "admin@freshkart.com",
+                  "companyId": "BIZ-101"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "User login",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/users": {
+      "get": {
+        "operationId": "UsersController_findAll",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List users",
+        "tags": [
+          "Users"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "operationId": "UsersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get user by ID",
+        "tags": [
+          "Users"
+        ]
+      },
+      "put": {
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update user",
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/companies": {
+      "get": {
+        "operationId": "CompaniesController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List all companies",
+        "tags": [
+          "Companies"
+        ]
+      },
+      "post": {
+        "operationId": "CompaniesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCompanyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create company",
+        "tags": [
+          "Companies"
+        ]
+      }
+    },
+    "/api/companies/{id}": {
+      "get": {
+        "operationId": "CompaniesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get company by ID",
+        "tags": [
+          "Companies"
+        ]
+      },
+      "put": {
+        "operationId": "CompaniesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCompanyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update company",
+        "tags": [
+          "Companies"
+        ]
+      },
+      "delete": {
+        "operationId": "CompaniesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete company",
+        "tags": [
+          "Companies"
+        ]
+      }
+    },
+    "/api/customers": {
+      "get": {
+        "operationId": "CustomersController_findAll",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List customers",
+        "tags": [
+          "Customers"
+        ]
+      },
+      "post": {
+        "operationId": "CustomersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create customer",
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/api/customers/phone/{phone}": {
+      "get": {
+        "operationId": "CustomersController_findByPhone",
+        "parameters": [
+          {
+            "name": "phone",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get customer by phone",
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/api/customers/{id}": {
+      "get": {
+        "operationId": "CustomersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get customer by ID",
+        "tags": [
+          "Customers"
+        ]
+      },
+      "put": {
+        "operationId": "CustomersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update customer",
+        "tags": [
+          "Customers"
+        ]
+      },
+      "delete": {
+        "operationId": "CustomersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete customer",
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/api/products": {
+      "get": {
+        "operationId": "ProductsController_findAll",
+        "parameters": [
+          {
+            "name": "category",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List products",
+        "tags": [
+          "Products"
+        ]
+      },
+      "post": {
+        "operationId": "ProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create product",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/products/categories": {
+      "get": {
+        "operationId": "ProductsController_getCategories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List product categories",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/products/barcode/{barcode}": {
+      "get": {
+        "operationId": "ProductsController_findByBarcode",
+        "parameters": [
+          {
+            "name": "barcode",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get product by barcode",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/products/{id}": {
+      "get": {
+        "operationId": "ProductsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get product by ID",
+        "tags": [
+          "Products"
+        ]
+      },
+      "put": {
+        "operationId": "ProductsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update product",
+        "tags": [
+          "Products"
+        ]
+      },
+      "delete": {
+        "operationId": "ProductsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete product",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/inventory": {
+      "get": {
+        "operationId": "InventoryController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List inventory records",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/low-stock": {
+      "get": {
+        "operationId": "InventoryController_findLowStock",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List low stock items",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/product/{productId}": {
+      "get": {
+        "operationId": "InventoryController_findByProduct",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get inventory by product ID",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{id}": {
+      "get": {
+        "operationId": "InventoryController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get inventory record by ID",
+        "tags": [
+          "Inventory"
+        ]
+      },
+      "put": {
+        "operationId": "InventoryController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInventoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update inventory record",
+        "tags": [
+          "Inventory"
+        ]
+      },
+      "delete": {
+        "operationId": "InventoryController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete inventory record",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/adjust": {
+      "post": {
+        "operationId": "InventoryController_adjustStock",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustStockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Adjust inventory stock for a product",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/orders": {
+      "get": {
+        "operationId": "OrdersController_findAll",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List orders",
+        "tags": [
+          "Orders"
+        ]
+      },
+      "post": {
+        "operationId": "OrdersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create order",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/orders/bills/all": {
+      "get": {
+        "operationId": "OrdersController_findAllBills",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List bills",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/orders/bills": {
+      "post": {
+        "operationId": "OrdersController_createBill",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBillDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create bill for an order",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/orders/bills/{billNo}": {
+      "get": {
+        "operationId": "OrdersController_findOneBill",
+        "parameters": [
+          {
+            "name": "billNo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get bill by bill number",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/orders/payments/all": {
+      "get": {
+        "operationId": "OrdersController_findAllPayments",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List payments",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/orders/payments": {
+      "post": {
+        "operationId": "OrdersController_createPayment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Record payment for a bill",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/orders/payments/{billNo}": {
+      "get": {
+        "operationId": "OrdersController_findOnePayment",
+        "parameters": [
+          {
+            "name": "billNo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get payment by bill number",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get order by ID",
+        "tags": [
+          "Orders"
+        ]
+      },
+      "put": {
+        "operationId": "OrdersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update order status or payment details",
+        "tags": [
+          "Orders"
+        ]
+      },
+      "delete": {
+        "operationId": "OrdersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete order",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/deliveries": {
+      "get": {
+        "operationId": "DeliveriesController_findAll",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List deliveries",
+        "tags": [
+          "Deliveries"
+        ]
+      },
+      "post": {
+        "operationId": "DeliveriesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeliveryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create delivery",
+        "tags": [
+          "Deliveries"
+        ]
+      }
+    },
+    "/api/deliveries/order/{orderId}": {
+      "get": {
+        "operationId": "DeliveriesController_findByOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get delivery by order ID",
+        "tags": [
+          "Deliveries"
+        ]
+      }
+    },
+    "/api/deliveries/{id}": {
+      "get": {
+        "operationId": "DeliveriesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get delivery by ID",
+        "tags": [
+          "Deliveries"
+        ]
+      },
+      "put": {
+        "operationId": "DeliveriesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDeliveryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update delivery status/details",
+        "tags": [
+          "Deliveries"
+        ]
+      },
+      "delete": {
+        "operationId": "DeliveriesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete delivery",
+        "tags": [
+          "Deliveries"
+        ]
+      }
+    },
+    "/api/returns": {
+      "get": {
+        "operationId": "ReturnsController_findAll",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List returns",
+        "tags": [
+          "Returns"
+        ]
+      },
+      "post": {
+        "operationId": "ReturnsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReturnDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create return request",
+        "tags": [
+          "Returns"
+        ]
+      }
+    },
+    "/api/returns/{id}": {
+      "get": {
+        "operationId": "ReturnsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get return by ID",
+        "tags": [
+          "Returns"
+        ]
+      },
+      "put": {
+        "operationId": "ReturnsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReturnDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update return status/details",
+        "tags": [
+          "Returns"
+        ]
+      },
+      "delete": {
+        "operationId": "ReturnsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete return request",
+        "tags": [
+          "Returns"
+        ]
+      }
+    },
+    "/api/reports/sales": {
+      "get": {
+        "operationId": "ReportsController_getSalesSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get sales summary report",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/reports/inventory": {
+      "get": {
+        "operationId": "ReportsController_getInventoryStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get inventory status report",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/reports/returns": {
+      "get": {
+        "operationId": "ReportsController_getReturnsSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get returns summary report",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/suppliers": {
+      "get": {
+        "operationId": "SuppliersController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "List suppliers",
+        "tags": [
+          "Suppliers"
+        ]
+      },
+      "post": {
+        "operationId": "SuppliersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSupplierDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Create supplier",
+        "tags": [
+          "Suppliers"
+        ]
+      }
+    },
+    "/api/suppliers/{id}": {
+      "get": {
+        "operationId": "SuppliersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Get supplier by ID",
+        "tags": [
+          "Suppliers"
+        ]
+      },
+      "put": {
+        "operationId": "SuppliersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSupplierDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Update supplier",
+        "tags": [
+          "Suppliers"
+        ]
+      },
+      "delete": {
+        "operationId": "SuppliersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "x-role": []
+          }
+        ],
+        "summary": "Delete supplier",
+        "tags": [
+          "Suppliers"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "BillBhai API",
+    "description": "The BillBhai Retail Order Processing System API Documentation",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "x-role": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-role"
+      }
+    },
+    "schemas": {
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "User username",
+            "example": "admin"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "admin123"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "example": "BIZ-101",
+            "description": "Company ID"
+          },
+          "name": {
+            "type": "string",
+            "example": "Arjun Mehta",
+            "description": "User name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "superuser",
+              "admin",
+              "cashier",
+              "returnhandler",
+              "inventorymanager",
+              "deliveryops",
+              "customer"
+            ],
+            "description": "User role"
+          },
+          "email": {
+            "type": "string",
+            "example": "admin@billbhai.com",
+            "description": "User email"
+          },
+          "mobileNo": {
+            "type": "string",
+            "example": "9870011201",
+            "description": "Mobile number"
+          },
+          "username": {
+            "type": "string",
+            "example": "admin",
+            "description": "Username"
+          },
+          "password": {
+            "type": "string",
+            "example": "admin123",
+            "description": "Password"
+          }
+        },
+        "required": [
+          "companyId",
+          "name",
+          "role",
+          "email",
+          "mobileNo",
+          "username",
+          "password"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Arjun Mehta",
+            "description": "User name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "superuser",
+              "admin",
+              "cashier",
+              "returnhandler",
+              "inventorymanager",
+              "deliveryops",
+              "customer"
+            ],
+            "description": "User role"
+          },
+          "email": {
+            "type": "string",
+            "example": "admin@billbhai.com",
+            "description": "User email"
+          },
+          "mobileNo": {
+            "type": "string",
+            "example": "9870011201",
+            "description": "Mobile number"
+          },
+          "password": {
+            "type": "string",
+            "example": "newpassword123",
+            "description": "Password"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Active",
+              "Inactive",
+              "Suspended"
+            ],
+            "description": "User status"
+          }
+        }
+      },
+      "CreateCompanyDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "FreshKart Central",
+            "description": "Company name"
+          },
+          "owner": {
+            "type": "string",
+            "example": "Ritu Malhotra",
+            "description": "Owner name"
+          },
+          "adminName": {
+            "type": "string",
+            "example": "Arjun Mehta",
+            "description": "Admin name"
+          },
+          "type": {
+            "type": "string",
+            "example": "Grocery Retail",
+            "description": "Company type"
+          },
+          "email": {
+            "type": "string",
+            "example": "central@freshkart.in",
+            "description": "Company email"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+91-9870011101",
+            "description": "Company phone"
+          },
+          "gstNo": {
+            "type": "string",
+            "example": "GST101",
+            "description": "GST number"
+          },
+          "address": {
+            "type": "string",
+            "example": "Delhi, India",
+            "description": "Company address"
+          },
+          "productsPlan": {
+            "type": "string",
+            "example": "Core POS + Inventory",
+            "description": "Products plan"
+          },
+          "tenureMonths": {
+            "type": "number",
+            "example": 32,
+            "description": "Tenure in months",
+            "minimum": 0
+          },
+          "storesCount": {
+            "type": "number",
+            "example": 6,
+            "description": "Number of stores",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "name",
+          "owner",
+          "adminName",
+          "type",
+          "email",
+          "phone"
+        ]
+      },
+      "UpdateCompanyDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "FreshKart Central",
+            "description": "Company name"
+          },
+          "owner": {
+            "type": "string",
+            "example": "Ritu Malhotra",
+            "description": "Owner name"
+          },
+          "adminName": {
+            "type": "string",
+            "example": "Arjun Mehta",
+            "description": "Admin name"
+          },
+          "type": {
+            "type": "string",
+            "example": "Grocery Retail",
+            "description": "Company type"
+          },
+          "email": {
+            "type": "string",
+            "example": "central@freshkart.in",
+            "description": "Company email"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+91-9870011101",
+            "description": "Company phone"
+          },
+          "gstNo": {
+            "type": "string",
+            "example": "GST101",
+            "description": "GST number"
+          },
+          "address": {
+            "type": "string",
+            "example": "Delhi, India",
+            "description": "Company address"
+          },
+          "status": {
+            "type": "string",
+            "example": "Active",
+            "description": "Company status"
+          },
+          "productsPlan": {
+            "type": "string",
+            "example": "Core POS + Inventory",
+            "description": "Products plan"
+          },
+          "tenureMonths": {
+            "type": "number",
+            "example": 32,
+            "description": "Tenure in months",
+            "minimum": 0
+          },
+          "storesCount": {
+            "type": "number",
+            "example": 6,
+            "description": "Number of stores",
+            "minimum": 0
+          },
+          "profit": {
+            "type": "number",
+            "example": 1245000,
+            "description": "Profit",
+            "minimum": 0
+          },
+          "paymentDue": {
+            "type": "number",
+            "example": 0,
+            "description": "Payment due",
+            "minimum": 0
+          }
+        }
+      },
+      "CreateCustomerDto": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "example": "BIZ-101",
+            "description": "Company ID"
+          },
+          "name": {
+            "type": "string",
+            "example": "Rahul Sharma",
+            "description": "Customer name"
+          },
+          "mobileNo": {
+            "type": "string",
+            "example": "9810001001",
+            "description": "Mobile number"
+          },
+          "email": {
+            "type": "string",
+            "example": "rahul@example.com",
+            "description": "Email address"
+          },
+          "address": {
+            "type": "string",
+            "example": "12, MG Road, Sector 14",
+            "description": "Address"
+          }
+        },
+        "required": [
+          "companyId",
+          "name",
+          "mobileNo"
+        ]
+      },
+      "UpdateCustomerDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Rahul Sharma",
+            "description": "Customer name"
+          },
+          "mobileNo": {
+            "type": "string",
+            "example": "9810001002",
+            "description": "Mobile number"
+          },
+          "email": {
+            "type": "string",
+            "example": "rahul@example.com",
+            "description": "Email address"
+          },
+          "address": {
+            "type": "string",
+            "example": "12, MG Road, Sector 14",
+            "description": "Address"
+          }
+        }
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {
+          "supplierId": {
+            "type": "string",
+            "example": "SUP-001",
+            "description": "Supplier ID"
+          },
+          "name": {
+            "type": "string",
+            "example": "Basmati Rice",
+            "description": "Product name"
+          },
+          "category": {
+            "type": "string",
+            "example": "Groceries",
+            "description": "Product category"
+          },
+          "barcode": {
+            "type": "string",
+            "example": "BAR001",
+            "description": "Barcode"
+          },
+          "price": {
+            "type": "number",
+            "example": 380,
+            "description": "Product price",
+            "minimum": 0
+          },
+          "size": {
+            "type": "string",
+            "example": "5kg",
+            "description": "Product size"
+          },
+          "description": {
+            "type": "string",
+            "example": "Premium basmati rice",
+            "description": "Product description"
+          }
+        },
+        "required": [
+          "supplierId",
+          "name",
+          "category",
+          "price"
+        ]
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {
+          "supplierId": {
+            "type": "string",
+            "example": "SUP-001",
+            "description": "Supplier ID"
+          },
+          "name": {
+            "type": "string",
+            "example": "Basmati Rice",
+            "description": "Product name"
+          },
+          "category": {
+            "type": "string",
+            "example": "Groceries",
+            "description": "Product category"
+          },
+          "barcode": {
+            "type": "string",
+            "example": "BAR001",
+            "description": "Barcode"
+          },
+          "price": {
+            "type": "number",
+            "example": 400,
+            "description": "Product price",
+            "minimum": 0
+          },
+          "size": {
+            "type": "string",
+            "example": "5kg",
+            "description": "Product size"
+          },
+          "description": {
+            "type": "string",
+            "example": "Premium basmati rice",
+            "description": "Product description"
+          }
+        }
+      },
+      "UpdateInventoryDto": {
+        "type": "object",
+        "properties": {
+          "stockAvailable": {
+            "type": "number",
+            "example": 145,
+            "description": "Available stock",
+            "minimum": 0
+          },
+          "reorderLevel": {
+            "type": "number",
+            "example": 20,
+            "description": "Reorder level",
+            "minimum": 0
+          },
+          "location": {
+            "type": "string",
+            "example": "Shelf A1",
+            "description": "Storage location"
+          }
+        }
+      },
+      "AdjustStockDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "example": "P001",
+            "description": "Product ID"
+          },
+          "adjustment": {
+            "type": "number",
+            "example": 10,
+            "description": "Stock adjustment (positive=restock, negative=deduct)"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Restock from warehouse",
+            "description": "Reason for adjustment"
+          }
+        },
+        "required": [
+          "productId",
+          "adjustment"
+        ]
+      },
+      "OrderItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "example": "P001",
+            "description": "Product ID"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 2,
+            "description": "Quantity ordered",
+            "minimum": 1
+          },
+          "itemPrice": {
+            "type": "number",
+            "example": 380,
+            "description": "Price per item",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "productId",
+          "quantity",
+          "itemPrice"
+        ]
+      },
+      "CreateOrderDto": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "example": "CUS-001",
+            "description": "Customer ID"
+          },
+          "staffId": {
+            "type": "string",
+            "example": "USR-002",
+            "description": "Staff ID"
+          },
+          "companyId": {
+            "type": "string",
+            "example": "BIZ-101",
+            "description": "Company ID"
+          },
+          "orderType": {
+            "type": "string",
+            "enum": [
+              "pickup",
+              "delivery"
+            ],
+            "description": "Order type"
+          },
+          "checkoutMode": {
+            "type": "string",
+            "enum": [
+              "takeaway_now",
+              "prepaid_delivery",
+              "cod_delivery"
+            ],
+            "description": "Checkout mode"
+          },
+          "discountAmount": {
+            "type": "number",
+            "example": 100,
+            "description": "Discount amount",
+            "minimum": 0
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "UPI",
+            "description": "Payment method"
+          },
+          "items": {
+            "description": "Order items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "customerId",
+          "staffId",
+          "companyId",
+          "orderType",
+          "checkoutMode",
+          "items"
+        ]
+      },
+      "CreateBillDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "example": "ORD-4821",
+            "description": "Order ID"
+          },
+          "taxAmount": {
+            "type": "number",
+            "example": 50,
+            "description": "Tax amount",
+            "minimum": 0
+          },
+          "discountAmount": {
+            "type": "number",
+            "example": 0,
+            "description": "Discount amount",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "orderId"
+        ]
+      },
+      "CreatePaymentDto": {
+        "type": "object",
+        "properties": {
+          "billNo": {
+            "type": "string",
+            "example": "BILL-001",
+            "description": "Bill number"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "Card",
+            "description": "Payment method"
+          },
+          "amountPaid": {
+            "type": "number",
+            "example": 1250,
+            "description": "Amount paid",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "billNo",
+          "paymentMethod",
+          "amountPaid"
+        ]
+      },
+      "UpdateOrderDto": {
+        "type": "object",
+        "properties": {
+          "customerName": {
+            "type": "string",
+            "example": "Rahul Sharma",
+            "description": "Editable customer display name"
+          },
+          "itemsCount": {
+            "type": "number",
+            "example": 3,
+            "description": "Editable item count shown in the orders table",
+            "minimum": 0
+          },
+          "total": {
+            "type": "number",
+            "example": 1250,
+            "description": "Editable order total shown in the orders table",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Pending",
+              "Processing",
+              "Delivered",
+              "Cancelled"
+            ],
+            "description": "Order status"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "example": "Card",
+            "description": "Payment method"
+          }
+        }
+      },
+      "CreateDeliveryDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "example": "ORD-4821",
+            "description": "Order ID"
+          },
+          "partnerName": {
+            "type": "string",
+            "example": "DHL Express",
+            "description": "Delivery partner name"
+          },
+          "partnerPhone": {
+            "type": "string",
+            "example": "+91 98111 22334",
+            "description": "Delivery partner phone number"
+          },
+          "partnerAgency": {
+            "type": "string",
+            "example": "SwiftDrop Logistics",
+            "description": "Delivery partner agency/team"
+          },
+          "partnerVehicle": {
+            "type": "string",
+            "example": "Bike",
+            "description": "Delivery partner vehicle"
+          },
+          "dispatchDate": {
+            "type": "string",
+            "example": "2026-02-20",
+            "description": "Dispatch date"
+          }
+        },
+        "required": [
+          "orderId"
+        ]
+      },
+      "UpdateDeliveryDto": {
+        "type": "object",
+        "properties": {
+          "partnerName": {
+            "type": "string",
+            "example": "DHL Express",
+            "description": "Delivery partner name"
+          },
+          "partnerPhone": {
+            "type": "string",
+            "example": "+91 98111 22334",
+            "description": "Delivery partner phone number"
+          },
+          "partnerAgency": {
+            "type": "string",
+            "example": "SwiftDrop Logistics",
+            "description": "Delivery partner agency/team"
+          },
+          "partnerVehicle": {
+            "type": "string",
+            "example": "Bike",
+            "description": "Delivery partner vehicle"
+          },
+          "dispatchDate": {
+            "type": "string",
+            "example": "2026-02-20",
+            "description": "Dispatch date"
+          },
+          "deliveryDate": {
+            "type": "string",
+            "example": "2026-02-22",
+            "description": "Delivery date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Pending",
+              "Dispatched",
+              "In Transit",
+              "Delivered",
+              "Failed"
+            ],
+            "description": "Delivery status"
+          }
+        }
+      },
+      "CreateReturnDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "example": "ORD-4821",
+            "description": "Order ID"
+          },
+          "staffId": {
+            "type": "string",
+            "example": "USR-002",
+            "description": "Staff ID"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Damaged product",
+            "description": "Return reason"
+          },
+          "refundAmount": {
+            "type": "number",
+            "example": 100,
+            "description": "Refund amount",
+            "minimum": 0
+          },
+          "returnType": {
+            "type": "string",
+            "example": "refund",
+            "description": "Return type"
+          },
+          "product": {
+            "type": "string",
+            "example": "P001",
+            "description": "Product ID"
+          },
+          "qty": {
+            "type": "number",
+            "example": 1,
+            "description": "Quantity returned",
+            "minimum": 1
+          },
+          "requestedBy": {
+            "type": "string",
+            "example": "Arjun Mehta",
+            "description": "Name of person requesting return"
+          }
+        },
+        "required": [
+          "orderId",
+          "staffId",
+          "reason",
+          "refundAmount",
+          "returnType",
+          "product",
+          "qty",
+          "requestedBy"
+        ]
+      },
+      "UpdateReturnDto": {
+        "type": "object",
+        "properties": {
+          "refundAmount": {
+            "type": "number",
+            "example": 100,
+            "description": "Refund amount",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Pending",
+              "Approved",
+              "Refunded",
+              "Rejected",
+              "Under Review"
+            ],
+            "description": "Return status"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Damaged product",
+            "description": "Return reason"
+          }
+        }
+      },
+      "CreateSupplierDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Agarwal Traders",
+            "description": "Supplier name"
+          },
+          "mobileNo": {
+            "type": "string",
+            "example": "9811544101",
+            "description": "Mobile number"
+          },
+          "email": {
+            "type": "string",
+            "example": "agarwal@traders.in",
+            "description": "Email address"
+          },
+          "address": {
+            "type": "string",
+            "example": "Delhi",
+            "description": "Address"
+          },
+          "gstNo": {
+            "type": "string",
+            "example": "GSTSUP001",
+            "description": "GST number"
+          }
+        },
+        "required": [
+          "name",
+          "mobileNo",
+          "email",
+          "address"
+        ]
+      },
+      "UpdateSupplierDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Agarwal Traders",
+            "description": "Supplier name"
+          },
+          "mobileNo": {
+            "type": "string",
+            "example": "9811544101",
+            "description": "Mobile number"
+          },
+          "email": {
+            "type": "string",
+            "example": "agarwal@traders.in",
+            "description": "Email address"
+          },
+          "address": {
+            "type": "string",
+            "example": "Delhi",
+            "description": "Address"
+          },
+          "gstNo": {
+            "type": "string",
+            "example": "GSTSUP001",
+            "description": "GST number"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "x-role": []
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist/express",
+    "resolveJsonModule": true,
+    "types": ["node", "jest"]
+  },
+  "include": ["**/*.ts"]
+}

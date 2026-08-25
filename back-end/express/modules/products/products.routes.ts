@@ -1,8 +1,6 @@
-import { NextFunction, Request, RequestHandler, Router, Response } from 'express';
-import { ZodError, ZodTypeAny } from 'zod';
+import { Router } from 'express';
+import { requireRoles } from '../../middleware/rbac.middleware';
 import { validate } from '../../middleware/validate.middleware';
-import { BadRequestError, ForbiddenError } from '../../errors/http-error';
-
 import { productsController, ProductsController } from './products.controller';
 import {
   createProductSchema,
@@ -12,77 +10,21 @@ import {
   updateProductSchema,
 } from './products.schema';
 
-function validateQuery(schema: ZodTypeAny): RequestHandler {
-  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
-    try {
-      await schema.parseAsync(req.query);
-      next();
-    } catch (error) {
-      if (error instanceof ZodError) {
-        const formattedMessages = error.issues
-          .map((issue) => `${issue.path.join('.') || 'query'}: ${issue.message}`)
-          .join('; ');
-        next(
-          new BadRequestError(
-            `Validation failed: ${formattedMessages}`,
-            error.issues,
-          ),
-        );
-        return;
-      }
-      next(error);
-    }
-  };
-}
-
-function requireRoles(...allowedRoles: string[]): RequestHandler {
-  return (req: Request, _res: Response, next: NextFunction): void => {
-    const headerValue = req.headers['x-role'];
-    const rawHeaderRole = Array.isArray(headerValue)
-      ? headerValue[0]
-      : headerValue;
-
-    if (!rawHeaderRole) {
-      next(
-        new ForbiddenError(
-          'Missing "x-role" header. Please provide your role (e.g., admin, cashier) in the request headers.',
-        ),
-      );
-      return;
-    }
-
-    const userRole = String(rawHeaderRole)
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, '');
-    const normalizedAllowedRoles = allowedRoles.map((role) =>
-      role.toLowerCase().replace(/\s+/g, ''),
-    );
-
-    if (!normalizedAllowedRoles.includes(userRole)) {
-      next(
-        new ForbiddenError(
-          `Access denied. This action requires one of the following roles: ${allowedRoles.join(', ')}. Your current role is: ${rawHeaderRole}`,
-        ),
-      );
-      return;
-    }
-
-    next();
-  };
-}
-
+/**
+ * Products Module Router
+ *
+ * Router-level middleware chain per endpoint:
+ *   requireRoles(...)  -> role based access control
+ *   validate({...})    -> zod schema validation
+ *   controller.method  -> request handling
+ *
+ * NOTE: the literal '/categories' and '/barcode/:barcode' paths are registered
+ * before '/:id', otherwise the parameterised route would capture them.
+ */
 export function createProductsRouter(
   controller: ProductsController = productsController,
 ): Router {
   const router = Router();
-
-  router.get(
-    '/',
-    requireRoles('superuser', 'admin', 'cashier', 'inventorymanager', 'customer'),
-    validateQuery(listProductsQuerySchema),
-    controller.findAll,
-  );
 
   router.get(
     '/categories',
@@ -95,6 +37,13 @@ export function createProductsRouter(
     requireRoles('superuser', 'admin', 'cashier', 'inventorymanager'),
     validate({ params: productBarcodeParamsSchema }),
     controller.findByBarcode,
+  );
+
+  router.get(
+    '/',
+    requireRoles('superuser', 'admin', 'cashier', 'inventorymanager', 'customer'),
+    validate({ query: listProductsQuerySchema }),
+    controller.findAll,
   );
 
   router.get(

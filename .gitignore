@@ -16,3 +16,9 @@ build/
 
 # Logs
 *.log
+
+# Express runtime output
+back-end/logs/
+back-end/uploads/
+back-end/express/logs/
+back-end/express/uploads/

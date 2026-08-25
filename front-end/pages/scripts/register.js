@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE_URL = 'http://localhost:3000/api';
+    const API_BASE_URL = window.BILLBHAI_CONFIG.API_BASE_URL;
 
     // ===== Typewriter subtitle =====
     const subtitleEl = document.getElementById('brandSubtitle');

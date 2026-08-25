@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginError = document.getElementById('loginError');
     const forgotLink = document.querySelector('.forgot-link');
 
-    const LOGIN_API_URL = 'http://localhost:3000/api/auth/login';
+    const LOGIN_API_URL = window.BILLBHAI_CONFIG.API_BASE_URL + '/auth/login';
     const LOGIN_TIMEOUT_MS = 10000;
 
     function normalizeRole(role) {

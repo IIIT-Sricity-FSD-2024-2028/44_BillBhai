@@ -1,55 +1,56 @@
 import { Server } from 'http';
 import { app } from './app';
 import { config } from './config/index';
+import { logger, logDirectory } from './utils/logger';
 
 /**
- * Server Startup & Lifecycle Entry Point
+ * Server Startup and Lifecycle Entry Point
  *
  * Responsibilities:
- * - Boots the HTTP server on the configured port.
- * - Manages process signals (SIGINT, SIGTERM) for graceful shutdown.
- * - Logs application startup banner.
+ * - Boot the HTTP server on the configured port.
+ * - Print the startup banner.
+ * - Handle SIGINT and SIGTERM so the process shuts down cleanly and the file
+ *   log transports get a chance to flush.
+ *
+ * No routes and no middleware are defined here; that all lives in app.ts.
  */
-function startServer(): Server {
+export function startServer(): Server {
   const server = app.listen(config.port, () => {
-    console.log('----------------------------------------------------');
-    console.log(
-      `BillBhai Express Backend running on: http://localhost:${config.port}`,
-    );
-    console.log(`Environment: ${config.nodeEnv}`);
-    console.log(
-      `API Prefix: http://localhost:${config.port}${config.apiPrefix}`,
-    );
-    console.log(
-      `Example endpoint: http://localhost:${config.port}${config.apiPrefix}/example`,
-    );
-    console.log('----------------------------------------------------');
+    const base = `http://localhost:${config.port}`;
+    [
+      '----------------------------------------------------',
+      `BillBhai Express Backend : ${base}`,
+      `API root                 : ${base}${config.apiPrefix}`,
+      `Swagger docs             : ${base}${config.apiPrefix}/docs`,
+      `Health check             : ${base}/health`,
+      `Uploaded files           : ${base}/uploads`,
+      `Log files                : ${logDirectory}`,
+      `Environment              : ${config.nodeEnv}`,
+      `Allowed CORS origins     : ${config.cors.origins.join(', ')}`,
+      '----------------------------------------------------',
+    ].forEach((line) => logger.info(line));
   });
 
-  const handleShutdown = (signal: string) => {
-    console.log(
-      `\nReceived ${signal}. Gracefully shutting down Express server...`,
-    );
+  const shutdown = (signal: string): void => {
+    logger.info(`Received ${signal}. Shutting down gracefully.`);
+
     server.close(() => {
-      console.log('HTTP server closed successfully.');
+      logger.info('HTTP server closed.');
       process.exit(0);
     });
 
-    // Force shutdown if server doesn't close within 5s
     setTimeout(() => {
-      console.error('Forcing server shutdown after timeout.');
+      logger.error('Could not close connections in time. Forcing shutdown.');
       process.exit(1);
-    }, 5000);
+    }, 5000).unref();
   };
 
-  process.on('SIGINT', () => handleShutdown('SIGINT'));
-  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 
   return server;
 }
 
-if (process.env.NODE_ENV !== 'test') {
+if (!config.isTest) {
   startServer();
 }
-
-export { startServer };

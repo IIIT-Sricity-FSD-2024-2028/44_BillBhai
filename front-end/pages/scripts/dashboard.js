@@ -482,12 +482,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return fallback;
     }
 
-    const API_BASE_URL = 'http://localhost:3000/api';
-    const API_BASE_CANDIDATES = [
-        'http://localhost:3000/api',
-        'http://127.0.0.1:3000/api',
-        '/api'
-    ];
+    const API_BASE_URL = window.BILLBHAI_CONFIG.API_BASE_URL;
+    const API_BASE_CANDIDATES = window.BILLBHAI_CONFIG.API_BASE_CANDIDATES;
 
     function normalizeBackendRole(role) {
         const key = normalizeRole(role);
@@ -569,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const networkError = new Error(
-            `Cannot connect to backend API. Ensure backend is running on http://localhost:3000`
+            `Cannot connect to the ${window.BILLBHAI_CONFIG.backendLabel} backend API. Ensure it is running on ${window.BILLBHAI_CONFIG.API_BASE_URL}`
         );
         networkError.cause = lastNetworkError || null;
         throw networkError;
