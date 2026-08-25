@@ -2,6 +2,7 @@
   "name": "retail-order-system-dev-runner",
   "private": true,
   "scripts": {
+    "postinstall": "npm --prefix back-end install",
     "dev:backend": "npm --prefix back-end run start:dev",
     "dev:backend:express": "npm --prefix back-end run dev:express",
     "dev:frontend": "live-server front-end/pages --host=127.0.0.1 --port=5500 --watch=front-end/pages --verbose",

@@ -50,13 +50,22 @@ It covers:
 
 ```bash
 npm install
-npm --prefix back-end install
 ```
+
+That is the only install step. The root `postinstall` script also installs
+the back-end dependencies, so you do not need a second `npm install`
+inside `back-end/`.
 
 ### 2) Start both apps
 
 ```bash
 npm run dev
+```
+
+On the `express` branch, start the Express back-end instead:
+
+```bash
+npm run dev:express
 ```
 
 This starts:
