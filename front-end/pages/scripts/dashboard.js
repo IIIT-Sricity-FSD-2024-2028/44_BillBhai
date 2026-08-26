@@ -4583,11 +4583,11 @@ inventory = cloneRows(mappedInventory);
             <div class="card-bd">
                 <form id="profileSettingsForm">
                     <div class="form-row">
-                        <div class="form-group"><label class="form-label">Full Name</label><input id="psFullName" class="form-control" value="${profile.fullName}"></div>
-                        <div class="form-group"><label class="form-label">Email</label><input id="psEmail" type="email" class="form-control" value="${profile.email}"></div>
+                        <div class="form-group"><label class="form-label">Full Name</label><input id="psFullName" class="form-control" value="${profile.fullName}"><div class="form-error">Full name is required.</div></div>
+                        <div class="form-group"><label class="form-label">Email</label><input id="psEmail" type="email" class="form-control" value="${profile.email}"><div class="form-error">Enter a valid email address.</div></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label class="form-label">Phone</label><input id="psPhone" class="form-control" value="${profile.phone}" placeholder="10-digit mobile"></div>
+                        <div class="form-group"><label class="form-label">Phone</label><input id="psPhone" class="form-control" maxlength="10" inputmode="numeric" value="${normalizeEditablePhone(profile.phone)}" placeholder="10-digit mobile"><div class="form-error">Enter a valid 10-digit phone number.</div></div>
                         <div class="form-group"><label class="form-label">Location</label><input id="psLocation" class="form-control" value="${profile.location}" placeholder="Store or city"></div>
                     </div>
                     <div class="form-group"><label class="form-label">Bio</label><textarea id="psBio" class="form-control" rows="3" style="resize:vertical;">${profile.bio}</textarea></div>
@@ -4610,14 +4610,20 @@ inventory = cloneRows(mappedInventory);
         const settingsForm = document.getElementById('profileSettingsForm');
         const saveProfile = () => {
             if (!settingsForm) return;
+            ['psFullName', 'psEmail', 'psPhone'].forEach(clearFieldError);
             const fullName = String(document.getElementById('psFullName').value || '').trim();
             const email = String(document.getElementById('psEmail').value || '').trim();
+            const phone = normalizePhoneDigits(document.getElementById('psPhone').value || '');
             if (!fullName) {
-                showToast('Full name is required.');
+                setFieldError('psFullName', 'Full name is required.');
                 return;
             }
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                showToast('Please enter a valid email.');
+            if (!isValidEmailAddress(email)) {
+                setFieldError('psEmail', 'Enter a valid email address.');
+                return;
+            }
+            if (phone && !isValidPhoneNumber(phone)) {
+                setFieldError('psPhone', 'Enter a valid 10-digit phone number.');
                 return;
             }
 
@@ -4625,7 +4631,7 @@ inventory = cloneRows(mappedInventory);
                 key: profile.key,
                 fullName,
                 email,
-                phone: String(document.getElementById('psPhone').value || '').trim(),
+                phone,
                 location: String(document.getElementById('psLocation').value || '').trim(),
                 bio: String(document.getElementById('psBio').value || '').trim(),
                 language: String(document.getElementById('psLanguage').value || 'English (India)').trim(),
@@ -4652,6 +4658,11 @@ inventory = cloneRows(mappedInventory);
             e.preventDefault();
             saveProfile();
         });
+        if (settingsForm) {
+            settingsForm.querySelectorAll('.form-control').forEach(input => {
+                input.addEventListener('input', () => clearFieldError(input.id));
+            });
+        }
 
         const passwordBtn = document.getElementById('psPasswordBtn');
         if (passwordBtn) {
@@ -5198,6 +5209,52 @@ inventory = cloneRows(mappedInventory);
         renderPage(p); // Re-render page to cleanup and redraw charts with new colors
     }
 
+    const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
+    const PHONE_PATTERN = /^[6-9]\d{9}$/;
+
+    function normalizePhoneDigits(value) {
+        return String(value || '').replace(/\D/g, '');
+    }
+
+    function normalizeEditablePhone(value) {
+        const digits = normalizePhoneDigits(value);
+        return digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+    }
+
+    function isValidEmailAddress(value) {
+        return EMAIL_PATTERN.test(String(value || '').trim());
+    }
+
+    function isValidPhoneNumber(value) {
+        return PHONE_PATTERN.test(normalizePhoneDigits(value));
+    }
+
+    function setFieldError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        if (!field) return false;
+        const group = field.closest('.form-group');
+        if (group) {
+            group.classList.add('has-error');
+            const err = group.querySelector('.form-error');
+            if (err && message) err.textContent = message;
+            if (err) err.style.display = 'block';
+        }
+        field.classList.add('error');
+        return false;
+    }
+
+    function clearFieldError(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (!field) return;
+        const group = field.closest('.form-group');
+        if (group) {
+            group.classList.remove('has-error');
+            const err = group.querySelector('.form-error');
+            if (err) err.style.display = 'none';
+        }
+        field.classList.remove('error');
+    }
+
     // Product Modal Logic
     function getNextSku() {
         const nums = inventory.map(i => parseInt(i.sku.replace('SKU-', ''), 10));
@@ -5279,7 +5336,7 @@ inventory = cloneRows(mappedInventory);
             if (f.type === 'select') {
                 return `<div class="form-group"><label class="form-label">${f.label}</label><select class="form-control" name="${f.name}" ${f.required ? 'required' : ''}>${(f.options || []).map(opt => `<option value="${opt}" ${String(value) === String(opt) ? 'selected' : ''}>${opt}</option>`).join('')}</select></div>`;
             }
-            return `<div class="form-group"><label class="form-label">${f.label}</label><input class="form-control" name="${f.name}" type="${f.type || 'text'}" value="${String(value).replace(/"/g, '&quot;')}" placeholder="${f.placeholder || ''}" ${f.min !== undefined ? `min="${f.min}"` : ''} ${f.step !== undefined ? `step="${f.step}"` : ''} ${f.required ? 'required' : ''}></div>`;
+            return `<div class="form-group"><label class="form-label">${f.label}</label><input class="form-control" name="${f.name}" type="${f.type || 'text'}" value="${String(value).replace(/"/g, '&quot;')}" placeholder="${f.placeholder || ''}" ${f.min !== undefined ? `min="${f.min}"` : ''} ${f.step !== undefined ? `step="${f.step}"` : ''} ${f.maxLength !== undefined ? `maxlength="${f.maxLength}"` : ''} ${f.inputMode ? `inputmode="${f.inputMode}"` : ''} ${f.required ? 'required' : ''}></div>`;
         }).join('');
 
         overlay.innerHTML = `
@@ -5320,6 +5377,16 @@ inventory = cloneRows(mappedInventory);
                 let raw = String(fd.get(field.name) || '').trim();
                 if (field.required && !raw) {
                     errEl.textContent = `${field.label} is required.`;
+                    errEl.style.display = 'block';
+                    return;
+                }
+                if (raw && field.type === 'email' && !isValidEmailAddress(raw)) {
+                    errEl.textContent = `${field.label} must be a valid email address.`;
+                    errEl.style.display = 'block';
+                    return;
+                }
+                if (raw && (field.type === 'tel' || field.validation === 'phone') && !isValidPhoneNumber(raw)) {
+                    errEl.textContent = `${field.label} must be a valid 10-digit phone number.`;
                     errEl.style.display = 'block';
                     return;
                 }
@@ -5431,13 +5498,18 @@ inventory = cloneRows(mappedInventory);
         const supplierEmailRaw = supplierEmailInput ? supplierEmailInput.value.trim() : '';
         const supplierLeadTimeRaw = supplierLeadTimeInput ? supplierLeadTimeInput.value.trim() : '';
 
-        if (supplierEmailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplierEmailRaw)) {
-            if (supplierEmailInput) {
-                const emailGroup = supplierEmailInput.closest('.form-group');
-                if (emailGroup) emailGroup.classList.add('has-error');
-                supplierEmailInput.classList.add('error');
-            }
+        if (supplierEmailRaw && !isValidEmailAddress(supplierEmailRaw)) {
+            setFieldError('prodSupplierEmail', 'Enter a valid email address.');
             valid = false;
+        } else {
+            clearFieldError('prodSupplierEmail');
+        }
+
+        if (supplierPhoneRaw && !isValidPhoneNumber(supplierPhoneRaw)) {
+            setFieldError('prodSupplierPhone', 'Enter a valid 10-digit phone number.');
+            valid = false;
+        } else {
+            clearFieldError('prodSupplierPhone');
         }
 
         if (supplierLeadTimeRaw) {
@@ -5474,12 +5546,12 @@ inventory = cloneRows(mappedInventory);
             price: parseFloat(document.getElementById('prodPrice').value),
             stock: stock,
             status: determineStatus(stock, selectedStatus),
-            supplierPhone: supplierPhoneRaw || supplierDefaults.phone,
+            supplierPhone: supplierPhoneRaw ? normalizePhoneDigits(supplierPhoneRaw) : supplierDefaults.phone,
             supplierEmail: supplierEmailRaw || supplierDefaults.email,
             leadTimeDays,
             supplierDetails: {
                 contact: supplierDefaults.contact,
-                phone: supplierPhoneRaw || supplierDefaults.phone,
+                phone: supplierPhoneRaw ? normalizePhoneDigits(supplierPhoneRaw) : supplierDefaults.phone,
                 email: supplierEmailRaw || supplierDefaults.email,
                 leadTimeDays,
                 moq: supplierDefaults.moq,
@@ -5908,9 +5980,11 @@ inventory = cloneRows(mappedInventory);
             return;
         }
         let valid = true;
+        const userEmailInput = document.getElementById('userEmail');
+        const userPhoneInput = document.getElementById('userPhone');
         const fields = [
             { id: 'userName', check: v => v.trim() !== '' },
-            { id: 'userEmail', check: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) },
+            { id: 'userEmail', check: v => isValidEmailAddress(v) },
             { id: 'userRole', check: v => v !== '' }
         ];
         fields.forEach(f => {
@@ -5927,6 +6001,8 @@ inventory = cloneRows(mappedInventory);
         });
         const usernameEl = document.getElementById('userUsername');
         const passwordEl = document.getElementById('userPassword');
+        const typedEmail = String(userEmailInput && userEmailInput.value || '').trim();
+        const typedPhone = normalizePhoneDigits(userPhoneInput && userPhoneInput.value || '');
         const typedUsername = String(usernameEl && usernameEl.value || '').trim();
         const typedPassword = String(passwordEl && passwordEl.value || '').trim();
         const normalizedTypedUsername = normalizeAuthUserKey(typedUsername);
@@ -5935,6 +6011,12 @@ inventory = cloneRows(mappedInventory);
             if (group) group.classList.add('has-error');
             if (usernameEl) usernameEl.classList.add('error');
             valid = false;
+        }
+        if (typedPhone && !isValidPhoneNumber(typedPhone)) {
+            setFieldError('userPhone', 'Enter a valid 10-digit phone number.');
+            valid = false;
+        } else {
+            clearFieldError('userPhone');
         }
         if (typedPassword && typedPassword.length < 6) {
             const group = passwordEl && passwordEl.closest('.form-group');
@@ -5953,8 +6035,8 @@ inventory = cloneRows(mappedInventory);
             name: uname,
             role: document.getElementById('userRole').value,
             status: document.getElementById('userStatus').value,
-            email: document.getElementById('userEmail').value.trim(),
-            phone: String(document.getElementById('userPhone') && document.getElementById('userPhone').value || '').trim()
+            email: typedEmail,
+            phone: typedPhone
         };
 
         let credential;
@@ -6042,7 +6124,7 @@ inventory = cloneRows(mappedInventory);
     const staticAddUserBtn = document.getElementById('addUserBtn');
     if (staticAddUserBtn) staticAddUserBtn.addEventListener('click', openAddUserModal);
 
-    document.querySelectorAll('#addUserForm .form-control').forEach(el => {
+    document.querySelectorAll('#addUserForm .form-control, #addProductForm .form-control, #profileSettingsForm .form-control').forEach(el => {
         el.addEventListener('input', () => {
             const group = el.closest('.form-group');
             if (group) group.classList.remove('has-error');
@@ -6070,7 +6152,7 @@ inventory = cloneRows(mappedInventory);
         const supplierPhoneInput = document.getElementById('prodSupplierPhone');
         const supplierEmailInput = document.getElementById('prodSupplierEmail');
         const supplierLeadTimeInput = document.getElementById('prodLeadTime');
-        if (supplierPhoneInput) supplierPhoneInput.value = p.supplierPhone || supplierDetails.phone || '';
+        if (supplierPhoneInput) supplierPhoneInput.value = normalizeEditablePhone(p.supplierPhone || supplierDetails.phone || '');
         if (supplierEmailInput) supplierEmailInput.value = p.supplierEmail || supplierDetails.email || '';
         if (supplierLeadTimeInput) supplierLeadTimeInput.value = String(p.leadTimeDays || supplierDetails.leadTimeDays || 3);
         document.getElementById('prodPrice').value = p.price;
@@ -6184,7 +6266,7 @@ inventory = cloneRows(mappedInventory);
         document.getElementById('userRole').value = u.role;
         document.getElementById('userStatus').value = u.status;
         const phoneInput = document.getElementById('userPhone');
-        if (phoneInput) phoneInput.value = u.phone || '';
+        if (phoneInput) phoneInput.value = normalizeEditablePhone(u.phone || '');
         const usernameInput = document.getElementById('userUsername');
         if (usernameInput) {
             usernameInput.value = String(u.username || '').trim();
@@ -6510,7 +6592,7 @@ inventory = cloneRows(mappedInventory);
             fields: [
                 { name: 'status', label: 'Status', type: 'select', required: true, options: ['Pending', 'Dispatched', 'In Transit', 'Delivered', 'Failed'] },
                 { name: 'partner', label: 'Delivery Partner', type: 'text', required: false, placeholder: 'Unassigned' },
-                { name: 'partnerPhone', label: 'Partner Phone', type: 'text', required: false, placeholder: '+91 98xxxxxx' },
+                { name: 'partnerPhone', label: 'Partner Phone', type: 'tel', required: false, placeholder: '10-digit phone', maxLength: 10, inputMode: 'numeric' },
                 { name: 'partnerAgency', label: 'Agency / Team', type: 'text', required: false, placeholder: 'External delivery partner' },
                 { name: 'partnerVehicle', label: 'Vehicle', type: 'text', required: false, placeholder: 'Bike' },
                 { name: 'etaMin', label: 'ETA Minutes', type: 'number', required: false, min: 0, step: 1 }
@@ -6518,7 +6600,7 @@ inventory = cloneRows(mappedInventory);
             initialValues: {
                 status: normalizeDeliveryStatus(item.status),
                 partner: item.partner || '',
-                partnerPhone: item.partnerPhone || '',
+                partnerPhone: normalizeEditablePhone(item.partnerPhone || ''),
                 partnerAgency: item.partnerAgency || '',
                 partnerVehicle: item.partnerVehicle || '',
                 etaMin: Number.isFinite(Number(item.etaMin)) ? Math.max(0, Number(item.etaMin)) : ''
@@ -6527,7 +6609,7 @@ inventory = cloneRows(mappedInventory);
                 const status = String(values.status || 'Pending').trim() || 'Pending';
                 const partner = String(values.partner || '').trim();
                 const partnerName = partner || 'Unassigned';
-                const partnerPhone = String(values.partnerPhone || '').trim();
+                const partnerPhone = normalizePhoneDigits(values.partnerPhone || '');
                 const partnerAgency = String(values.partnerAgency || '').trim();
                 const partnerVehicle = String(values.partnerVehicle || '').trim();
                 const etaMin = values.etaMin === '' ? null : Math.max(0, Number(values.etaMin) || 0);
@@ -6759,7 +6841,7 @@ inventory = cloneRows(mappedInventory);
                 { name: 'adminName', label: 'Admin Name', type: 'text', required: true },
                 { name: 'type', label: 'Business Type', type: 'text', required: true },
                 { name: 'email', label: 'Business Email', type: 'email', required: true },
-                { name: 'phone', label: 'Business Phone', type: 'text', required: true },
+                { name: 'phone', label: 'Business Phone', type: 'tel', required: true, maxLength: 10, inputMode: 'numeric' },
                 { name: 'tenureMonths', label: 'Using BillBhai (Months)', type: 'number', required: true, min: 0 },
                 { name: 'storesCount', label: 'Stores Count', type: 'number', required: true, min: 0 },
                 { name: 'profit', label: 'Profit', type: 'number', required: true, min: 0, step: 0.01 },
@@ -6769,8 +6851,12 @@ inventory = cloneRows(mappedInventory);
             ],
             initialValues: { status: 'Active', productsPlan: 'Billing Starter', tenureMonths: 1, storesCount: 1, profit: 0, paymentDue: 0 },
             onSubmit: async (values, closeModal) => {
-                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+                if (!isValidEmailAddress(values.email)) {
                     showToast('Please enter a valid email.');
+                    return;
+                }
+                if (!isValidPhoneNumber(values.phone)) {
+                    showToast('Please enter a valid 10-digit phone number.');
                     return;
                 }
 
@@ -6782,7 +6868,7 @@ inventory = cloneRows(mappedInventory);
                     adminName: String(values.adminName).trim(),
                     type: String(values.type).trim(),
                     email: String(values.email).trim(),
-                    phone: String(values.phone).trim(),
+                    phone: normalizePhoneDigits(values.phone),
                     status: String(values.status).trim(),
                     productsPlan: String(values.productsPlan).trim(),
                     tenureMonths: Number(values.tenureMonths),
@@ -6847,7 +6933,7 @@ inventory = cloneRows(mappedInventory);
                 { name: 'adminName', label: 'Admin Name', type: 'text', required: true },
                 { name: 'type', label: 'Business Type', type: 'text', required: true },
                 { name: 'email', label: 'Business Email', type: 'email', required: true },
-                { name: 'phone', label: 'Business Phone', type: 'text', required: true },
+                { name: 'phone', label: 'Business Phone', type: 'tel', required: true, maxLength: 10, inputMode: 'numeric' },
                 { name: 'tenureMonths', label: 'Using BillBhai (Months)', type: 'number', required: true, min: 0 },
                 { name: 'storesCount', label: 'Stores Count', type: 'number', required: true, min: 0 },
                 { name: 'profit', label: 'Profit', type: 'number', required: true, min: 0, step: 0.01 },
@@ -6855,10 +6941,14 @@ inventory = cloneRows(mappedInventory);
                 { name: 'status', label: 'Status', type: 'select', required: true, options: ['Active', 'Trial', 'Paused'] },
                 { name: 'productsPlan', label: 'Products Plan', type: 'text', required: true }
             ],
-            initialValues: existing,
+            initialValues: { ...existing, phone: normalizeEditablePhone(existing.phone) },
             onSubmit: async (values, closeModal) => {
-                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+                if (!isValidEmailAddress(values.email)) {
                     showToast('Please enter a valid email.');
+                    return;
+                }
+                if (!isValidPhoneNumber(values.phone)) {
+                    showToast('Please enter a valid 10-digit phone number.');
                     return;
                 }
 
@@ -6869,7 +6959,7 @@ inventory = cloneRows(mappedInventory);
                     adminName: String(values.adminName).trim(),
                     type: String(values.type).trim(),
                     email: String(values.email).trim(),
-                    phone: String(values.phone).trim(),
+                    phone: normalizePhoneDigits(values.phone),
                     tenureMonths: Number(values.tenureMonths),
                     storesCount: Number(values.storesCount),
                     profit: Number(values.profit),

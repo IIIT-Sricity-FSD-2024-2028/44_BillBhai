@@ -1,5 +1,7 @@
-import { IsString, IsEmail, IsOptional } from 'class-validator';
+import { IsString, IsEmail, IsOptional, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+
+const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 
 export class CreateCustomerDto {
   @ApiProperty({ example: 'BIZ-101', description: 'Company ID' })
@@ -21,6 +23,7 @@ export class CreateCustomerDto {
   })
   @IsOptional()
   @IsEmail()
+  @Matches(EMAIL_PATTERN, { message: 'email must be a valid address' })
   email?: string;
 
   @ApiProperty({
@@ -59,6 +62,7 @@ export class UpdateCustomerDto {
   })
   @IsOptional()
   @IsEmail()
+  @Matches(EMAIL_PATTERN, { message: 'email must be a valid address' })
   email?: string;
 
   @ApiProperty({

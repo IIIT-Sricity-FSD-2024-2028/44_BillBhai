@@ -3,6 +3,10 @@ import { Customer } from '../../data/entities';
 
 /** Customers Module Schemas - DTOs and zod validation only. No business logic. */
 
+const emailSchema = z
+  .email('email must be a valid address')
+  .regex(/^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/, 'email must be a valid address');
+
 export const listCustomersQuerySchema = z.object({
   companyId: z.string().optional(),
 });
@@ -34,7 +38,7 @@ export const createCustomerSchema = z.object({
       (value) => value.replace(/\D/g, '').length >= 10,
       'mobileNo must contain at least 10 digits',
     ),
-  email: z.email('email must be a valid address').optional(),
+  email: emailSchema.optional(),
   address: z.string().optional(),
 });
 

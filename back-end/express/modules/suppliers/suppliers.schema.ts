@@ -3,6 +3,10 @@ import { Supplier } from '../../data/entities';
 
 /** Suppliers Module Schemas - DTOs and zod validation only. No business logic. */
 
+const emailSchema = z
+  .email('email must be a valid address')
+  .regex(/^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/, 'email must be a valid address');
+
 export const supplierIdParamsSchema = z.object({
   id: z.string().regex(/^SUP-\d+$/i, 'Supplier id must look like SUP-001'),
 });
@@ -10,7 +14,7 @@ export const supplierIdParamsSchema = z.object({
 export const createSupplierSchema = z.object({
   name: z.string().min(2, 'name must be at least 2 characters'),
   mobileNo: z.string().regex(/^\d{10}$/, 'mobileNo must be exactly 10 digits'),
-  email: z.email('email must be a valid address').optional(),
+  email: emailSchema.optional(),
   address: z.string().optional(),
   gstNo: z.string().optional(),
 });

@@ -4,6 +4,10 @@ import { SafeUser, User } from '../../data/entities';
 
 /** Users Module Schemas - DTOs and zod validation only. No business logic. */
 
+const emailSchema = z
+  .email('email must be a valid address')
+  .regex(/^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/, 'email must be a valid address');
+
 export const listUsersQuerySchema = z.object({
   companyId: z.string().optional(),
   role: z.string().optional(),
@@ -17,7 +21,7 @@ export const createUserSchema = z.object({
   companyId: z.string().min(1, 'companyId is required'),
   name: z.string().min(2, 'name must be at least 2 characters'),
   role: z.enum(ROLES),
-  email: z.email('email must be a valid address'),
+  email: emailSchema,
   mobileNo: z
     .string()
     .regex(/^\d{10}$/, 'mobileNo must be exactly 10 digits'),

@@ -10,6 +10,7 @@ const security_middleware_1 = require("../middleware/security.middleware");
 const apiError_1 = require("../utils/apiError");
 const logger_1 = __importDefault(require("../utils/logger"));
 const router = (0, express_1.Router)();
+const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 // Router-level middleware 1: Apply strict rate limiting to all auth endpoints
 router.use(security_middleware_1.strictRateLimiter);
 // Router-level middleware 2: Request payload validation
@@ -18,7 +19,7 @@ const validateAuthBody = (req, res, next) => {
     if (!email || !password) {
         return next(new apiError_1.BadRequestError('Email and password are required fields'));
     }
-    if (typeof email !== 'string' || !email.includes('@')) {
+    if (typeof email !== 'string' || !EMAIL_PATTERN.test(email.trim())) {
         return next(new apiError_1.BadRequestError('Invalid email format'));
     }
     next();

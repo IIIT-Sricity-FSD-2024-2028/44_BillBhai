@@ -66,7 +66,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function resolveBackendCustomer(dataPayload, companyId, userRole) {
         const customerPayload = dataPayload && dataPayload.customer ? dataPayload.customer : {};
-        const normalizedPhone = String(customerPayload.phone || '').replace(/\D/g, '').slice(-10);
+        const normalizedPhone = String(customerPayload.phone || '').replace(/\D/g, '');
+        const hasValidPhone = /^\d{10}$/.test(normalizedPhone);
         const normalizedName = String(customerPayload.name || '').trim();
         const normalizedEmail = String(customerPayload.email || '').trim();
         const normalizedAddress = String(customerPayload.address || '').trim();
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasAddress = normalizedAddress.length > 0;
 
         // Company-scoped lookup by phone only (prevents cross-business customer/address bleed).
-        if (normalizedPhone) {
+        if (hasValidPhone) {
             try {
                 const scopedResponse = await fetch(`http://localhost:4000/api/customers?companyId=${encodeURIComponent(companyId)}`, {
                     method: 'GET',
@@ -86,8 +87,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (scopedResponse.ok) {
                     const scopedRows = await scopedResponse.json();
                     const existing = (Array.isArray(scopedRows) ? scopedRows : []).find((row) => {
-                        const rowPhone = String(row && row.mobileNo || '').replace(/\D/g, '').slice(0, 10);
-                        return rowPhone && rowPhone === normalizedPhone;
+                        const rowPhone = String(row && row.mobileNo || '').replace(/\D/g, '');
+                        return /^\d{10}$/.test(rowPhone) && rowPhone === normalizedPhone;
                     });
                     if (existing && existing.id) {
                         const needsUpdate = (
@@ -128,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const createBody = {
                 companyId,
                 name: normalizedName || 'Walk-in Customer',
-                mobileNo: normalizedPhone || `9${Date.now().toString().slice(-9)}`
+                mobileNo: hasValidPhone ? normalizedPhone : `9${Date.now().toString().slice(-9)}`
             };
             if (hasEmail) createBody.email = normalizedEmail;
             if (hasAddress) createBody.address = normalizedAddress;

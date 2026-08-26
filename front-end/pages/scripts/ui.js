@@ -76,6 +76,7 @@ const UI = (() => {
             errPhone: document.getElementById('errPhone'),
             errEmail: document.getElementById('errEmail'),
             errAddress: document.getElementById('errAddress'),
+            errDeliveryPartnerPhone: document.getElementById('errDeliveryPartnerPhone'),
 
             // Step 2 Catalog
             catList: document.getElementById('categoryFilters'),
@@ -118,7 +119,7 @@ const UI = (() => {
     }
 
     function sanitizePhone(value) {
-        return String(value || '').replace(/\D/g, '').slice(-10);
+        return String(value || '').replace(/\D/g, '');
     }
 
     function getTerminalCopy() {
@@ -381,7 +382,7 @@ const UI = (() => {
             notes: String(el.inpNotes && el.inpNotes.value || '').trim(),
             deliveryOption: modeConfig.deliveryOption,
             deliveryPartner: String(el.inpDeliveryPartner && el.inpDeliveryPartner.value || '').trim(),
-            deliveryPartnerPhone: String(el.inpDeliveryPartnerPhone && el.inpDeliveryPartnerPhone.value || '').trim(),
+            deliveryPartnerPhone: sanitizePhone(el.inpDeliveryPartnerPhone && el.inpDeliveryPartnerPhone.value || ''),
             isExistingCustomer: Boolean(currentCustomerProfile)
         };
     }
@@ -399,6 +400,7 @@ const UI = (() => {
         if (el.errPhone) el.errPhone.textContent = '';
         if (el.errEmail) el.errEmail.textContent = '';
         if (el.errAddress) el.errAddress.textContent = '';
+        if (el.errDeliveryPartnerPhone) el.errDeliveryPartnerPhone.textContent = '';
 
         currentCustomerProfile = null;
         setCheckoutMode('takeaway_now');
@@ -448,6 +450,7 @@ const UI = (() => {
             if (el.errPhone) el.errPhone.textContent = validation.errors.phone || '';
             if (el.errEmail) el.errEmail.textContent = validation.errors.email || '';
             if (el.errAddress) el.errAddress.textContent = '';
+            if (el.errDeliveryPartnerPhone) el.errDeliveryPartnerPhone.textContent = validation.errors.deliveryPartnerPhone || '';
 
             if (validation.isValid) {
                 renderCategories();
@@ -482,6 +485,14 @@ const UI = (() => {
         if (el.inpAddress) {
             el.inpAddress.addEventListener('input', () => {
                 if (el.errAddress) el.errAddress.textContent = '';
+                if (el.checkoutModeError) el.checkoutModeError.textContent = '';
+            });
+        }
+
+        if (el.inpDeliveryPartnerPhone) {
+            el.inpDeliveryPartnerPhone.addEventListener('input', () => {
+                el.inpDeliveryPartnerPhone.value = sanitizePhone(el.inpDeliveryPartnerPhone.value);
+                if (el.errDeliveryPartnerPhone) el.errDeliveryPartnerPhone.textContent = '';
                 if (el.checkoutModeError) el.checkoutModeError.textContent = '';
             });
         }
@@ -787,11 +798,12 @@ const UI = (() => {
                     if (el.errPhone) el.errPhone.textContent = validation.errors.phone || '';
                     if (el.errEmail) el.errEmail.textContent = validation.errors.email || '';
                     if (el.errAddress) el.errAddress.textContent = validation.errors.address || '';
+                    if (el.errDeliveryPartnerPhone) el.errDeliveryPartnerPhone.textContent = validation.errors.deliveryPartnerPhone || '';
 
                     const hasCustomerFieldErrors = Boolean(validation.errors.name || validation.errors.phone || validation.errors.email);
                     if (el.checkoutModeError) {
-                        el.checkoutModeError.textContent = validation.errors.address
-                            ? 'Delivery needs a valid address before payment.'
+                        el.checkoutModeError.textContent = validation.errors.address || validation.errors.deliveryPartnerPhone
+                            ? 'Delivery needs valid details before payment.'
                             : 'Please complete customer details before payment.';
                     }
                     showStep(hasCustomerFieldErrors ? 1 : 3);

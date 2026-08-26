@@ -113,6 +113,21 @@ document.addEventListener('DOMContentLoaded', () => {
             .join(' ');
     }
 
+    const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
+    const PHONE_PATTERN = /^[6-9]\d{9}$/;
+
+    function normalizePhoneDigits(value) {
+        return String(value || '').replace(/\D/g, '');
+    }
+
+    function isValidEmailAddress(value) {
+        return EMAIL_PATTERN.test(String(value || '').trim());
+    }
+
+    function isValidPhoneNumber(value) {
+        return PHONE_PATTERN.test(normalizePhoneDigits(value));
+    }
+
     function deriveAdminUsername(ownerName, email) {
         const emailSeed = String(email || '').trim().split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '');
         if (emailSeed) return emailSeed;
@@ -210,8 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Validate email
             const emailInput = form.querySelector('input[type="email"]');
             if (emailInput && emailInput.value.trim()) {
-                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailPattern.test(emailInput.value.trim())) {
+                if (!isValidEmailAddress(emailInput.value)) {
                     const group = emailInput.closest('.input-group');
                     group.classList.add('error', 'shake');
                     const errEl = group.querySelector('.field-error');
@@ -224,8 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Validate phone
             const phoneInput = form.querySelector('input[type="tel"]');
             if (phoneInput && phoneInput.value.trim()) {
-                const phonePattern = /^[6-9]\d{9}$/;
-                if (!phonePattern.test(phoneInput.value.trim().replace(/\s/g, ''))) {
+                if (!isValidPhoneNumber(phoneInput.value)) {
                     const group = phoneInput.closest('.input-group');
                     group.classList.add('error', 'shake');
                     const errEl = group.querySelector('.field-error');
@@ -270,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 businessName: document.getElementById('businessName').value.trim(),
                 ownerName: document.getElementById('ownerName').value.trim(),
                 email: document.getElementById('email').value.trim().toLowerCase(),
-                phone: document.getElementById('phone').value.trim().replace(/\s+/g, ''),
+                phone: normalizePhoneDigits(document.getElementById('phone').value),
                 gstin: document.getElementById('gstin').value.trim(),
                 businessType: document.getElementById('businessType').value.trim(),
                 password: document.getElementById('password').value

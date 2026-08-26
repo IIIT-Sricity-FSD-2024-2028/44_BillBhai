@@ -85,7 +85,8 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="userPhone">Phone</label>
-                            <input type="tel" class="form-control" id="userPhone" placeholder="e.g. 9876543210">
+                            <input type="tel" class="form-control" id="userPhone" placeholder="e.g. 9876543210" maxlength="10" inputmode="numeric">
+                            <div class="form-error">Enter a valid 10-digit phone number</div>
                         </div>
                     </div>
                     <div class="form-row">
@@ -129,5 +130,4 @@
     <script src="scripts/dashboard.js"></script>
 </body>
 </html>
-
 

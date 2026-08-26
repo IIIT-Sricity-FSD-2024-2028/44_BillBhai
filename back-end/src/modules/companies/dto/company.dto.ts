@@ -5,8 +5,11 @@ import {
   IsNumber,
   Min,
   IsArray,
+  Matches,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+
+const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 
 export class CreateCompanyDto {
   @ApiProperty({ example: 'FreshKart Central', description: 'Company name' })
@@ -30,6 +33,7 @@ export class CreateCompanyDto {
     description: 'Company email',
   })
   @IsEmail()
+  @Matches(EMAIL_PATTERN, { message: 'email must be a valid address' })
   email: string;
 
   @ApiProperty({ example: '+91-9870011101', description: 'Company phone' })
@@ -160,6 +164,7 @@ export class UpdateCompanyDto {
   })
   @IsOptional()
   @IsEmail()
+  @Matches(EMAIL_PATTERN, { message: 'email must be a valid address' })
   email?: string;
 
   @ApiProperty({
