@@ -145,7 +145,11 @@ document.addEventListener('DOMContentLoaded', () => {
             phone: payload.phone,
             gstNo: payload.gstin || undefined,
             address: 'India',
-            productsPlan: 'Core POS + Inventory',
+            plan: 'starter',
+            productsPlan: 'Starter Plan (Free)',
+            subscriptionStatus: 'Active',
+            monthlyPrice: 0,
+            renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             tenureMonths: 0,
             storesCount: 1
         };
@@ -306,8 +310,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnRegister.classList.remove('loading');
                 btnRegister.classList.add('success');
                 setTimeout(() => {
-                    window.location.href = 'business-welcome.html';
-                }, 1000);
+                    window.location.href = 'choose-plan.html';
+                }, 800);
             } catch (error) {
                 console.error('Business registration failed:', error);
                 if (formError) {
@@ -320,5 +324,4 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
 });

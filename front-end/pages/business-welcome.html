@@ -73,6 +73,7 @@
         <section class="grid">
             <div class="row"><div class="label">Business ID</div><div class="value" id="businessId">-</div></div>
             <div class="row"><div class="label">Business Name</div><div class="value" id="businessName">-</div></div>
+            <div class="row"><div class="label">Active Subscription</div><div class="value" id="planName" style="color:#10b981;">-</div></div>
             <div class="row"><div class="label">Owner</div><div class="value" id="ownerName">-</div></div>
             <div class="row"><div class="label">Admin Username</div><div class="value" id="username">-</div></div>
             <div class="row"><div class="label">Admin Password</div><div class="value" id="password">-</div></div>
@@ -94,14 +95,28 @@
                 var data = JSON.parse(raw);
                 document.getElementById('businessId').textContent = data.businessId || '-';
                 document.getElementById('businessName').textContent = data.businessName || '-';
+                document.getElementById('planName').textContent = data.planName || (data.plan === 'enterprise' ? 'Enterprise Plan (₹4,999/mo)' : (data.plan === 'pro' ? 'Growth / Pro Plan (₹1,999/mo)' : 'Starter Plan (Free Forever)'));
                 document.getElementById('ownerName').textContent = data.ownerName || '-';
                 document.getElementById('username').textContent = data.username || '-';
                 document.getElementById('password').textContent = data.password || '-';
                 document.getElementById('email').textContent = data.email || '-';
 
-                function prepareBusinessContext(targetPage) {
+                function establishNewAdminSession(targetPage) {
                     localStorage.setItem('activeBusinessId', String(data.businessId || '').trim());
                     localStorage.setItem('activeBusinessName', String(data.businessName || '').trim());
+                    localStorage.setItem('activeBusinessPlan', String(data.plan || 'starter').trim());
+                    localStorage.setItem('userRole', 'admin');
+                    localStorage.setItem('userName', String(data.username || '').trim());
+                    localStorage.setItem('currentUser', JSON.stringify({
+                        id: data.adminUserId || `USR-${Date.now()}`,
+                        username: String(data.username || '').trim(),
+                        name: String(data.ownerName || data.username || 'Admin').trim(),
+                        role: 'admin',
+                        email: String(data.email || '').trim(),
+                        companyId: String(data.businessId || '').trim(),
+                        businessName: String(data.businessName || '').trim(),
+                        plan: String(data.plan || 'starter').trim()
+                    }));
                     if (targetPage) {
                         sessionStorage.setItem('bb_post_login_redirect', String(targetPage).trim());
                     }
@@ -112,22 +127,14 @@
 
                 if (goLoginBtn) {
                     goLoginBtn.addEventListener('click', function () {
-                        prepareBusinessContext('dashboard.html');
+                        establishNewAdminSession('dashboard.html');
                     });
                 }
                 if (goDashboardBtn) {
                     goDashboardBtn.addEventListener('click', function (event) {
-                        var currentUser = null;
-                        try {
-                            currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-                        } catch (err) {
-                            currentUser = null;
-                        }
-                        var role = String(localStorage.getItem('userRole') || '').trim().toLowerCase();
-                        prepareBusinessContext('dashboard.html');
-                        if (currentUser && role === 'admin') return;
                         event.preventDefault();
-                        window.location.href = 'login.html';
+                        establishNewAdminSession('dashboard.html');
+                        window.location.href = 'dashboard.html';
                     });
                 }
             } catch (error) {

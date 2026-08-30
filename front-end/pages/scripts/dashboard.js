@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const ROLE_ALLOWED_PAGES = {
-        superuser: ['superuser', 'businesses', 'dashboard', 'orders', 'inventory', 'delivery', 'returns', 'reports', 'users', 'profile', 'notifications'],
-        admin: ['dashboard', 'orders', 'inventory', 'delivery', 'returns', 'reports', 'users', 'profile', 'notifications'],
+        superuser: ['superuser', 'businesses', 'dashboard', 'orders', 'inventory', 'delivery', 'returns', 'reports', 'users', 'profile', 'notifications', 'cashier'],
+        admin: ['dashboard', 'orders', 'inventory', 'delivery', 'returns', 'reports', 'users', 'profile', 'notifications', 'cashier'],
         cashier: ['cashier', 'dashboard', 'orders', 'reports', 'profile', 'notifications'],
         returnhandler: ['dashboard', 'returns', 'orders', 'reports', 'profile', 'notifications'],
         inventorymanager: ['dashboard', 'inventory', 'reports', 'profile', 'notifications'],
@@ -49,6 +49,377 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialized early to avoid temporal-dead-zone crashes when notifications render before helper sections run.
     var DELIVERY_PARTNER_DIRECTORY = {};
     var SUPPLIER_DIRECTORY = {};
+
+    // ── 3-Tier SaaS Revenue Model Definition & Enforcements ───────────
+    const PLAN_DEFINITIONS = {
+        starter: {
+            key: 'starter',
+            name: 'Starter Plan (Free)',
+            badgeClass: 'badge-plan-starter',
+            price: 0,
+            limits: {
+                maxUsers: 2,
+                maxProducts: 300,
+                maxStores: 1,
+                maxInvoices: 500
+            },
+            features: {
+                pos: true,
+                receipts: true,
+                basicReports: true,
+                delivery: false,
+                returns: false,
+                discounts: false,
+                selfCheckout: false
+            }
+        },
+        pro: {
+            key: 'pro',
+            name: 'Growth / Pro Plan',
+            badgeClass: 'badge-plan-pro',
+            price: 1999,
+            limits: {
+                maxUsers: 10,
+                maxProducts: 5000,
+                maxStores: 3,
+                maxInvoices: Infinity
+            },
+            features: {
+                pos: true,
+                receipts: true,
+                basicReports: true,
+                delivery: true,
+                returns: true,
+                discounts: true,
+                selfCheckout: false
+            }
+        },
+        enterprise: {
+            key: 'enterprise',
+            name: 'Enterprise Plan',
+            badgeClass: 'badge-plan-enterprise',
+            price: 4999,
+            limits: {
+                maxUsers: Infinity,
+                maxProducts: Infinity,
+                maxStores: Infinity,
+                maxInvoices: Infinity
+            },
+            features: {
+                pos: true,
+                receipts: true,
+                basicReports: true,
+                delivery: true,
+                returns: true,
+                discounts: true,
+                selfCheckout: true
+            }
+        }
+    };
+
+    function getActiveCompanyPlan() {
+        let planKey = 'pro';
+        const activeBizId = localStorage.getItem('activeBusinessId');
+        if (activeBizId && Array.isArray(businesses)) {
+            const biz = businesses.find(b => b && b.id === activeBizId);
+            if (biz) {
+                const raw = String(biz.plan || biz.productsPlan || '').toLowerCase();
+                if (raw.includes('enterprise')) planKey = 'enterprise';
+                else if (raw.includes('starter')) planKey = 'starter';
+                else planKey = 'pro';
+            }
+        } else {
+            const localSaved = localStorage.getItem('activeBusinessPlan');
+            if (localSaved && PLAN_DEFINITIONS[localSaved]) {
+                planKey = localSaved;
+            }
+        }
+        return PLAN_DEFINITIONS[planKey] || PLAN_DEFINITIONS.pro;
+    }
+
+    async function switchCompanyPlan(targetPlanKey) {
+        const targetPlan = PLAN_DEFINITIONS[targetPlanKey];
+        if (!targetPlan) return;
+        localStorage.setItem('activeBusinessPlan', targetPlanKey);
+
+        const activeBizId = localStorage.getItem('activeBusinessId');
+        if (activeBizId && Array.isArray(businesses)) {
+            const biz = businesses.find(b => b && b.id === activeBizId);
+            if (biz) {
+                biz.plan = targetPlanKey;
+                biz.productsPlan = targetPlan.name;
+                biz.monthlyPrice = targetPlan.price;
+                biz.subscriptionStatus = 'Active';
+                try {
+                    await apiRequest(`/companies/${encodeURIComponent(String(biz.id))}`, {
+                        method: 'PUT',
+                        role: 'superuser',
+                        body: {
+                            plan: targetPlanKey,
+                            productsPlan: targetPlan.name,
+                            monthlyPrice: targetPlan.price,
+                            subscriptionStatus: 'Active'
+                        }
+                    });
+                } catch (err) {
+                    console.warn('Could not sync company plan to backend:', err);
+                }
+            }
+        }
+
+        renderHeaderPlanBadge();
+        updateProfileSubscriptionCard();
+        showToast(`Subscription switched to ${targetPlan.name}!`);
+        if (typeof renderPage === 'function') {
+            renderPage(currentPage);
+        }
+    }
+
+    function renderHeaderPlanBadge() {
+        const activePlan = getActiveCompanyPlan();
+        const headerRight = document.querySelector('.header-right');
+        if (!headerRight) return;
+
+        let badge = document.getElementById('headerPlanBadge');
+        if (!badge) {
+            badge = document.createElement('div');
+            badge.id = 'headerPlanBadge';
+            headerRight.insertBefore(badge, headerRight.firstChild);
+        }
+        
+        let bClass = 'b-active';
+        if (activePlan.key === 'starter') bClass = 'b-pending';
+        if (activePlan.key === 'enterprise') bClass = 'b-processing';
+        
+        badge.className = `badge ${bClass}`;
+        badge.style.cursor = 'pointer';
+        badge.style.marginRight = '12px';
+        badge.style.padding = '5px 12px';
+        badge.innerHTML = `<span>${activePlan.name.replace(' Plan', '')}</span>`;
+        badge.title = `Current Plan: ${activePlan.name} (Click to manage subscription)`;
+        badge.onclick = () => window.openPlanUpgradeModal();
+    }
+
+    window.openPlanUpgradeModal = function() {
+        const currentPlan = getActiveCompanyPlan();
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay active';
+
+        const plans = [PLAN_DEFINITIONS.starter, PLAN_DEFINITIONS.pro, PLAN_DEFINITIONS.enterprise];
+        const cardsHtml = plans.map(p => {
+            const isCurrent = p.key === currentPlan.key;
+            const priceHtml = p.price === 0 ? '₹0<span>/Free</span>' : `₹${p.price.toLocaleString()}<span>/mo</span>`;
+            return `
+                <div class="plan-tier-card ${isCurrent ? 'current' : ''} ${p.key === 'pro' ? 'popular' : ''}">
+                    ${p.key === 'pro' ? '<div class="plan-popular-pill">Most Popular</div>' : ''}
+                    <div class="plan-tier-name">${p.name}</div>
+                    <div class="plan-tier-price">${priceHtml}</div>
+                    <ul class="plan-tier-features">
+                        <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ${p.limits.maxUsers === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxUsers} Users</li>
+                        <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ${p.limits.maxStores === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxStores} Store${p.limits.maxStores > 1 ? 's' : ''}</li>
+                        <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ${p.limits.maxProducts === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxProducts.toLocaleString()} Products</li>
+                        <li class="${p.features.delivery ? '' : 'disabled'}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">${p.features.delivery ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}</svg> Delivery Operations</li>
+                        <li class="${p.features.returns ? '' : 'disabled'}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">${p.features.returns ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}</svg> Returns & Refunds</li>
+                    </ul>
+                    <button class="btn ${isCurrent ? 'btn-outline' : (p.key === 'pro' ? 'btn-primary' : 'btn-outline')}" style="width:100%;justify-content:center;font-size:0.82rem;" ${isCurrent ? 'disabled' : ''} data-choose-plan="${p.key}">
+                        ${isCurrent ? 'Current Plan' : (p.price > currentPlan.price ? 'Upgrade to ' + p.name.split('/')[0].trim() : 'Switch to ' + p.name.split('/')[0].trim())}
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        overlay.innerHTML = `
+            <div class="modal" style="max-width: 780px;">
+                <div class="modal-header">
+                    <h3>Subscription & Pricing Plans</h3>
+                    <button class="modal-close" type="button">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted" style="margin-bottom: 16px; font-size: 0.88rem;">Select a plan that fits your business scale. Changes take effect immediately.</p>
+                    <div class="subscription-plans-grid">
+                        ${cardsHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const closeModal = () => {
+            overlay.remove();
+        };
+
+        overlay.querySelector('.modal-close').onclick = closeModal;
+        overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+
+        overlay.querySelectorAll('[data-choose-plan]').forEach(btn => {
+            btn.onclick = async () => {
+                const targetKey = btn.getAttribute('data-choose-plan');
+                closeModal();
+                await switchCompanyPlan(targetKey);
+            };
+        });
+
+        document.body.appendChild(overlay);
+    };
+
+    window.cancelSubscription = function() {
+        openQuickConfirmModal({
+            title: 'Cancel Subscription',
+            message: 'Are you sure you want to cancel your active plan? Your account will downgrade to Starter Plan limits at the end of the billing period.',
+            confirmLabel: 'Confirm Cancellation',
+            cancelLabel: 'Keep My Plan',
+            onConfirm: async () => {
+                const activeBizId = localStorage.getItem('activeBusinessId');
+                if (activeBizId && Array.isArray(businesses)) {
+                    const biz = businesses.find(b => b && b.id === activeBizId);
+                    if (biz) {
+                        biz.subscriptionStatus = 'Cancelled';
+                        try {
+                            await apiRequest(`/companies/${encodeURIComponent(String(biz.id))}`, {
+                                method: 'PUT',
+                                role: 'superuser',
+                                body: { subscriptionStatus: 'Cancelled' }
+                            });
+                        } catch (err) {}
+                    }
+                }
+                const subStatusEl = document.getElementById('profileSubStatus');
+                if (subStatusEl) {
+                    subStatusEl.className = 'badge b-outofstock';
+                    subStatusEl.textContent = 'Cancelled';
+                }
+                showToast('Subscription cancelled. You may reactivate anytime.');
+                return true;
+            }
+        });
+    };
+
+    function updateProfileSubscriptionCard() {
+        const activePlan = getActiveCompanyPlan();
+        const activeBizId = localStorage.getItem('activeBusinessId');
+        let biz = null;
+        if (activeBizId && Array.isArray(businesses)) {
+            biz = businesses.find(b => b && b.id === activeBizId);
+        }
+
+        const badgeEl = document.getElementById('profilePlanBadge');
+        const nameEl = document.getElementById('profilePlanName');
+        const priceEl = document.getElementById('profilePlanPrice');
+        const renewalEl = document.getElementById('profileRenewalDate');
+        const statusEl = document.getElementById('profileSubStatus');
+
+        let bClass = 'b-active';
+        if (activePlan.key === 'starter') bClass = 'b-pending';
+        if (activePlan.key === 'enterprise') bClass = 'b-processing';
+
+        if (badgeEl) badgeEl.className = `badge ${bClass}`;
+        if (nameEl) nameEl.textContent = activePlan.name;
+        if (priceEl) {
+            priceEl.innerHTML = activePlan.price === 0
+                ? '₹0<small style="font-size:0.78rem;font-weight:400;color:var(--text-muted);">/Free Forever</small>'
+                : `₹${activePlan.price.toLocaleString()}<small style="font-size:0.78rem;font-weight:400;color:var(--text-muted);">/month</small>`;
+        }
+        if (renewalEl) renewalEl.textContent = `Renews on ${biz && biz.renewalDate || '30 Sept 2026'}`;
+        if (statusEl) {
+            const isCancelled = biz && String(biz.subscriptionStatus || '').toLowerCase() === 'cancelled';
+            statusEl.className = isCancelled ? 'badge b-outofstock' : 'badge b-active';
+            statusEl.textContent = isCancelled ? 'Cancelled' : 'Active';
+        }
+
+        const usersCount = users.length;
+        const usersMax = activePlan.limits.maxUsers === Infinity ? 'Unlimited' : activePlan.limits.maxUsers;
+        const usersPercent = activePlan.limits.maxUsers === Infinity ? 10 : Math.min(100, Math.round((usersCount / activePlan.limits.maxUsers) * 100));
+
+        const usersCountEl = document.getElementById('quotaUsersCount');
+        const usersBarEl = document.getElementById('quotaUsersBar');
+        if (usersCountEl) usersCountEl.textContent = `${usersCount} / ${usersMax} Used`;
+        if (usersBarEl) {
+            usersBarEl.style.width = `${usersPercent}%`;
+            usersBarEl.className = `quota-meter-fill ${usersPercent >= 90 ? 'danger' : (usersPercent >= 70 ? 'warning' : '')}`;
+        }
+
+        const prodCount = inventory.length;
+        const prodMax = activePlan.limits.maxProducts === Infinity ? 'Unlimited' : activePlan.limits.maxProducts.toLocaleString();
+        const prodPercent = activePlan.limits.maxProducts === Infinity ? 5 : Math.min(100, Math.round((prodCount / activePlan.limits.maxProducts) * 100));
+
+        const prodCountEl = document.getElementById('quotaProductsCount');
+        const prodBarEl = document.getElementById('quotaProductsBar');
+        if (prodCountEl) prodCountEl.textContent = `${prodCount} / ${prodMax} Used`;
+        if (prodBarEl) {
+            prodBarEl.style.width = `${prodPercent}%`;
+            prodBarEl.className = `quota-meter-fill ${prodPercent >= 90 ? 'danger' : (prodPercent >= 70 ? 'warning' : '')}`;
+        }
+
+        const storesCount = (biz && biz.storesCount) || 1;
+        const storesMax = activePlan.limits.maxStores === Infinity ? 'Unlimited' : activePlan.limits.maxStores;
+        const storesPercent = activePlan.limits.maxStores === Infinity ? 20 : Math.min(100, Math.round((storesCount / activePlan.limits.maxStores) * 100));
+
+        const storesCountEl = document.getElementById('quotaStoresCount');
+        const storesBarEl = document.getElementById('quotaStoresBar');
+        if (storesCountEl) storesCountEl.textContent = `${storesCount} / ${storesMax} Used`;
+        if (storesBarEl) {
+            storesBarEl.style.width = `${storesPercent}%`;
+            storesBarEl.className = `quota-meter-fill ${storesPercent >= 90 ? 'danger' : (storesPercent >= 70 ? 'warning' : '')}`;
+        }
+    }
+
+    function checkUserPlanCap() {
+        const activePlan = getActiveCompanyPlan();
+        if (users.length >= activePlan.limits.maxUsers) {
+            openQuickConfirmModal({
+                title: 'Team Member Limit Reached',
+                message: `Your ${activePlan.name} allows up to ${activePlan.limits.maxUsers} staff users (current: ${users.length}). Upgrade your plan to add more team members.`,
+                confirmLabel: 'Upgrade Plan',
+                cancelLabel: 'Close',
+                onConfirm: () => {
+                    window.openPlanUpgradeModal();
+                    return true;
+                }
+            });
+            return false;
+        }
+        return true;
+    }
+
+    function checkProductPlanCap() {
+        const activePlan = getActiveCompanyPlan();
+        if (inventory.length >= activePlan.limits.maxProducts) {
+            openQuickConfirmModal({
+                title: 'Product Catalog Limit Reached',
+                message: `Your ${activePlan.name} allows up to ${activePlan.limits.maxProducts} products (current: ${inventory.length}). Upgrade your plan to expand your catalog.`,
+                confirmLabel: 'Upgrade Plan',
+                cancelLabel: 'Close',
+                onConfirm: () => {
+                    window.openPlanUpgradeModal();
+                    return true;
+                }
+            });
+            return false;
+        }
+        return true;
+    }
+
+    function renderPlanFeatureLock(featureName) {
+        const contentArea = document.getElementById('contentArea');
+        if (!contentArea) return;
+        contentArea.innerHTML = `
+            <div class="page-header"><h2>${featureName}</h2></div>
+            <div class="plan-locked-container">
+                <div class="plan-locked-card">
+                    <div class="plan-locked-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <h3 class="plan-locked-title">${featureName} is a Pro Feature</h3>
+                    <p class="plan-locked-desc">
+                        Your current <strong>Starter Plan</strong> is limited to in-store POS checkout. Upgrade to <strong>Growth / Pro Plan</strong> to unlock rider dispatches, delivery tracking, return inspections, and discount campaigns.
+                    </p>
+                    <div style="display:flex;gap:12px;justify-content:center;">
+                        <button class="btn btn-primary" onclick="window.openPlanUpgradeModal()">Upgrade to Pro (₹1,999/mo)</button>
+                        <a href="dashboard.html" class="btn btn-outline">Back to Dashboard</a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 
     let activeRoleKey = 'customer';
 
@@ -170,6 +541,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roleEl) roleEl.textContent = uRole;
         if (avatarEl) avatarEl.textContent = uName.charAt(0).toUpperCase();
 
+        const dropdownHeaderStrong = document.querySelector('#userDropdown .dropdown-header strong');
+        const dropdownHeaderEmail = document.querySelector('#userDropdown .dropdown-header .text-muted');
+        
+        if (dropdownHeaderStrong) dropdownHeaderStrong.textContent = uName;
+        if (dropdownHeaderEmail) dropdownHeaderEmail.textContent = currentUser.email || '';
+
         const currentPage = document.body.getAttribute('data-page') || 'dashboard';
         const allowedPages = ROLE_ALLOWED_PAGES[roleKey] || [];
         let activeBusinessName = localStorage.getItem('activeBusinessName') || '';
@@ -219,7 +596,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        function ensureCashierNavItem() {
+            const nav = document.getElementById('sidebarNav');
+            if (!nav || nav.querySelector('.nav-item[data-page="cashier"]')) return;
+
+            const dashLink = nav.querySelector('.nav-item[data-page="dashboard"]');
+            const item = document.createElement('a');
+            item.href = 'cashier.html';
+            item.className = 'nav-item';
+            item.setAttribute('data-page', 'cashier');
+            item.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg><span>POS Terminal</span>';
+
+            if (dashLink && dashLink.parentElement === nav) {
+                dashLink.insertAdjacentElement('afterend', item);
+            } else {
+                nav.appendChild(item);
+            }
+        }
+
         ensureBusinessesNavItem();
+        ensureCashierNavItem();
 
         // Route-level guard for direct URL access.
         if (!allowedPages.includes(currentPage)) {
@@ -257,6 +653,148 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roleEl && roleKey === 'superuser') roleEl.textContent = 'Super User (Full Access)';
 
         enforceActionPermissions();
+        renderHeaderPlanBadge();
+
+        const activePlan = getActiveCompanyPlan();
+
+        // Enforce module feature paywalls on restricted plans
+        if (currentPage === 'delivery' && !activePlan.features.delivery) {
+            renderPlanFeatureLock('Delivery Operations');
+        } else if (currentPage === 'returns' && !activePlan.features.returns) {
+            renderPlanFeatureLock('Returns & Refunds Management');
+        }
+
+        // Highlight locked modules in sidebar
+        if (!activePlan.features.delivery) {
+            const delItem = document.querySelector('.nav-item[data-page="delivery"] span');
+            if (delItem && !delItem.innerHTML.includes('PRO')) {
+                delItem.innerHTML = 'Delivery <span style="font-size:0.62rem;background:rgba(220,53,69,0.15);color:#ff6b6b;padding:1px 5px;border-radius:4px;margin-left:4px;font-weight:700;">PRO</span>';
+            }
+        }
+        if (!activePlan.features.returns) {
+            const retItem = document.querySelector('.nav-item[data-page="returns"] span');
+            if (retItem && !retItem.innerHTML.includes('PRO')) {
+                retItem.innerHTML = 'Returns & Refunds <span style="font-size:0.62rem;background:rgba(220,53,69,0.15);color:#ff6b6b;padding:1px 5px;border-radius:4px;margin-left:4px;font-weight:700;">PRO</span>';
+            }
+        }
+
+        function renderProfilePage() {
+            if (currentPage !== 'profile') return;
+
+            let currentUser = null;
+            try {
+                currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+            } catch (e) {}
+
+            const activeBizName = localStorage.getItem('activeBusinessName') || (currentUser && currentUser.businessName) || 'BillBhai Store';
+            const userName = (currentUser && (currentUser.name || currentUser.username)) || localStorage.getItem('userName') || 'Admin';
+            const userEmail = (currentUser && currentUser.email) || (userName.toLowerCase().replace(/\s+/g, '') + '@billbhai.com');
+            const userRoleText = ROLE_LABELS[activeRoleKey] || 'Store Administrator';
+            const firstLetter = (userName.charAt(0) || 'A').toUpperCase();
+
+            // Update avatar and name on profile card
+            const profileAvatar = document.querySelector('.card-bd div[style*="border-radius:50%"]');
+            if (profileAvatar) profileAvatar.textContent = firstLetter;
+
+            const profileNameHeader = document.querySelector('.card-bd h3');
+            if (profileNameHeader) profileNameHeader.textContent = userName;
+
+            const profileRoleHeader = document.querySelector('.card-bd p.text-muted');
+            if (profileRoleHeader) profileRoleHeader.textContent = `${userRoleText} • ${activeBizName}`;
+
+            // Update user dropdown info in header
+            const userDropdownHeader = document.querySelector('#userDropdown .dropdown-header strong');
+            if (userDropdownHeader) userDropdownHeader.textContent = userName;
+            const userDropdownEmail = document.querySelector('#userDropdown .dropdown-header .text-muted');
+            if (userDropdownEmail) userDropdownEmail.textContent = userEmail;
+
+            // Update form inputs
+            const formInputs = document.querySelectorAll('.card .form-control');
+            formInputs.forEach(input => {
+                const formGroup = input.closest('.form-group');
+                const label = formGroup ? formGroup.querySelector('.form-label') : null;
+                if (!label) return;
+                const txt = label.textContent.trim().toLowerCase();
+                if (txt.includes('full name') || txt === 'name') {
+                    input.value = userName;
+                } else if (txt.includes('email')) {
+                    input.value = userEmail;
+                } else if (txt.includes('role')) {
+                    input.value = `${userRoleText} (${activeBizName})`;
+                } else if (txt.includes('store') || txt.includes('location')) {
+                    input.value = activeBizName;
+                }
+            });
+
+            // Update activity summary counters
+            const activitySpans = document.querySelectorAll('.card-bd div span.text-muted');
+            activitySpans.forEach(span => {
+                const label = span.textContent.trim().toLowerCase();
+                const strong = span.nextElementSibling;
+                if (!strong || strong.tagName !== 'STRONG') return;
+                if (label.includes('orders')) strong.textContent = (orders ? orders.length : 0).toLocaleString();
+                if (label.includes('returns')) strong.textContent = (returns ? returns.length : 0).toLocaleString();
+                if (label.includes('reports') || label.includes('products')) strong.textContent = (inventory ? inventory.length : 0).toLocaleString();
+            });
+
+            updateProfileSubscriptionCard();
+
+            const btnSaveProfile = document.querySelector('.page-header-actions .btn-primary');
+            if (btnSaveProfile) {
+                btnSaveProfile.onclick = () => {
+                    const inputs = document.querySelectorAll('.card .form-control');
+                    let newName = '';
+                    let newEmail = '';
+                    let newStore = '';
+                    inputs.forEach(input => {
+                        const formGroup = input.closest('.form-group');
+                        const label = formGroup ? formGroup.querySelector('.form-label') : null;
+                        if (!label) return;
+                        const txt = label.textContent.trim().toLowerCase();
+                        if (txt.includes('full name') || txt === 'name') newName = input.value.trim();
+                        if (txt.includes('email')) newEmail = input.value.trim();
+                        if (txt.includes('store') || txt.includes('location')) newStore = input.value.trim();
+                    });
+                    if (newName) {
+                        localStorage.setItem('userName', newName);
+                        let currentUser = {};
+                        try { currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}'); } catch (e) {}
+                        currentUser.name = newName;
+                        if (newEmail) currentUser.email = newEmail;
+                        if (newStore) {
+                            currentUser.businessName = newStore;
+                            localStorage.setItem('activeBusinessName', newStore);
+                        }
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        showToast('Profile changes saved successfully!');
+                        
+                        const bcAppEl = document.querySelector('.bc-app');
+                        if (bcAppEl && newStore) bcAppEl.textContent = `BillBhai / ${newStore}`;
+                        
+                        renderProfilePage();
+                    }
+                };
+            }
+        }
+        
+        let usersModified = false;
+        if (users && users.length) {
+            const originalLength = users.length;
+            users = users.filter(u => {
+                if (u.role === 'Return Handler' && !activePlan.features.returns) return false;
+                if (u.role === 'Delivery Ops' && !activePlan.features.delivery) return false;
+                return true;
+            });
+            if (users.length !== originalLength) {
+                persistOperationalData();
+                if (currentPage === 'users') {
+                    setTimeout(() => renderPage('users'), 100);
+                }
+            }
+        }
+
+        renderProfilePage();
+        updateProfileSubscriptionCard();
 
         // Wire logout links to clear session first.
         document.querySelectorAll('.nav-logout, .dropdown-item.text-danger').forEach(el => {
@@ -3224,6 +3762,11 @@ inventory = cloneRows(mappedInventory);
         if (dynBtn) dynBtn.addEventListener('click', openAddProductModal);
     }
     function renderDelivery() {
+        const activePlan = getActiveCompanyPlan();
+        if (activePlan.key === 'starter') {
+            renderPlanFeatureLock('Delivery Operations');
+            return;
+        }
         const view = getDeliveryView();
 
         const counts = view.reduce((acc, d) => {
@@ -3451,6 +3994,11 @@ inventory = cloneRows(mappedInventory);
     }
 
     function renderReturnsRefined() {
+        const activePlan = getActiveCompanyPlan();
+        if (activePlan.key === 'starter') {
+            renderPlanFeatureLock('Returns & Refunds');
+            return;
+        }
         const view = getReturnView();
 
         const counts = view.reduce((acc, r) => {
@@ -4052,25 +4600,30 @@ inventory = cloneRows(mappedInventory);
         const paymentDueTotal = businesses.reduce((sum, b) => sum + Number(b.paymentDue || 0), 0);
         const activeCount = businesses.filter(b => b.status === 'Active').length;
         const trialCount = businesses.filter(b => b.status === 'Trial').length;
+        const totalMrr = businesses.reduce((sum, b) => {
+            const rawPlan = String(b.plan || b.productsPlan || '').toLowerCase();
+            const price = rawPlan.includes('enterprise') ? 4999 : (rawPlan.includes('starter') ? 799 : 1999);
+            return sum + (b.status === 'Active' ? price : 0);
+        }, 0);
         const statusOptions = Array.from(new Set(businesses.map(item => String(item && item.status || 'Unknown').trim() || 'Unknown'))).sort();
         const planOptions = Array.from(new Set(businesses.map(item => String(item && (item.productsPlan || item.type) || 'Unknown').trim() || 'Unknown'))).sort();
 
         content.innerHTML = `
-        <div class="page-header"><h2>Businesses Using Your Products</h2><div class="page-header-actions"><button class="btn btn-primary" data-action="businesses" onclick="window.addBusiness()">+ Add Business</button></div></div>
+        <div class="page-header"><h2>Businesses & SaaS Revenue</h2><div class="page-header-actions"><button class="btn btn-primary" data-action="businesses" onclick="window.addBusiness()">+ Add Business</button></div></div>
         <section class="stats-grid">
+            <div class="stat-card"><div class="stat-icon si-green"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-info"><span class="stat-label">SaaS MRR (Active Plans)</span><span class="stat-value">₹${totalMrr.toLocaleString()}</span></div></div>
             <div class="stat-card"><div class="stat-icon si-blue"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><rect x="4" y="3" width="7" height="14" rx="1"/><rect x="13" y="7" width="7" height="10" rx="1"/></svg></div><div class="stat-info"><span class="stat-label">Total Businesses</span><span class="stat-value">${businesses.length}</span></div></div>
-            <div class="stat-card"><div class="stat-icon si-green"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div><div class="stat-info"><span class="stat-label">Active Stores</span><span class="stat-value">${activeCount}</span></div></div>
-            <div class="stat-card"><div class="stat-icon si-amber"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="stat-info"><span class="stat-label">Trial Stores</span><span class="stat-value">${trialCount}</span></div></div>
-            <div class="stat-card"><div class="stat-icon si-red"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="stat-info"><span class="stat-label">Pending Payments</span><span class="stat-value">Rs ${paymentDueTotal.toLocaleString()}</span></div></div>
+            <div class="stat-card"><div class="stat-icon si-amber"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-info"><span class="stat-label">Active Stores</span><span class="stat-value">${activeCount}</span></div></div>
+            <div class="stat-card"><div class="stat-icon si-red"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="stat-info"><span class="stat-label">Pending Payments</span><span class="stat-value">₹${paymentDueTotal.toLocaleString()}</span></div></div>
         </section>
         <section class="card" style="margin-bottom:14px;">
             <div class="card-bd table-toolbar">
                 <div class="toolbar-group"><label class="toolbar-label" for="businessStatusFilter">Status</label><select id="businessStatusFilter" class="toolbar-select"><option value="all">All statuses</option>${statusOptions.map(option => `<option value="${option}">${option}</option>`).join('')}</select></div>
-                <div class="toolbar-group"><label class="toolbar-label" for="businessPlanFilter">Plan / Type</label><select id="businessPlanFilter" class="toolbar-select"><option value="all">All plans</option>${planOptions.map(option => `<option value="${option}">${option}</option>`).join('')}</select></div>
+                <div class="toolbar-group"><label class="toolbar-label" for="businessPlanFilter">Plan / Tier</label><select id="businessPlanFilter" class="toolbar-select"><option value="all">All plans</option>${planOptions.map(option => `<option value="${option}">${option}</option>`).join('')}</select></div>
                 <div class="toolbar-group"><label class="toolbar-label" for="businessSortSelect">Sort by</label><select id="businessSortSelect" class="toolbar-select"><option value="payment_due">Payment due</option><option value="profit">Profit</option><option value="stores">Stores</option><option value="tenure">Tenure</option></select></div>
             </div>
         </section>
-        <section class="card"><div class="card-hd"><h3>All Client Businesses</h3></div><div class="card-bd"><div class="tbl-wrap"><table class="dt"><thead><tr><th>Business ID</th><th>Business Name</th><th>Using BillBhai</th><th>Stores</th><th>Profit</th><th>Payment Due</th><th>Status</th><th>Actions</th></tr></thead><tbody id="businessesTableBodyDyn"></tbody></table></div></div></section>`;
+        <section class="card"><div class="card-hd"><h3>All Client Businesses & Subscriptions</h3></div><div class="card-bd"><div class="tbl-wrap"><table class="dt"><thead><tr><th>Business ID</th><th>Business Name</th><th>Plan Tier</th><th>Stores</th><th>Profit</th><th>Payment Due</th><th>Status</th><th>Actions</th></tr></thead><tbody id="businessesTableBodyDyn"></tbody></table></div></div></section>`;
 
         const tbody = document.getElementById('businessesTableBodyDyn');
         const statusFilter = document.getElementById('businessStatusFilter');
@@ -4501,10 +5054,22 @@ inventory = cloneRows(mappedInventory);
 
         localStorage.setItem('userName', record.fullName);
         const currentUser = loadObject('currentUser', {});
+        
+        let newBusinessName = currentUser.businessName;
+        if (record.location) {
+            newBusinessName = record.location;
+            localStorage.setItem('activeBusinessName', record.location);
+        }
+
         saveObject('currentUser', {
             ...currentUser,
-            name: record.fullName
+            name: record.fullName,
+            email: record.email,
+            businessName: newBusinessName
         });
+
+        const bcAppEl = document.querySelector('.bc-app');
+        if (bcAppEl && record.location) bcAppEl.textContent = `BillBhai / ${record.location}`;
 
         document.querySelectorAll('.user-name').forEach(el => {
             el.textContent = record.fullName;
@@ -4542,6 +5107,69 @@ inventory = cloneRows(mappedInventory);
             `).join('')
             : '<div class="text-sm text-muted">No notification preferences available for this role.</div>';
 
+        let planCardHTML = '';
+        if (activeRoleKey === 'admin' || activeRoleKey === 'superuser') {
+            const activePlan = getActiveCompanyPlan();
+            let usersQuotaCount = typeof users !== 'undefined' ? users.length : 0;
+            let productsQuotaCount = typeof inventory !== 'undefined' ? inventory.length : 0;
+            let storesQuotaCount = 1;
+            
+            const maxUsersStr = activePlan.limits.maxUsers === Infinity ? 'Unlimited' : activePlan.limits.maxUsers;
+            const maxProductsStr = activePlan.limits.maxProducts === Infinity ? 'Unlimited' : activePlan.limits.maxProducts;
+            const maxStoresStr = activePlan.limits.maxStores === Infinity ? 'Unlimited' : activePlan.limits.maxStores;
+            
+            const usersPct = activePlan.limits.maxUsers === Infinity ? 0 : Math.min(100, (usersQuotaCount / activePlan.limits.maxUsers) * 100);
+            const productsPct = activePlan.limits.maxProducts === Infinity ? 0 : Math.min(100, (productsQuotaCount / activePlan.limits.maxProducts) * 100);
+            const storesPct = activePlan.limits.maxStores === Infinity ? 0 : Math.min(100, (storesQuotaCount / activePlan.limits.maxStores) * 100);
+            
+            let bClass = 'b-active';
+            if (activePlan.key === 'starter') bClass = 'b-pending';
+            if (activePlan.key === 'enterprise') bClass = 'b-processing';
+            
+            planCardHTML = `
+                <div class="card">
+                    <div class="card-hd" style="display:flex;justify-content:space-between;align-items:center;">
+                        <h3>Subscription & Plan</h3>
+                        <span class="badge ${bClass}" style="padding:5px 12px;">${activePlan.name}</span>
+                    </div>
+                    <div class="card-bd">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                            <div>
+                                <div style="font-size:1.35rem;font-weight:800;color:var(--text-primary);">₹${activePlan.price}<small style="font-size:0.78rem;font-weight:400;color:var(--text-muted);">/month</small></div>
+                                <div style="font-size:0.78rem;color:var(--text-secondary);">Renews on 30 Sept 2026</div>
+                            </div>
+                            <span class="badge b-active">Active</span>
+                        </div>
+                        <div class="quota-meter" style="margin-top:16px;">
+                            <div class="quota-meter-header">
+                                <span class="quota-meter-label">Team Members</span>
+                                <span class="quota-meter-count">${usersQuotaCount} / ${maxUsersStr} Used</span>
+                            </div>
+                            <div class="quota-meter-bar"><div class="quota-meter-fill" style="width:${usersPct}%;"></div></div>
+                        </div>
+                        <div class="quota-meter">
+                            <div class="quota-meter-header">
+                                <span class="quota-meter-label">Product Catalog</span>
+                                <span class="quota-meter-count">${productsQuotaCount} / ${maxProductsStr} Used</span>
+                            </div>
+                            <div class="quota-meter-bar"><div class="quota-meter-fill" style="width:${productsPct}%;"></div></div>
+                        </div>
+                        <div class="quota-meter">
+                            <div class="quota-meter-header">
+                                <span class="quota-meter-label">Store Locations</span>
+                                <span class="quota-meter-count">${storesQuotaCount} / ${maxStoresStr} Used</span>
+                            </div>
+                            <div class="quota-meter-bar"><div class="quota-meter-fill" style="width:${storesPct}%;"></div></div>
+                        </div>
+                        <div style="display:flex;gap:10px;margin-top:20px;">
+                            <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="window.openPlanUpgradeModal()">Upgrade / Change Plan</button>
+                            <button class="btn btn-outline" style="color:var(--red);border-color:var(--red);" onclick="window.cancelSubscription()">Cancel Plan</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         content.innerHTML = `
         <div class="page-header"><h2>Profile & Settings</h2><div class="page-header-actions"><button class="btn btn-primary" id="saveProfileSettingsBtn">Save Changes</button></div></div>
         <section class="grid-2">
@@ -4563,9 +5191,11 @@ inventory = cloneRows(mappedInventory);
                     </div>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-hd"><h3>Recent Activity</h3></div>
-                <div class="card-bd">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                ${planCardHTML}
+                <div class="card">
+                    <div class="card-hd"><h3>Recent Activity</h3></div>
+                    <div class="card-bd">
                     <div class="timeline">
                         ${(activityItems.length ? activityItems : [{ time: 'Just now', text: 'No recent activity available.' }]).map(item => `
                             <div class="timeline-item">
@@ -4576,6 +5206,7 @@ inventory = cloneRows(mappedInventory);
                         `).join('')}
                     </div>
                 </div>
+            </div>
             </div>
         </section>
         <section class="card" style="margin-top:14px;">
@@ -5270,11 +5901,12 @@ inventory = cloneRows(mappedInventory);
         return `SKU-${String(next).padStart(2, '0')}`;
     }
 
-    function openAddProductModal() {
+    function openAddProductModal(isEdit = false) {
         if (!hasActionAccess('inventory')) {
             denyAction('Inventory create');
             return;
         }
+        if (!isEdit && !checkProductPlanCap()) return;
         const overlay = document.getElementById('addProductModal');
         if (!overlay) return;
         const heading = overlay.querySelector('.modal-header h3');
@@ -5932,11 +6564,12 @@ inventory = cloneRows(mappedInventory);
     });
 
     // User Modal Logic
-    function openAddUserModal() {
+    function openAddUserModal(isEdit = false) {
         if (!hasActionAccess('users')) {
             denyAction('User create');
             return;
         }
+        if (!isEdit && !checkUserPlanCap()) return;
         const overlay = document.getElementById('addUserModal');
         if (!overlay) return;
         const heading = overlay.querySelector('.modal-header h3');
@@ -5965,6 +6598,24 @@ inventory = cloneRows(mappedInventory);
             if (passwordEl) passwordEl.value = '';
             document.getElementById('userStatus').value = 'Active';
         }
+        
+        const activePlan = getActiveCompanyPlan();
+        const roleSelect = document.getElementById('userRole');
+        if (roleSelect) {
+            Array.from(roleSelect.options).forEach(opt => {
+                if (opt.value === 'Delivery Ops' && !activePlan.features.delivery) {
+                    opt.hidden = true;
+                    opt.disabled = true;
+                } else if (opt.value === 'Return Handler' && !activePlan.features.returns) {
+                    opt.hidden = true;
+                    opt.disabled = true;
+                } else {
+                    opt.hidden = false;
+                    opt.disabled = false;
+                }
+            });
+        }
+        
         overlay.classList.add('active');
     }
 
@@ -5999,6 +6650,14 @@ inventory = cloneRows(mappedInventory);
                 el.classList.remove('error');
             }
         });
+        
+        const roleValue = document.getElementById('userRole').value;
+        const activePlan = getActiveCompanyPlan();
+        if ((roleValue === 'Delivery Ops' && !activePlan.features.delivery) || 
+            (roleValue === 'Return Handler' && !activePlan.features.returns)) {
+            showToast('Role not allowed on your current plan.', true);
+            valid = false;
+        }
         const usernameEl = document.getElementById('userUsername');
         const passwordEl = document.getElementById('userPassword');
         const typedEmail = String(userEmailInput && userEmailInput.value || '').trim();
@@ -6140,7 +6799,7 @@ inventory = cloneRows(mappedInventory);
         }
         const p = inventory.find(i => i.sku === sku);
         if (!p) return;
-        openAddProductModal();
+        openAddProductModal(true);
         document.querySelector('#addProductModal h3').textContent = 'Edit Product';
         const submitBtn = document.querySelector('#addProductModal button[type="submit"]');
         if (submitBtn) submitBtn.textContent = 'Save Product';
@@ -6255,7 +6914,7 @@ inventory = cloneRows(mappedInventory);
         const name = decodeUserToken(nameToken);
         const u = users.find(i => i.name === name);
         if (!u) return;
-        openAddUserModal();
+        openAddUserModal(true);
         const heading = document.querySelector('#addUserModal h3');
         if (heading) heading.textContent = 'Edit User';
         const submitBtn = document.querySelector('#addUserModal button[type="submit"]');

@@ -1687,3 +1687,260 @@ select.form-control option {
         max-width: 98vw;
     }
 }
+
+/* ── 3-Tier SaaS Revenue Model & Plan Badges ─────────────────────────── */
+.header-plan-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: var(--t);
+    user-select: none;
+    border: 1px solid transparent;
+}
+
+.header-plan-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.header-plan-pill .plan-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.badge-plan-starter {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.3);
+}
+.badge-plan-starter .plan-dot {
+    background: #60a5fa;
+    box-shadow: 0 0 6px #60a5fa;
+}
+
+.badge-plan-pro {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(16, 185, 129, 0.22));
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.4);
+    box-shadow: 0 0 12px rgba(52, 211, 153, 0.15);
+}
+.badge-plan-pro .plan-dot {
+    background: #34d399;
+    box-shadow: 0 0 8px #34d399;
+}
+
+.badge-plan-enterprise {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(236, 72, 153, 0.2));
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.4);
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.2);
+}
+.badge-plan-enterprise .plan-dot {
+    background: #fbbf24;
+    box-shadow: 0 0 8px #fbbf24;
+}
+
+/* Plan Feature Lock Overlay */
+.plan-locked-container {
+    position: relative;
+    min-height: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+}
+
+.plan-locked-card {
+    background: var(--bg-card-solid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 36px 32px;
+    max-width: 540px;
+    text-align: center;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+}
+
+.plan-locked-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.plan-locked-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}
+
+.plan-locked-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 24px;
+}
+
+/* Quota Meters */
+.quota-meter {
+    margin-bottom: 14px;
+}
+
+.quota-meter-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    margin-bottom: 6px;
+}
+
+.quota-meter-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.quota-meter-count {
+    color: var(--text-secondary);
+}
+
+.quota-meter-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.quota-meter-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent);
+    transition: width 0.4s ease;
+}
+
+.quota-meter-fill.warning {
+    background: #f59e0b;
+}
+
+.quota-meter-fill.danger {
+    background: #ef4444;
+}
+
+/* Subscription Plans Modal Grid */
+.subscription-plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+}
+
+@media(max-width: 768px) {
+    .subscription-plans-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.plan-tier-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: var(--t);
+}
+
+.plan-tier-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.plan-tier-card.current {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.plan-tier-card.popular {
+    border-color: #34d399;
+    background: rgba(52, 211, 153, 0.05);
+}
+
+.plan-popular-pill {
+    position: absolute;
+    top: -10px;
+    right: 14px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.5px;
+}
+
+.plan-tier-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.plan-tier-price {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.plan-tier-price span {
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.plan-tier-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px 0;
+    flex-grow: 1;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.plan-tier-features li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.plan-tier-features li svg {
+    flex-shrink: 0;
+    color: #34d399;
+}
+
+.plan-tier-features li.disabled {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.plan-tier-features li.disabled svg {
+    color: var(--text-muted);
+}

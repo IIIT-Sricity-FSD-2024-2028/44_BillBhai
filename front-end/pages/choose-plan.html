@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillBhai - Select Subscription Plan</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/dashboard.css">
+    <style>
+        body.no-sidebar {
+            display: block;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text-primary);
+        }
+
+        .header-logo-link {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        .header-logo-img {
+            height: 28px;
+            width: auto;
+            display: block;
+        }
+
+        .plan-onboarding-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-card);
+            padding: 28px 24px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: var(--t);
+        }
+
+        .plan-onboarding-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+        }
+
+        .plan-onboarding-card.popular {
+            border-color: var(--accent);
+            background: rgba(220, 53, 69, 0.04);
+            box-shadow: 0 0 28px rgba(220, 53, 69, 0.12);
+        }
+
+        .plan-onboarding-pill {
+            position: absolute;
+            top: -11px;
+            right: 18px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 999px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 3px 10px rgba(220, 53, 69, 0.35);
+        }
+
+        .toast-popup {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--green);
+            color: #fff;
+            padding: 12px 22px;
+            border-radius: var(--radius);
+            font-weight: 600;
+            font-size: 0.88rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            display: none;
+            z-index: 100;
+            animation: toastFadeIn 0.3s ease;
+        }
+
+        @keyframes toastFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 900px) {
+            .subscription-plans-grid {
+                grid-template-columns: 1fr !important;
+            }
+        }
+    </style>
+</head>
+<body class="no-sidebar" data-app-ready="true">
+
+    <!-- Top Header -->
+    <header class="top-header">
+        <div class="header-left">
+            <a href="index.html" class="header-logo-link">
+                <img src="public/logo.png" alt="BillBhai" class="header-logo-img">
+            </a>
+            <div class="breadcrumb">
+                <span class="bc-app">BillBhai Onboarding</span>
+                <span class="bc-sep">/</span>
+                <span class="bc-page">Subscription Plan</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="badge b-active" style="padding: 5px 12px; font-size: 0.76rem; border-radius: 999px;">Step 2 of 2</span>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="content-area" style="max-width: 1100px; margin: 40px auto; padding: 0 24px;">
+        <div style="text-align: center; margin-bottom: 36px;">
+            <h2 style="font-size: 1.85rem; font-weight: 700; margin-bottom: 8px;">
+                Welcome to BillBhai, <span id="displayBusinessName" style="color: var(--accent);">Your Business</span>!
+            </h2>
+            <p class="text-muted" style="font-size: 0.95rem; max-width: 600px; margin: 0 auto; line-height: 1.5;">
+                Your account is ready. Select a subscription plan to configure your team limits, outlets, and unlocked modules. You can upgrade or change anytime.
+            </p>
+        </div>
+
+        <div class="subscription-plans-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;">
+            
+            <!-- Starter Plan (Free) -->
+            <div class="plan-onboarding-card">
+                <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--blue); margin-bottom: 4px;">Free Forever</div>
+                <div class="plan-tier-name" style="font-size: 1.25rem;">Starter Plan</div>
+                <div class="plan-tier-price" style="font-size: 1.85rem; margin-bottom: 8px;">₹0<span style="font-size: 0.85rem; color: var(--text-muted);">/month</span></div>
+                <p class="text-muted" style="font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px; min-height: 38px;">Essential in-store POS billing and catalog for small retail shops and single counters.</p>
+                <ul class="plan-tier-features" style="margin-bottom: 24px; gap: 10px; font-size: 0.82rem;">
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>2 Staff Accounts</strong> (Admin + Cashier)</li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>1 Store Location</strong></li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>Up to 300 Products</strong></li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> In-Store POS Scanning & Invoices</li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Daily Revenue & Sales Summary</li>
+                    <li class="disabled"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Delivery Rider Dispatch</li>
+                    <li class="disabled"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Returns & Refund Management</li>
+                </ul>
+                <button class="btn btn-outline" style="width: 100%; justify-content: center; padding: 11px; font-weight: 600;" onclick="selectPlan('starter', 0, 'Starter Plan (Free)')">
+                    Get Started Free
+                </button>
+            </div>
+
+            <!-- Growth / Pro Plan (Featured) -->
+            <div class="plan-onboarding-card popular">
+                <div class="plan-onboarding-pill">Most Popular</div>
+                <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 4px;">Growth Tier</div>
+                <div class="plan-tier-name" style="font-size: 1.25rem;">Growth / Pro</div>
+                <div class="plan-tier-price" style="font-size: 1.85rem; margin-bottom: 8px;">₹1,999<span style="font-size: 0.85rem; color: var(--text-muted);">/month</span></div>
+                <p class="text-muted" style="font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px; min-height: 38px;">Omnichannel operations with delivery dispatches, returns handling, and promo engine.</p>
+                <ul class="plan-tier-features" style="margin-bottom: 24px; gap: 10px; font-size: 0.82rem;">
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>10 Staff Accounts</strong> (Custom Roles)</li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>Up to 3 Store Locations</strong></li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>Up to 5,000 Products</strong></li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>Delivery Module</strong> & Live Dispatch</li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>Returns & Refund Engine</strong></li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Discounts & Promo Campaigns</li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Advanced Trend & Stock Analytics</li>
+                </ul>
+                <button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 11px; font-weight: 700;" onclick="selectPlan('pro', 1999, 'Growth / Pro Plan')">
+                    Choose Growth / Pro
+                </button>
+            </div>
+
+            <!-- Enterprise Plan -->
+            <div class="plan-onboarding-card">
+                <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--amber); margin-bottom: 4px;">Full Scale</div>
+                <div class="plan-tier-name" style="font-size: 1.25rem;">Enterprise Plan</div>
+                <div class="plan-tier-price" style="font-size: 1.85rem; margin-bottom: 8px;">₹4,999<span style="font-size: 0.85rem; color: var(--text-muted);">/month</span></div>
+                <p class="text-muted" style="font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px; min-height: 38px;">Multi-chain supermarkets, wholesale warehouses, and hypermarket networks.</p>
+                <ul class="plan-tier-features" style="margin-bottom: 24px; gap: 10px; font-size: 0.82rem;">
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>Unlimited Staff Accounts</strong></li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>Unlimited Store Locations</strong></li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <strong>Unlimited Products & SKUs</strong></li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Self-Checkout Kiosk Integration</li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Inter-Store Inventory Transfers</li>
+                    <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Dedicated 24/7 Phone SLA Support</li>
+                </ul>
+                <button class="btn btn-outline" style="width: 100%; justify-content: center; padding: 11px; font-weight: 600; color: var(--amber); border-color: var(--amber);" onclick="selectPlan('enterprise', 4999, 'Enterprise Plan')">
+                    Choose Enterprise
+                </button>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 28px;">
+            <a href="business-welcome.html" onclick="selectPlan('starter', 0, 'Starter Plan (Free)')" style="color: var(--text-muted); font-size: 0.88rem; text-decoration: none; transition: color 0.2s;">
+                Skip for now &mdash; continue with Free Starter Tier &rarr;
+            </a>
+        </div>
+    </main>
+
+    <div class="toast-popup" id="toast">Plan activated successfully!</div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api';
+
+        // Load signup info from sessionStorage
+        let signupData = null;
+        try {
+            const raw = sessionStorage.getItem('bb_recent_business_signup');
+            if (raw) signupData = JSON.parse(raw);
+        } catch (e) {}
+
+        if (signupData && signupData.businessName) {
+            document.getElementById('displayBusinessName').textContent = signupData.businessName;
+        }
+
+        async function selectPlan(planKey, monthlyPrice, planName) {
+            localStorage.setItem('activeBusinessPlan', planKey);
+            if (signupData) {
+                signupData.plan = planKey;
+                signupData.planName = planName;
+                signupData.monthlyPrice = monthlyPrice;
+                sessionStorage.setItem('bb_recent_business_signup', JSON.stringify(signupData));
+            }
+
+            const bizId = signupData && signupData.businessId;
+            if (bizId) {
+                try {
+                    await fetch(`${API_BASE_URL}/companies/${encodeURIComponent(String(bizId))}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-role': 'superuser'
+                        },
+                        body: JSON.stringify({
+                            plan: planKey,
+                            productsPlan: planName,
+                            monthlyPrice: monthlyPrice,
+                            subscriptionStatus: 'Active'
+                        })
+                    });
+                } catch (err) {
+                    console.warn('Backend sync failed, stored in localStorage:', err);
+                }
+            }
+
+            const toast = document.getElementById('toast');
+            toast.textContent = `${planName} activated! Loading your dashboard credentials...`;
+            toast.style.display = 'block';
+
+            setTimeout(() => {
+                window.location.href = 'business-welcome.html';
+            }, 800);
+        }
+    </script>
+</body>
+</html>

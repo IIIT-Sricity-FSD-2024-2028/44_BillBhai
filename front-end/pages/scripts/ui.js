@@ -846,6 +846,26 @@ const UI = (() => {
         }
     }
 
+    function renderPlanBadge() {
+        const headerRight = document.querySelector('.header-right');
+        if (!headerRight || document.getElementById('cashierPlanBadge')) return;
+        const savedPlan = localStorage.getItem('activeBusinessPlan') || 'pro';
+        const planPill = document.createElement('div');
+        planPill.id = 'cashierPlanBadge';
+        
+        let bClass = 'b-active';
+        if (savedPlan === 'starter') bClass = 'b-pending';
+        if (savedPlan === 'enterprise') bClass = 'b-processing';
+        
+        planPill.className = `badge ${bClass}`;
+        planPill.style.cursor = 'pointer';
+        planPill.style.marginRight = '12px';
+        planPill.style.padding = '5px 12px';
+        const planName = savedPlan === 'starter' ? 'Starter' : (savedPlan === 'enterprise' ? 'Enterprise' : 'Growth / Pro');
+        planPill.innerHTML = `<span>${planName}</span>`;
+        headerRight.insertBefore(planPill, headerRight.firstChild);
+    }
+
     function init() {
         cacheElements();
         checkoutSettings = DataStore.getCheckoutSettings ? DataStore.getCheckoutSettings() : { deliveryCharge: 0 };
@@ -857,6 +877,7 @@ const UI = (() => {
         bindCheckout();
         bindContextMenuGlobal();
         toggleDeliveryFields();
+        renderPlanBadge();
         resetPOS();
     }
 

@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginError = document.getElementById('loginError');
     const forgotLink = document.querySelector('.forgot-link');
 
-    const LOGIN_API_URL = 'http://localhost:4000/api/auth/login';
+    const LOGIN_API_URLS = ['http://localhost:3000/api/auth/login', 'http://localhost:4000/api/auth/login'];
     const LOGIN_TIMEOUT_MS = 10000;
 
     function normalizeRole(role) {
@@ -112,22 +112,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function backendLogin(credentials) {
-        const controller = typeof AbortController === 'function' ? new AbortController() : null;
-        const timeoutId = setTimeout(() => {
-            if (controller) controller.abort();
-        }, LOGIN_TIMEOUT_MS);
+        for (const url of LOGIN_API_URLS) {
+            const controller = typeof AbortController === 'function' ? new AbortController() : null;
+            const timeoutId = setTimeout(() => {
+                if (controller) controller.abort();
+            }, LOGIN_TIMEOUT_MS);
 
-        try {
-            const response = await fetch(LOGIN_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(credentials),
-                signal: controller ? controller.signal : undefined
-            });
-            return response;
-        } finally {
-            clearTimeout(timeoutId);
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(credentials),
+                    signal: controller ? controller.signal : undefined
+                });
+                return response;
+            } catch (err) {
+                // Try next endpoint URL
+            } finally {
+                clearTimeout(timeoutId);
+            }
         }
+        throw new Error('All auth endpoints unreachable');
     }
 
     async function handleLoginSubmit(event) {
