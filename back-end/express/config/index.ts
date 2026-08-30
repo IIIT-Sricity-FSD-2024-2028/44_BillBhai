@@ -53,6 +53,11 @@ export interface AppConfig {
     jwtExpiresIn: string;
     bcryptRounds: number;
   };
+  razorpay: {
+    keyId: string;
+    keySecret: string;
+    webhookSecret: string;
+  };
   swaggerEnabled: boolean;
 }
 
@@ -103,6 +108,12 @@ export const config: AppConfig = Object.freeze({
     jwtSecret: process.env.JWT_SECRET || 'billbhai-dev-secret-change-in-production',
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
     bcryptRounds: toNumber(process.env.BCRYPT_ROUNDS, 10),
+  },
+
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_TW4VajO27O0KT4',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || 'Vzr85w9GRVA29bIH0gzaVBkK',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || 'Vzr85w9GRVA29bIH0gzaVBkK',
   },
 
   swaggerEnabled: process.env.SWAGGER_ENABLED

@@ -444,6 +444,26 @@ class APIClient {
   async deleteSupplier(id, role = 'admin') {
     return this.delete(`/suppliers/${id}`, role);
   }
+
+  // ─────────────────────────────────────
+  // Payments Endpoints (Razorpay)
+  // ─────────────────────────────────────
+
+  async createRazorpayOrder(data, role = 'cashier') {
+    return this.post('/payments/razorpay/create-order', data, role);
+  }
+
+  async verifyRazorpayPayment(data, role = 'cashier') {
+    return this.post('/payments/razorpay/verify', data, role);
+  }
+
+  async createSubscriptionOrder(data, role = 'admin') {
+    return this.post('/payments/razorpay/subscription/create-order', data, role);
+  }
+
+  async verifySubscriptionPayment(data, role = 'admin') {
+    return this.post('/payments/razorpay/subscription/verify', data, role);
+  }
 }
 
 // Create global instance

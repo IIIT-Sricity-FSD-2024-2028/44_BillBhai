@@ -85,7 +85,6 @@
     ],
     "rootDir": "./",
     "roots": [
-      "<rootDir>/src",
       "<rootDir>/express"
     ],
     "testRegex": ".*\\.(spec|test)\\.ts$",

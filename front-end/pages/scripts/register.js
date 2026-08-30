@@ -162,9 +162,28 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             body: JSON.stringify(companyPayload)
         });
+        
         if (!companyResponse.ok) {
-            const bodyText = await companyResponse.text().catch(() => '');
-            throw new Error(`Company creation failed (${companyResponse.status}): ${bodyText || 'Unknown error'}`);
+            let errorMsg = 'Company creation failed';
+            let conflictField = null;
+            try {
+                const errJson = await companyResponse.json();
+                if (errJson && errJson.message) {
+                    errorMsg = errJson.message;
+                    if (companyResponse.status === 409) {
+                        if (/email/i.test(errJson.message)) conflictField = 'email';
+                        else if (/name/i.test(errJson.message)) conflictField = 'businessName';
+                        errorMsg = 'A business with this name or email address is already registered.';
+                    }
+                }
+            } catch (e) {
+                const bodyText = await companyResponse.text().catch(() => '');
+                errorMsg = bodyText || errorMsg;
+            }
+            const err = new Error(errorMsg);
+            err.status = companyResponse.status;
+            err.conflictField = conflictField;
+            throw err;
         }
         const companyRecord = await companyResponse.json();
 
@@ -187,9 +206,24 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             body: JSON.stringify(userPayload)
         });
+        
         if (!userResponse.ok) {
-            const bodyText = await userResponse.text().catch(() => '');
-            throw new Error(`Admin user creation failed (${userResponse.status}): ${bodyText || 'Unknown error'}`);
+            let errorMsg = 'Admin user creation failed';
+            try {
+                const errJson = await userResponse.json();
+                if (errJson && errJson.message) {
+                    errorMsg = errJson.message;
+                    if (userResponse.status === 409) {
+                        errorMsg = 'An account with this username or email already exists.';
+                    }
+                }
+            } catch (e) {
+                const bodyText = await userResponse.text().catch(() => '');
+                errorMsg = bodyText || errorMsg;
+            }
+            const err = new Error(errorMsg);
+            err.status = userResponse.status;
+            throw err;
         }
         const userRecord = await userResponse.json();
 
@@ -315,9 +349,36 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Business registration failed:', error);
                 if (formError) {
-                    formError.textContent = error && error.message
-                        ? error.message
-                        : 'Could not create business account right now.';
+                    const cleanMsg = (error && error.message) || 'Could not create business account right now.';
+                    const isConflict = error && error.status === 409;
+                    
+                    formError.innerHTML = `
+                        <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:10px;color:#fca5a5;text-align:left;animation:shake 0.4s ease;margin:8px 0 16px;">
+                            <svg style="flex-shrink:0;margin-top:2px;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;color:#fee2e2;font-size:0.86rem;margin-bottom:2px;">${isConflict ? 'Business Already Registered' : 'Registration Failed'}</div>
+                                <div style="font-size:0.8rem;color:#fca5a5;line-height:1.4;">${cleanMsg}</div>
+                                ${isConflict ? '<div style="margin-top:8px;"><a href="login.html" style="color:#60a5fa;font-weight:600;text-decoration:none;font-size:0.82rem;display:inline-flex;align-items:center;gap:4px;">Sign in to your existing account &rarr;</a></div>' : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    // Highlight offending field
+                    if (error && error.conflictField === 'email') {
+                        const eg = document.getElementById('emailGroup');
+                        if (eg) {
+                            eg.classList.add('error', 'shake');
+                            const errEl = eg.querySelector('.field-error');
+                            if (errEl) { errEl.textContent = 'Email already in use'; errEl.style.display = 'block'; }
+                        }
+                    } else if (error && error.conflictField === 'businessName') {
+                        const bg = document.getElementById('businessNameGroup');
+                        if (bg) {
+                            bg.classList.add('error', 'shake');
+                            const errEl = bg.querySelector('.field-error');
+                            if (errEl) { errEl.textContent = 'Business name already taken'; errEl.style.display = 'block'; }
+                        }
+                    }
                 }
                 btnRegister.classList.remove('loading');
                 btnRegister.disabled = false;

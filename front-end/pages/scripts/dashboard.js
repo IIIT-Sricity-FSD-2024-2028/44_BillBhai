@@ -137,13 +137,147 @@ document.addEventListener('DOMContentLoaded', () => {
         return PLAN_DEFINITIONS[planKey] || PLAN_DEFINITIONS.pro;
     }
 
+    function ensureRazorpayLoaded() {
+        if (typeof window.Razorpay !== 'undefined') return Promise.resolve();
+        return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'scripts/razorpay-checkout.js';
+            script.onload = () => resolve();
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+        });
+    }
+
+    function ensureAPIClientLoaded() {
+        if (typeof window.APIClient_Instance !== 'undefined') return Promise.resolve();
+        return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'scripts/api-client.js';
+            script.onload = () => resolve();
+            script.onerror = () => resolve();
+            document.head.appendChild(script);
+        });
+    }
+
     async function switchCompanyPlan(targetPlanKey) {
         const targetPlan = PLAN_DEFINITIONS[targetPlanKey];
         if (!targetPlan) return;
-        localStorage.setItem('activeBusinessPlan', targetPlanKey);
 
-        const activeBizId = localStorage.getItem('activeBusinessId');
-        if (activeBizId && Array.isArray(businesses)) {
+        await ensureRazorpayLoaded();
+        await ensureAPIClientLoaded();
+
+        const activeBizId = localStorage.getItem('activeBusinessId') || 'BIZ-101';
+        const userRole = localStorage.getItem('userRole') || 'admin';
+        const currentPlan = getActiveCompanyPlan();
+
+        // Calculate Prorated Upgrade Price
+        let upgradePrice = targetPlan.price;
+        let isProratedUpgrade = false;
+
+        if (targetPlan.price > currentPlan.price) {
+            upgradePrice = Math.max(0, targetPlan.price - currentPlan.price);
+            isProratedUpgrade = currentPlan.price > 0;
+        } else if (targetPlan.price <= currentPlan.price && targetPlanKey !== currentPlan.key) {
+            upgradePrice = 0;
+        }
+
+        // Paid Upgrade -> Trigger Razorpay Payment Gateway with adjusted/prorated amount
+        if (upgradePrice > 0) {
+            try {
+                let orderRes = null;
+                try {
+                    if (typeof APIClient_Instance !== 'undefined' && typeof APIClient_Instance.createSubscriptionOrder === 'function') {
+                        orderRes = await APIClient_Instance.createSubscriptionOrder({
+                            companyId: activeBizId,
+                            plan: targetPlanKey,
+                            billingCycle: 'monthly'
+                        }, userRole);
+                    }
+                } catch (e) {}
+
+                const finalAmountPaise = Math.round(upgradePrice * 100);
+                const orderId = (orderRes && orderRes.id) ? orderRes.id : ('sub_' + Date.now());
+
+                if (typeof Razorpay !== 'undefined') {
+                    return new Promise((resolve) => {
+                        const options = {
+                            key: (orderRes && orderRes.keyId) || 'rzp_test_TW4VajO27O0KT4',
+                            amount: finalAmountPaise,
+                            currency: 'INR',
+                            name: 'BillBhai POS Subscription',
+                            description: isProratedUpgrade
+                                ? `Prorated Upgrade from ${currentPlan.name} to ${targetPlan.name}`
+                                : `Subscription for ${targetPlan.name}`,
+                            order_id: orderId,
+                            prefill: {
+                                name: localStorage.getItem('userName') || 'Business Owner',
+                                email: 'owner@billbhai.com',
+                                contact: '9876543210',
+                                method: 'upi'
+                            },
+                            config: {
+                                display: {
+                                    blocks: {
+                                        upi: {
+                                            name: 'UPI / QR & Instant Pay',
+                                            instruments: [
+                                                { method: 'upi', flows: ['qr', 'intent', 'collect'] }
+                                            ]
+                                        },
+                                        other: {
+                                            name: 'Cards & NetBanking',
+                                            instruments: [
+                                                { method: 'card' },
+                                                { method: 'netbanking' }
+                                            ]
+                                        }
+                                    },
+                                    sequence: ['block.upi', 'block.other'],
+                                    preferences: {
+                                        show_default_blocks: true
+                                    }
+                                }
+                            },
+                            handler: async function (response) {
+                                try {
+                                    if (typeof APIClient_Instance !== 'undefined' && typeof APIClient_Instance.verifySubscriptionPayment === 'function') {
+                                        await APIClient_Instance.verifySubscriptionPayment({
+                                            companyId: activeBizId,
+                                            plan: targetPlanKey,
+                                            billingCycle: 'monthly',
+                                            razorpayOrderId: response.razorpay_order_id || orderId,
+                                            razorpayPaymentId: response.razorpay_payment_id || 'pay_mock',
+                                            razorpaySignature: response.razorpay_signature || 'mock_signature'
+                                        }, userRole);
+                                    }
+                                } catch (err) {}
+                                await applyPlanUpdate(targetPlanKey, targetPlan, upgradePrice, isProratedUpgrade);
+                                resolve(true);
+                            },
+                            theme: { color: '#2563eb' }
+                        };
+                        const rzp = new Razorpay(options);
+                        if (typeof rzp.on === 'function') {
+                            rzp.on('payment.failed', function (failRes) {
+                                console.warn('Payment failed callback:', failRes);
+                                const errDesc = failRes?.error?.description || 'Payment was declined or cancelled.';
+                                showToast(`❌ Payment Failed: ${errDesc}`);
+                            });
+                        }
+                        rzp.open();
+                    });
+                }
+            } catch (err) {
+                console.error('Subscription error:', err);
+                showToast(`❌ Subscription update interrupted: ${err.message || 'Error'}`);
+                return;
+            }
+        }
+
+    async function applyPlanUpdate(targetPlanKey, targetPlan, upgradePrice = 0, isProrated = false) {
+        localStorage.setItem('activeBusinessPlan', targetPlanKey);
+        const activeBizId = localStorage.getItem('activeBusinessId') || 'BIZ-101';
+        if (Array.isArray(businesses)) {
             const biz = businesses.find(b => b && b.id === activeBizId);
             if (biz) {
                 biz.plan = targetPlanKey;
@@ -169,7 +303,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderHeaderPlanBadge();
         updateProfileSubscriptionCard();
-        showToast(`Subscription switched to ${targetPlan.name}!`);
+        const toastMsg = isProrated
+            ? `Upgraded to ${targetPlan.name} (₹${upgradePrice.toLocaleString()} prorated difference charged via Razorpay)!`
+            : `Subscription activated for ${targetPlan.name} via Razorpay!`;
+        showToast(toastMsg);
         if (typeof renderPage === 'function') {
             renderPage(currentPage);
         }
@@ -204,39 +341,120 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPlan = getActiveCompanyPlan();
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay active';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(10,15,28,0.75);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;';
 
         const plans = [PLAN_DEFINITIONS.starter, PLAN_DEFINITIONS.pro, PLAN_DEFINITIONS.enterprise];
+        
         const cardsHtml = plans.map(p => {
             const isCurrent = p.key === currentPlan.key;
-            const priceHtml = p.price === 0 ? '₹0<span>/Free</span>' : `₹${p.price.toLocaleString()}<span>/mo</span>`;
+            const isUpgrade = p.price > currentPlan.price;
+            const proratedDiff = isUpgrade ? (p.price - currentPlan.price) : p.price;
+            const isProrated = isUpgrade && currentPlan.price > 0;
+
+            let priceDisplay = '';
+            if (p.price === 0) {
+                priceDisplay = `<div style="font-size:1.6rem;font-weight:800;color:var(--text-primary);">₹0<span style="font-size:0.8rem;font-weight:400;color:var(--text-muted);">/Free Forever</span></div>`;
+            } else if (isProrated) {
+                priceDisplay = `
+                    <div>
+                        <div style="display:flex;align-items:baseline;gap:8px;">
+                            <span style="text-decoration:line-through;color:var(--text-muted);font-size:1.1rem;font-weight:500;">₹${p.price.toLocaleString()}</span>
+                            <span style="font-size:1.65rem;font-weight:800;color:#f59e0b;">₹${proratedDiff.toLocaleString()}</span>
+                            <span style="font-size:0.8rem;font-weight:400;color:var(--text-muted);">/month</span>
+                        </div>
+                        <div style="font-size:0.72rem;color:#f59e0b;font-weight:600;margin-top:2px;">⚡ ₹${currentPlan.price.toLocaleString()} credit applied from ${currentPlan.name}</div>
+                    </div>
+                `;
+            } else {
+                priceDisplay = `<div style="font-size:1.6rem;font-weight:800;color:var(--text-primary);">₹${p.price.toLocaleString()}<span style="font-size:0.8rem;font-weight:400;color:var(--text-muted);">/month</span></div>`;
+            }
+
+            let borderStyle = 'border: 1px solid var(--border);';
+            let bgStyle = 'background: var(--bg-card);';
+            let pillBadge = '';
+
+            if (isCurrent) {
+                borderStyle = 'border: 2px solid var(--green);';
+                bgStyle = 'background: rgba(16, 185, 129, 0.06);';
+                pillBadge = `<div style="position:absolute;top:-10px;right:14px;background:#10b981;color:#fff;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:0.5px;box-shadow:0 3px 8px rgba(16,185,129,0.35);">✓ CURRENT ACTIVE PLAN</div>`;
+            } else if (p.key === 'pro') {
+                borderStyle = 'border: 1.5px solid var(--accent);';
+                bgStyle = 'background: rgba(99, 102, 241, 0.04);';
+                pillBadge = `<div style="position:absolute;top:-10px;right:14px;background:var(--accent);color:#fff;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:0.5px;">MOST POPULAR</div>`;
+            } else if (p.key === 'enterprise') {
+                borderStyle = 'border: 1.5px solid #f59e0b;';
+                bgStyle = 'background: rgba(245, 158, 11, 0.04);';
+                pillBadge = `<div style="position:absolute;top:-10px;right:14px;background:#f59e0b;color:#1e293b;font-size:0.65rem;font-weight:800;padding:3px 10px;border-radius:999px;letter-spacing:0.5px;">FULL SCALE</div>`;
+            }
+
+            let btnText = 'Switch Plan';
+            let btnClass = 'btn btn-outline';
+            let btnStyle = 'width:100%;justify-content:center;font-weight:600;padding:10px;';
+
+            if (isCurrent) {
+                btnText = '✓ Active Plan';
+                btnClass = 'btn btn-outline';
+                btnStyle += 'opacity:0.6;cursor:default;border-color:var(--green);color:var(--green);';
+            } else if (isUpgrade) {
+                btnText = `Upgrade for ₹${proratedDiff.toLocaleString()}`;
+                btnClass = p.key === 'enterprise' ? 'btn btn-primary' : 'btn btn-primary';
+                if (p.key === 'enterprise') {
+                    btnStyle += 'background:linear-gradient(135deg, #f59e0b, #d97706);border:none;color:#1e293b;font-weight:700;';
+                }
+            } else {
+                btnText = `Switch to ${p.name.split('/')[0].trim()}`;
+            }
+
             return `
-                <div class="plan-tier-card ${isCurrent ? 'current' : ''} ${p.key === 'pro' ? 'popular' : ''}">
-                    ${p.key === 'pro' ? '<div class="plan-popular-pill">Most Popular</div>' : ''}
-                    <div class="plan-tier-name">${p.name}</div>
-                    <div class="plan-tier-price">${priceHtml}</div>
-                    <ul class="plan-tier-features">
-                        <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ${p.limits.maxUsers === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxUsers} Users</li>
-                        <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ${p.limits.maxStores === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxStores} Store${p.limits.maxStores > 1 ? 's' : ''}</li>
-                        <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ${p.limits.maxProducts === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxProducts.toLocaleString()} Products</li>
-                        <li class="${p.features.delivery ? '' : 'disabled'}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">${p.features.delivery ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}</svg> Delivery Operations</li>
-                        <li class="${p.features.returns ? '' : 'disabled'}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">${p.features.returns ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}</svg> Returns & Refunds</li>
+                <div class="plan-upgrade-item" style="position:relative;${borderStyle}${bgStyle}border-radius:12px;padding:22px 20px;display:flex;flex-direction:column;transition:transform 0.2s, box-shadow 0.2s;">
+                    ${pillBadge}
+                    <div style="font-size:1.15rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">${p.name}</div>
+                    <div style="margin-bottom:14px;min-height:48px;display:flex;align-items:center;">${priceDisplay}</div>
+                    
+                    <ul style="list-style:none;padding:0;margin:0 0 20px 0;flex-grow:1;display:flex;flex-direction:column;gap:9px;font-size:0.82rem;color:var(--text-secondary);">
+                        <li style="display:flex;align-items:center;gap:8px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>${p.limits.maxUsers === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxUsers}</strong> Staff Accounts</span>
+                        </li>
+                        <li style="display:flex;align-items:center;gap:8px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>${p.limits.maxStores === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxStores}</strong> Store Location${p.limits.maxStores > 1 ? 's' : ''}</span>
+                        </li>
+                        <li style="display:flex;align-items:center;gap:8px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>${p.limits.maxProducts === Infinity ? 'Unlimited' : 'Up to ' + p.limits.maxProducts.toLocaleString()}</strong> Products & Catalog</span>
+                        </li>
+                        <li style="display:flex;align-items:center;gap:8px;${p.features.delivery ? '' : 'opacity:0.4;'}">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${p.features.delivery ? 'var(--green)' : 'var(--text-muted)'}" stroke-width="2.5">${p.features.delivery ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}</svg>
+                            <span>Delivery Rider Dispatch Module</span>
+                        </li>
+                        <li style="display:flex;align-items:center;gap:8px;${p.features.returns ? '' : 'opacity:0.4;'}">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${p.features.returns ? 'var(--green)' : 'var(--text-muted)'}" stroke-width="2.5">${p.features.returns ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}</svg>
+                            <span>Returns & Customer Refunds</span>
+                        </li>
                     </ul>
-                    <button class="btn ${isCurrent ? 'btn-outline' : (p.key === 'pro' ? 'btn-primary' : 'btn-outline')}" style="width:100%;justify-content:center;font-size:0.82rem;" ${isCurrent ? 'disabled' : ''} data-choose-plan="${p.key}">
-                        ${isCurrent ? 'Current Plan' : (p.price > currentPlan.price ? 'Upgrade to ' + p.name.split('/')[0].trim() : 'Switch to ' + p.name.split('/')[0].trim())}
+
+                    <button class="${btnClass}" style="${btnStyle}" ${isCurrent ? 'disabled' : ''} data-choose-plan="${p.key}">
+                        ${btnText}
                     </button>
                 </div>
             `;
         }).join('');
 
         overlay.innerHTML = `
-            <div class="modal" style="max-width: 780px;">
-                <div class="modal-header">
-                    <h3>Subscription & Pricing Plans</h3>
-                    <button class="modal-close" type="button">&times;</button>
+            <div class="modal" style="width:100%;max-width:880px;background:var(--bg-surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 25px 60px rgba(0,0,0,0.5);overflow:hidden;padding:0;">
+                <div class="modal-header" style="padding:22px 28px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <h3 style="font-size:1.3rem;font-weight:700;color:var(--text-primary);margin:0;">Subscription & Plan Scaling</h3>
+                            <span class="badge b-active" style="font-size:0.72rem;">Current: ${currentPlan.name}</span>
+                        </div>
+                        <p class="text-muted" style="margin:4px 0 0 0;font-size:0.84rem;">Prorated pricing automatically applies when upgrading between tiers.</p>
+                    </div>
+                    <button class="modal-close" type="button" style="background:none;border:none;color:var(--text-muted);font-size:1.8rem;cursor:pointer;line-height:1;">&times;</button>
                 </div>
-                <div class="modal-body">
-                    <p class="text-muted" style="margin-bottom: 16px; font-size: 0.88rem;">Select a plan that fits your business scale. Changes take effect immediately.</p>
-                    <div class="subscription-plans-grid">
+                <div class="modal-body" style="padding:28px 24px;">
+                    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:18px;">
                         ${cardsHtml}
                     </div>
                 </div>

@@ -341,7 +341,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     UI.init();
 
-    document.querySelectorAll('a[href=\"login.html\"]').forEach(link => {
+    window.initiateRazorpayPayment = async function (amount, billNo, onPaymentSuccess) {
+        try {
+            const role = localStorage.getItem('userRole') || 'cashier';
+            const orderRes = await APIClient_Instance.createRazorpayOrder({ amount, billNo }, role);
+            
+            // If in browser mock mode or Razorpay SDK is loaded
+            if (typeof Razorpay !== 'undefined') {
+                const options = {
+                    key: orderRes.keyId || 'rzp_test_BillBhaiMockKey',
+                    amount: orderRes.amount,
+                    currency: orderRes.currency || 'INR',
+                    name: 'BillBhai Retail POS',
+                    description: `Payment for ${billNo ? 'Bill ' + billNo : 'Order'}`,
+                    order_id: orderRes.id,
+                    handler: async function (response) {
+                        const verifyRes = await APIClient_Instance.verifyRazorpayPayment({
+                            razorpayOrderId: response.razorpay_order_id || orderRes.id,
+                            razorpayPaymentId: response.razorpay_payment_id || 'pay_mock',
+                            razorpaySignature: response.razorpay_signature || 'mock_signature',
+                            billNo: billNo
+                        }, role);
+                        if (onPaymentSuccess) onPaymentSuccess(verifyRes);
+                    },
+                    theme: { color: '#6366f1' }
+                };
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } else {
+                // Direct verification fallback in dev environment
+                const verifyRes = await APIClient_Instance.verifyRazorpayPayment({
+                    razorpayOrderId: orderRes.id,
+                    razorpayPaymentId: `pay_${Date.now()}`,
+                    razorpaySignature: 'mock_signature',
+                    billNo: billNo
+                }, role);
+                if (onPaymentSuccess) onPaymentSuccess(verifyRes);
+            }
+        } catch (err) {
+            console.error('Razorpay payment error:', err);
+            alert('Payment initialization failed: ' + (err.message || 'Error communicating with server'));
+        }
+    };
+
+    document.querySelectorAll('a[href="login.html"]').forEach(link => {
         link.addEventListener('click', () => {
             localStorage.removeItem('userRole');
             localStorage.removeItem('userName');

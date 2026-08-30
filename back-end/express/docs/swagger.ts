@@ -168,6 +168,142 @@ const ADDITIONAL_PATHS: Record<string, unknown> = {
       responses: { '200': { description: 'Deleted' } },
     },
   },
+  '/api/payments/razorpay/create-order': {
+    post: {
+      tags: ['Payments (Razorpay)'],
+      summary: 'Create a Razorpay Order (convert INR to paise and issue order id)',
+      parameters: [roleParameter('superuser, admin, cashier or customer')],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['amount'],
+              properties: {
+                amount: { type: 'number', example: 499.5 },
+                currency: { type: 'string', example: 'INR' },
+                billNo: { type: 'string', example: 'BILL-001' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '201': { description: 'Razorpay Order created with order_id and keyId' },
+        '400': { description: 'Invalid amount or payload' },
+      },
+    },
+  },
+  '/api/payments/razorpay/verify': {
+    post: {
+      tags: ['Payments (Razorpay)'],
+      summary: 'Cryptographically verify Razorpay payment HMAC SHA256 signature',
+      parameters: [roleParameter('superuser, admin, cashier or customer')],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['razorpayOrderId', 'razorpayPaymentId', 'razorpaySignature'],
+              properties: {
+                razorpayOrderId: { type: 'string', example: 'order_1234567890' },
+                razorpayPaymentId: { type: 'string', example: 'pay_1234567890' },
+                razorpaySignature: { type: 'string', example: 'mock_or_hmac_signature' },
+                billNo: { type: 'string', example: 'BILL-001' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Payment verified and registered' },
+        '400': { description: 'Invalid signature or failure' },
+      },
+    },
+  },
+  '/api/payments/razorpay/subscription/create-order': {
+    post: {
+      tags: ['Revenue & Subscriptions (Razorpay)'],
+      summary: 'Create a Razorpay order for Business Subscription Tier (Starter/Pro/Enterprise)',
+      parameters: [roleParameter('superuser or admin')],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['companyId', 'plan'],
+              properties: {
+                companyId: { type: 'string', example: 'BIZ-101' },
+                plan: { type: 'string', enum: ['starter', 'pro', 'enterprise'], example: 'pro' },
+                billingCycle: { type: 'string', enum: ['monthly', 'yearly'], example: 'monthly' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '201': { description: 'Subscription Order created with amount and keyId' },
+        '400': { description: 'Invalid company or plan' },
+      },
+    },
+  },
+  '/api/payments/razorpay/subscription/verify': {
+    post: {
+      tags: ['Revenue & Subscriptions (Razorpay)'],
+      summary: 'Cryptographically verify Razorpay subscription signature & activate tier',
+      parameters: [roleParameter('superuser or admin')],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['companyId', 'plan', 'razorpayOrderId', 'razorpayPaymentId', 'razorpaySignature'],
+              properties: {
+                companyId: { type: 'string', example: 'BIZ-101' },
+                plan: { type: 'string', enum: ['starter', 'pro', 'enterprise'], example: 'pro' },
+                billingCycle: { type: 'string', enum: ['monthly', 'yearly'], example: 'monthly' },
+                razorpayOrderId: { type: 'string', example: 'sub_1234567890' },
+                razorpayPaymentId: { type: 'string', example: 'pay_1234567890' },
+                razorpaySignature: { type: 'string', example: 'mock_or_hmac_signature' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Subscription verified and activated' },
+        '400': { description: 'Invalid signature' },
+      },
+    },
+  },
+  '/api/payments/razorpay/webhook': {
+    post: {
+      tags: ['Payments (Razorpay)'],
+      summary: 'Razorpay Server Webhook Callback',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['event', 'payload'],
+              properties: {
+                event: { type: 'string', example: 'payment.captured' },
+                payload: { type: 'object' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': { description: 'Webhook acknowledged' },
+      },
+    },
+  },
 };
 
 export function buildOpenApiDocument(): OpenApiDocument {
