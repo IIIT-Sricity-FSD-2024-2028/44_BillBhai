@@ -272,7 +272,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast(`❌ Subscription update interrupted: ${err.message || 'Error'}`);
                 return;
             }
+        } else {
+            await applyPlanUpdate(targetPlanKey, targetPlan, 0, false);
         }
+    }
 
     async function applyPlanUpdate(targetPlanKey, targetPlan, upgradePrice = 0, isProrated = false) {
         localStorage.setItem('activeBusinessPlan', targetPlanKey);
