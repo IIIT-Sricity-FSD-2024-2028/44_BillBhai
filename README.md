@@ -1,6 +1,6 @@
 # BillBhai — Retail Order Processing & Billing System
 
-BillBhai is a retail POS and operations demo with a NestJS backend and a static frontend.
+BillBhai is a retail POS and operations app with an Express.js backend and a React frontend.
 
 ## About The Project
 
@@ -35,8 +35,8 @@ It covers:
 
 ## Project Structure
 
-- `back-end/` — NestJS API, seeded demo data, role-based access control
-- `front-end/` — Static HTML/CSS/JS UI for cashier, dashboard, delivery, returns, and profile pages
+- `back-end/` — Express.js API (`back-end/express/`), seeded demo data, role-based access control
+- `front-end/` — React (Vite) single-page app: landing, login, registration, cashier POS and the admin console
 - Root `package.json` — convenience scripts to run both apps together
 
 ## Prerequisites
@@ -53,8 +53,7 @@ npm install
 ```
 
 That is the only install step. The root `postinstall` script also installs
-the back-end dependencies, so you do not need a second `npm install`
-inside `back-end/`.
+the `back-end/` and `front-end/` dependencies.
 
 ### 2) Start both apps
 
@@ -62,26 +61,21 @@ inside `back-end/`.
 npm run dev
 ```
 
-On the `express` branch, start the Express back-end instead:
-
-```bash
-npm run dev:express
-```
-
 This starts:
 
-- Backend API at `http://localhost:3000`
+- Backend API at `http://localhost:4000` (Swagger UI at `http://localhost:4000/api/docs`)
 - Frontend at `http://127.0.0.1:5500`
 
 ### 3) Open the UI
 
-- Landing page: `http://127.0.0.1:5500/pages/index.html`
-- Cashier page: `http://127.0.0.1:5500/pages/cashier.html`
-- Dashboard page: `http://127.0.0.1:5500/pages/dashboard.html`
+- Landing page: `http://127.0.0.1:5500/`
+- Login: `http://127.0.0.1:5500/login`
+- Cashier POS: `http://127.0.0.1:5500/cashier`
+- Dashboard: `http://127.0.0.1:5500/dashboard`
 
 ## Backend API
 
-The backend is a NestJS app under `back-end/`.
+The backend is an Express.js app under `back-end/express/`. See [back-end/express/README.md](back-end/express/README.md).
 
 Common endpoints:
 
@@ -97,13 +91,13 @@ Common endpoints:
 - `/api/users`
 - `/api/reports/*`
 
-Requests use the `x-role` header for role-based access control.
+Requests use the `x-role` header (or a JWT from login) for role-based access control.
 
 ## Frontend Notes
 
-- The frontend is static and served from `front-end/pages`
-- It talks to the backend at `http://localhost:3000/api`
-- If the backend is not running, some pages fall back to local mock data
+- The frontend is a React app served by Vite from `front-end/`; see [front-end/README.md](front-end/README.md)
+- It talks to the backend at `http://localhost:4000/api`
+- If the backend is not running, the admin pages say so and offer a Retry button
 
 ## Demo Login Credentials
 
@@ -122,12 +116,12 @@ Requests use the `x-role` header for role-based access control.
 Root scripts:
 
 ```bash
-npm run dev:backend
-npm run dev:frontend
-npm run dev
+npm run dev            # backend + frontend
+npm run dev:backend    # Express API only
+npm run dev:frontend   # React app only
+npm run build          # production build of the frontend
+npm test               # backend test suite
 ```
-
-Backend scripts live in [back-end/package.json](back-end/package.json).
 
 ## Notes
 
