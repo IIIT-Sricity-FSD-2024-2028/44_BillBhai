@@ -7,7 +7,6 @@ export default function LoginCard(props) {
   const cardRef = useRef(null);
   const [tiltStyle, setTiltStyle] = useState({});
 
-  // Card 3D tilt effect on mouse move
   const handleMouseMove = (e) => {
     if (!cardRef.current) return;
 
