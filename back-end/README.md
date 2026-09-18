@@ -1,6 +1,8 @@
 # BillBhai Back-End API
 
-NestJS API for the BillBhai retail order processing system.
+Express.js API for the BillBhai retail order processing system. The source lives in
+[`express/`](express/); see [express/README.md](express/README.md) for the full
+architecture, endpoint list and Swagger docs.
 
 ## Setup
 
@@ -11,40 +13,21 @@ npm install
 ## Run
 
 ```bash
-# development with watch
-npm run start:dev
-
-# standard start
-npm run start
-
-# production build/run
-npm run build
-npm run start:prod
+npm run dev     # http://localhost:4000
 ```
 
-The API runs on `http://localhost:3000` by default.
+| What | Where |
+|---|---|
+| API root | http://localhost:4000/api |
+| Swagger UI | http://localhost:4000/api/docs |
+| Health check | http://localhost:4000/health |
 
 ## Test
 
 ```bash
-npm run test
-npm run test:e2e
-npm run test:smoke
+npm test                   # all Jest suites
+npm run typecheck:express  # TypeScript check
 ```
-
-## Key API Modules
-
-- `auth`
-- `products`
-- `customers`
-- `orders`
-- `deliveries`
-- `returns`
-- `inventory`
-- `suppliers`
-- `companies`
-- `users`
-- `reports`
 
 ## Seeded Demo Logins
 
@@ -60,8 +43,7 @@ npm run test:smoke
 
 ## Important Notes
 
-- The backend uses seeded in-memory data from `src/common/seed/seed-data.ts`.
-- `x-role` is required on API requests for role-based access control.
-- `/api/orders` includes the two seeded orders immediately after startup.
+- The backend uses seeded in-memory data from `express/data/seed-data.ts`.
+- Protected endpoints accept either the `x-role` header or a JWT from `POST /api/auth/login`.
+- `/api/orders` includes the seeded orders immediately after startup.
 - `returns` read endpoints require the `returnhandler` role.
-- Some role examples in Swagger may still show older demo usernames; the table above reflects the actual seeded accounts.
