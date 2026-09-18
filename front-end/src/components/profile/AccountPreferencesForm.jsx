@@ -1,6 +1,3 @@
-// "Account Preferences" card (#profileSettingsForm). Fully controlled: the
-// parent owns `values`, `errors` (per-field undefined | true | false, see
-// FormField) and the notification toggles.
 import FormField, { controlClass } from '../common/FormField.jsx';
 
 const TOGGLE_LABEL_STYLE = { display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' };

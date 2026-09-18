@@ -1,5 +1,3 @@
-// React port of renderProfileSettingsUnified() in dashboard.js (what
-// renderPage('profile') renders; it replaces the static profile.html markup).
 import { useState } from 'react';
 import PageHeader from '../common/PageHeader.jsx';
 import ProfileIdentityCard from './ProfileIdentityCard.jsx';
@@ -24,7 +22,6 @@ import {
 
 const COLUMN_STYLE = { display: 'flex', flexDirection: 'column', gap: '16px' };
 
-// A <select> whose saved value matches no option shows (and later saves) its first option.
 function pickOption(value, options) {
   return options.includes(value) ? value : options[0];
 }
@@ -44,10 +41,6 @@ function initialFormValues(profile) {
   };
 }
 
-/**
- * `onSaved` re-mounts this component (the original re-ran
- * renderProfileSettingsUnified() after a successful save).
- */
 export default function ProfileContent({ onSaved }) {
   const {
     state, roleKey, orders, returns, deliveries, inventory, users, activePlan,
@@ -64,13 +57,13 @@ export default function ProfileContent({ onSaved }) {
   const activityItems = getRecentProfileActivity({ orders, returns, deliveries, inventory });
   const showPlanCard = roleKey === 'admin' || roleKey === 'superuser';
 
-  // Every .form-control in the form cleared its own error on input.
   const onFieldChange = (key, value) => {
     setValues((prev) => ({ ...prev, [key]: value }));
     if (key === 'fullName' || key === 'email' || key === 'phone') {
       setErrors((prev) => ({ ...prev, [key]: false }));
     }
   };
+
   const onToggleChange = (key, checked) => {
     setValues((prev) => ({ ...prev, notifications: { ...prev.notifications, [key]: checked } }));
   };

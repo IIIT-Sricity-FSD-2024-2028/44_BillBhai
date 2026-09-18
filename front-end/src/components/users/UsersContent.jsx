@@ -1,4 +1,3 @@
-// renderUsers() + window.renderUserProfile / window.editUser of dashboard.js.
 import { useState } from 'react';
 import PageHeader from '../common/PageHeader.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
@@ -18,11 +17,6 @@ const SORT_OPTIONS = [
 
 export const EMPTY_USER_FORM = { name: '', email: '', role: '', phone: '', username: '', password: '', status: 'Active' };
 
-/**
- * Props (from UsersPage)
- *  onOpenModal  open #addUserModal: ({ mode: 'add' | 'edit', values, readOnly, planFeatures })
- *  onBack       the profile's back arrow (clicked the sidebar "Users" link = page reload)
- */
 export default function UsersContent({ onOpenModal, onBack }) {
   const { hasActionAccess, denyAction, activePlan } = useDashboard();
   const { rows: users } = useUsers();
@@ -31,12 +25,10 @@ export default function UsersContent({ onOpenModal, onBack }) {
   const [role, setRole] = useState('all');
   const [status, setStatus] = useState('all');
   const [sortKey, setSortKey] = useState('name');
-  // renderUserProfile() replaced the page content with the "User Details" view.
   const [profileName, setProfileName] = useState(null);
 
   const canManage = hasActionAccess('users');
 
-  // openAddUserModal(isEdit)
   const openModal = (mode, values, readOnly) => {
     if (!hasActionAccess('users')) {
       denyAction('User create');
@@ -45,8 +37,6 @@ export default function UsersContent({ onOpenModal, onBack }) {
     onOpenModal({ mode, values, readOnly, planFeatures: activePlan.features });
   };
 
-  // "+ Add User" was wired as addEventListener('click', openAddUserModal): the click
-  // event arrived as a truthy `isEdit`, so the plan-cap check never ran from here.
   const addUser = () => openModal('add', EMPTY_USER_FORM, false);
 
   const editUser = (token) => {

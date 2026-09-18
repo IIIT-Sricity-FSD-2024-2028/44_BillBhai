@@ -1,5 +1,3 @@
-// "Recent Activity" timeline. `items` come from getRecentProfileActivity()
-// ({ time, before, strong, after }); an empty list shows the original fallback row.
 export default function RecentActivityCard({ items }) {
   return (
     <div className="card">

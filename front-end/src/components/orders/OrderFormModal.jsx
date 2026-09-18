@@ -1,5 +1,3 @@
-// Static #newOrderModal of orders.html + openNewOrderModal() /
-// closeNewOrderModal() / handleNewOrder() of dashboard.js (create + edit).
 import { useState } from 'react';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
@@ -18,15 +16,6 @@ const CHECKS = {
   payment: (v) => v !== '',
 };
 
-/**
- * Props
- *  open      `.active` on the overlay
- *  request   { id, values } - every new request re-runs the reset of openNewOrderModal()
- *            (editOrder() passes the order's values)
- *  title     heading text (editOrder() changed it to "Edit Order" and nothing changed it back)
- *  onClose   closeNewOrderModal()
- *  onSaved   (formOrderId, order) after a successful save - the page writes the row into the table
- */
 export default function OrderFormModal({ open, request, title, onClose, onSaved }) {
   const { hasActionAccess, denyAction, inventory, apiRequest, showMutationError, showToast } = useDashboard();
   const { activeBusinessId } = useSession();
@@ -42,7 +31,6 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
     setErrors({});
   }
 
-  // 'input' listener on every .form-control: drop the field's error state.
   const bind = (key) => ({
     value: values[key],
     onChange: (e) => {
@@ -58,7 +46,7 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
       denyAction('Order create/update');
       return;
     }
-    // What the original read back from the DOM controls.
+
     const dom = {
       ...values,
       payment: effectiveSelectValue(PAYMENT_OPTIONS, values.payment),
@@ -84,7 +72,6 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
     };
 
     const activeCompanyId = String(activeBusinessId || 'BIZ-101').trim() || 'BIZ-101';
-    // Session user id: not exposed by useSession() yet (see report), read through the engine helper.
     const activeUser = loadObject('currentUser', {});
     const fallbackProduct = inventory.find((item) => String((item && item.productId) || '').trim());
     const fallbackProductId = String((fallbackProduct && fallbackProduct.productId) || 'P001').trim() || 'P001';
@@ -179,7 +166,7 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
             </FormField>
           </div>
           <div className="form-row">
-            <FormField label="Total Amount (?) *" htmlFor="orderTotal" error="Enter a valid amount" hasError={errors.total}>
+            <FormField label="Total Amount (₹) *" htmlFor="orderTotal" error="Enter a valid amount" hasError={errors.total}>
               <input type="number" className={controlClass(errors.total)} id="orderTotal" placeholder="0.00" min="0" step="0.01" required {...bind('total')} />
             </FormField>
             <FormField label="Payment Method *" htmlFor="orderPayment" error="Select payment method" hasError={errors.payment}>

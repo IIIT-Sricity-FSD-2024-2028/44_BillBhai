@@ -1,5 +1,3 @@
-// Static #addUserModal of users.html + openAddUserModal() / closeAddUserModal() /
-// handleAddUser() of dashboard.js (add + edit).
 import { useState } from 'react';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
@@ -19,7 +17,6 @@ const TEXTS = {
   edit: { title: 'Edit User', submit: 'Save User' },
 };
 
-/** Role <option>s; openAddUserModal() hid + disabled the roles the plan lacks. */
 function roleOptions(planFeatures) {
   return [
     { value: '', label: 'Select role' },
@@ -31,13 +28,6 @@ function roleOptions(planFeatures) {
   ];
 }
 
-/**
- * Props
- *  open     `.active` on the overlay
- *  request  { id, mode: 'add' | 'edit', values, readOnly, planFeatures } - every new
- *           request re-runs the reset done by openAddUserModal()/editUser()
- *  onClose  closeAddUserModal()
- */
 export default function UserFormModal({ open, request, onClose }) {
   const {
     hasActionAccess, denyAction, activePlan, apiRequest, showToast, showMutationError, showCredentialsModal, renderPage,
@@ -48,9 +38,7 @@ export default function UserFormModal({ open, request, onClose }) {
   const [values, setValues] = useState(EMPTY_USER_FORM);
   const [readOnly, setReadOnly] = useState(false);
   const [planFeatures, setPlanFeatures] = useState(null);
-  // `.has-error` / `.error` per field (cleared on input and on every open).
   const [errors, setErrors] = useState({});
-  // Inline `.form-error` of the phone field (setFieldError/clearFieldError): never reset by open.
   const [phoneError, setPhoneError] = useState({ display: undefined, message: undefined });
   const [seenRequest, setSeenRequest] = useState(null);
 

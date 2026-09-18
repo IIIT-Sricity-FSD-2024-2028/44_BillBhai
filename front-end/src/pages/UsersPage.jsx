@@ -1,4 +1,3 @@
-// React port of users.html + renderUsers() / renderUserProfile() / the #addUserModal logic in dashboard.js.
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/dashboard/DashboardLayout.jsx';
@@ -9,7 +8,6 @@ let requestSeq = 0;
 
 export default function UsersPage() {
   const navigate = useNavigate();
-  // #addUserModal is static page markup: its state outlives renderPage().
   const [modalOpen, setModalOpen] = useState(false);
   const [modalRequest, setModalRequest] = useState(null);
 
@@ -18,7 +16,6 @@ export default function UsersPage() {
     setModalOpen(true);
   }, []);
   const closeModal = useCallback(() => setModalOpen(false), []);
-  // The profile's back arrow clicked the sidebar "Users" link (a full page load).
   const goBack = useCallback(() => navigate('/users'), [navigate]);
 
   return (

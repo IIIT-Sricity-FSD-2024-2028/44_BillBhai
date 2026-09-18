@@ -1,4 +1,3 @@
-// renderUserProfile(token) of dashboard.js ("User Details" view of the users page).
 import Badge from '../common/Badge.jsx';
 import { encodeUserToken, getUserLoginHandle } from '../../lib/dashboard/credentials.js';
 
@@ -25,10 +24,6 @@ const ACTIVITY = {
   ],
 };
 
-/**
- * Props: user, onBack (the back arrow followed the sidebar "Users" link),
- * onChangeRole / onPasswordReset / onToggleSuspension / onDelete (token handlers).
- */
 export default function UserProfile({ user, onBack, onChangeRole, onPasswordReset, onToggleSuspension, onDelete }) {
   const initial = user.name.charAt(0).toUpperCase();
   const email = String(user.email || `${user.name.toLowerCase().replace(/\s+/g, '.')}@billbhai.com`).trim();

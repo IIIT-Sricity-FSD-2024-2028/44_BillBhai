@@ -1,5 +1,3 @@
-// window.deleteUser / changeUserRole / sendUserPasswordReset / toggleUserSuspension
-// of dashboard.js. Handlers take the encoded user token, like the original onclick handlers.
 import { useDashboard, useUsers } from '../../lib/dashboard/hooks.js';
 import { getState } from '../../lib/dashboard/store.js';
 import { mapRoleLabelToBackendRole } from '../../lib/dashboard/api.js';
@@ -21,7 +19,6 @@ export default function useUserActions() {
   } = useDashboard();
   const { remove, setRows } = useUsers();
 
-  // users[userIndex] = next (the original mutated the user object in place).
   const replaceUser = (name, patch) => setRows((rows) => {
     const idx = rows.findIndex((user) => user.name === name);
     return idx === -1 ? rows : rows.map((user, i) => (i === idx ? { ...user, ...patch } : user));

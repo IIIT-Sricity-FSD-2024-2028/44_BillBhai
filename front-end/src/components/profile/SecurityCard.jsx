@@ -1,5 +1,3 @@
-// "Security" card: new/confirm password + Update Password button.
-// Values are controlled by the parent; `onUpdate` runs the psPasswordBtn logic.
 export default function SecurityCard({ newPassword, confirmPassword, onNewPasswordChange, onConfirmPasswordChange, onUpdate }) {
   return (
     <div className="card">

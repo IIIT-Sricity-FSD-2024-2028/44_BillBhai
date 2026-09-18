@@ -1,4 +1,3 @@
-// React port of orders.html + renderOrders() / the #newOrderModal logic in dashboard.js.
 import { useCallback, useState } from 'react';
 import DashboardLayout from '../components/dashboard/DashboardLayout.jsx';
 import OrdersContent from '../components/orders/OrdersContent.jsx';
@@ -7,12 +6,9 @@ import OrderFormModal from '../components/orders/OrderFormModal.jsx';
 let requestSeq = 0;
 
 export default function OrdersPage() {
-  // #newOrderModal is static page markup: its state outlives renderPage().
   const [modalOpen, setModalOpen] = useState(false);
   const [modalRequest, setModalRequest] = useState(null);
-  // editOrder() set the heading to "Edit Order"; openNewOrderModal() never reset it.
   const [modalTitle, setModalTitle] = useState('Create New Order');
-  // Rows handleNewOrder()/deleteOrder() wrote into (or removed from) the rendered table.
   const [tablePatches, setTablePatches] = useState([]);
 
   const resetPatches = useCallback(() => setTablePatches((p) => (p.length ? [] : p)), []);

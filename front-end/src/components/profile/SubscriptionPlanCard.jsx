@@ -1,9 +1,3 @@
-// "Subscription & Plan" card (admin / superuser only), as rendered by
-// renderProfileSettingsUnified(). Note: this is NOT updateProfileSubscriptionCard()
-// (that one targeted ids of the static profile.html markup, which renderPage
-// replaces) - so price is not locale-formatted, the renewal date and the
-// "Active" badge are fixed, stores are always 1 and percentages are unrounded
-// with no warning/danger classes, exactly like the original.
 function planBadgeClass(planKey) {
   if (planKey === 'starter') return 'b-pending';
   if (planKey === 'enterprise') return 'b-processing';

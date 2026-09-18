@@ -1,4 +1,3 @@
-// renderOrders() + window.editOrder / window.deleteOrder of dashboard.js.
 import { useLayoutEffect, useState } from 'react';
 import PageHeader from '../common/PageHeader.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
@@ -14,7 +13,6 @@ const SORT_OPTIONS = [
   { value: 'total_low', label: 'Total low-high' },
 ];
 
-/** The `orderRows` renderOrders() built once per render of the page. */
 function buildOrderRows(orders) {
   return orders.map((order) => ({
     ...order,
@@ -35,12 +33,6 @@ function sortRows(sortKey) {
   };
 }
 
-/**
- * Applies the direct table edits the original made after renderTable():
- *  - delete: deleteOrder() removed every <tr> whose first cell text is the id
- *  - save:   handleNewOrder() replaced the (last) row whose first cell text is
- *            the form's order id, or inserted a new row at the top of the tbody
- */
 function applyTablePatches(entries, patches) {
   const firstCell = (entry) => (entry.kind === 'empty' ? ORDERS_EMPTY_MESSAGE : String(entry.order.id));
   return patches.reduce((rows, patch) => {
@@ -52,25 +44,16 @@ function applyTablePatches(entries, patches) {
   }, entries);
 }
 
-/**
- * Props (from OrdersPage)
- *  patches         direct table edits since the last renderTable() (see applyTablePatches)
- *  onResetPatches  renderTable() rewrote the tbody (mount / filter change)
- *  onTablePatch    record a direct table edit
- *  onOpenModal     open #newOrderModal: ({ edit, values })
- */
 export default function OrdersContent({ patches, onResetPatches, onTablePatch, onOpenModal }) {
   const { orders, hasActionAccess, hasOrderDeleteAccess, denyAction, openConfirm, showToast } = useDashboard();
   const { remove } = useOrders();
 
-  // renderOrders() captured the rows once; the filters re-render from that copy.
   const [orderRows] = useState(() => buildOrderRows(orders));
   const [status, setStatus] = useState('all');
   const [payment, setPayment] = useState('all');
   const [sortKey, setSortKey] = useState('newest');
 
-  // A fresh renderOrders() starts from a clean tbody.
-  useLayoutEffect(() => { onResetPatches(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => { onResetPatches(); }, []);
 
   const withReset = (setter) => (value) => {
     setter(value);
@@ -93,7 +76,6 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
   const canEdit = hasActionAccess('orders');
   const canDelete = hasOrderDeleteAccess();
 
-  // openNewOrderModal()
   const openNewOrder = () => {
     if (!hasActionAccess('orders')) {
       denyAction('Order create');
@@ -105,7 +87,6 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
     });
   };
 
-  // window.editOrder(id)
   const editOrder = (id) => {
     if (!hasActionAccess('orders')) {
       denyAction('Order update');
@@ -126,7 +107,6 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
     });
   };
 
-  // window.deleteOrder(id)
   const deleteOrder = (id) => {
     if (!hasActionAccess('orders') || !hasOrderDeleteAccess()) {
       denyAction('Order delete');

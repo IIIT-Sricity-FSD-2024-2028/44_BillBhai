@@ -1,5 +1,3 @@
-// Avatar / name / role / email card at the top of the left column
-// (renderProfileSettingsUnified in dashboard.js).
 const AVATAR_STYLE = {
   width: '80px',
   height: '80px',
