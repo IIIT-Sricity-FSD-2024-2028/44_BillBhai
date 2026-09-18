@@ -15,7 +15,7 @@ export default function OrdersPage() {
   const addPatch = useCallback((patch) => setTablePatches((p) => [...p, patch]), []);
 
   const openModal = useCallback(({ edit, values }) => {
-    if (edit) setModalTitle('Edit Order');
+    setModalTitle(edit ? 'Edit Order' : 'Create New Order');
     setModalRequest({ id: ++requestSeq, values });
     setModalOpen(true);
   }, []);

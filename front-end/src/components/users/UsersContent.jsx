@@ -17,7 +17,7 @@ const SORT_OPTIONS = [
 
 export const EMPTY_USER_FORM = { name: '', email: '', role: '', phone: '', username: '', password: '', status: 'Active' };
 
-export default function UsersContent({ onOpenModal, onBack }) {
+export default function UsersContent({ onOpenModal }) {
   const { hasActionAccess, denyAction, activePlan } = useDashboard();
   const { rows: users } = useUsers();
   const actions = useUserActions();
@@ -67,11 +67,14 @@ export default function UsersContent({ onOpenModal, onBack }) {
     return (
       <UserProfile
         user={profileUser}
-        onBack={onBack}
+        onBack={() => setProfileName(null)}
         onChangeRole={actions.changeUserRole}
         onPasswordReset={actions.sendUserPasswordReset}
         onToggleSuspension={actions.toggleUserSuspension}
-        onDelete={actions.deleteUser}
+        onDelete={(token) => {
+          actions.deleteUser(token);
+          setProfileName(null);
+        }}
       />
     );
   }
