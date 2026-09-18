@@ -3,7 +3,6 @@ import { authRouter } from '../modules/auth/auth.routes';
 import { companiesRouter } from '../modules/companies/companies.routes';
 import { customersRouter } from '../modules/customers/customers.routes';
 import { deliveriesRouter } from '../modules/deliveries/deliveries.routes';
-import { exampleRouter } from '../modules/example/example.routes';
 import { inventoryRouter } from '../modules/inventory/inventory.routes';
 import { ordersRouter } from '../modules/orders/orders.routes';
 import { productsRouter } from '../modules/products/products.routes';
@@ -54,7 +53,6 @@ export function createApiRouter(): Router {
         reports: '/api/reports',
         suppliers: '/api/suppliers',
         uploads: '/api/uploads',
-        example: '/api/example',
       },
     });
   });
@@ -72,9 +70,6 @@ export function createApiRouter(): Router {
   apiRouter.use('/reports', reportsRouter);
   apiRouter.use('/suppliers', suppliersRouter);
   apiRouter.use('/uploads', uploadsRouter);
-
-  // Reference template module, kept for developers adding new modules.
-  apiRouter.use('/example', exampleRouter);
 
   return apiRouter;
 }

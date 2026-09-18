@@ -29,7 +29,7 @@ npm run dev:express  # http://localhost:4000
 | Log files | `back-end/logs/` |
 
 ```bash
-npm run test:express       # 187 tests across 13 suites
+npm run test:express       # 184 tests across 12 suites
 npm run typecheck:express  # TypeScript, no errors
 ```
 
@@ -172,8 +172,7 @@ back-end/express/
 
 Twelve modules follow this shape: `auth`, `companies`, `users`, `customers`,
 `products`, `inventory`, `orders`, `deliveries`, `returns`, `reports`,
-`suppliers`, `uploads`. The `example` module is the reference template kept for
-anyone adding a thirteenth.
+`suppliers`, `uploads`.
 
 ### The layered request path
 
