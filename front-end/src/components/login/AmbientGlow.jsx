@@ -1,10 +1,12 @@
-// The three blurred background blobs behind the login card.
+import React from 'react';
+
+// Background ambient glow circles
 export default function AmbientGlow() {
   return (
     <>
-      <div className="ambient-glow glow-1"></div>
-      <div className="ambient-glow glow-2"></div>
-      <div className="ambient-glow glow-3"></div>
+      <div className="ambient-glow glow-1" />
+      <div className="ambient-glow glow-2" />
+      <div className="ambient-glow glow-3" />
     </>
   );
 }
