@@ -2,7 +2,7 @@
  * API Client - Centralized wrapper for all backend API calls
  * Handles authentication, error handling, and request/response formatting
  * 
- * Usage:
+ * Usage (ES module port of front-end/pages/scripts/api-client.js):
  *   const response = await APIClient.get('/orders');
  *   const order = await APIClient.post('/orders', orderData, 'admin');
  */
@@ -444,27 +444,10 @@ class APIClient {
   async deleteSupplier(id, role = 'admin') {
     return this.delete(`/suppliers/${id}`, role);
   }
-
-  // ─────────────────────────────────────
-  // Payments Endpoints (Razorpay)
-  // ─────────────────────────────────────
-
-  async createRazorpayOrder(data, role = 'cashier') {
-    return this.post('/payments/razorpay/create-order', data, role);
-  }
-
-  async verifyRazorpayPayment(data, role = 'cashier') {
-    return this.post('/payments/razorpay/verify', data, role);
-  }
-
-  async createSubscriptionOrder(data, role = 'admin') {
-    return this.post('/payments/razorpay/subscription/create-order', data, role);
-  }
-
-  async verifySubscriptionPayment(data, role = 'admin') {
-    return this.post('/payments/razorpay/subscription/verify', data, role);
-  }
 }
 
 // Create global instance
 const APIClient_Instance = new APIClient();
+
+export { APIClient };
+export default APIClient_Instance;
