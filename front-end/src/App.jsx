@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import LandingPage from './pages/LandingPage.jsx';
 
 // One route per original HTML page. `/orders` replaces `orders.html`.
 const PAGES = {
@@ -19,6 +20,7 @@ export default function App() {
   const location = useLocation();
   return (
     <Routes>
+      <Route path="/" element={<LandingPage key={location.key} />} />
       {Object.entries(PAGES).map(([path, Page]) => (
         <Route key={path} path={`/${path}`} element={<Page key={location.key} />} />
       ))}
