@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import LandingPage from './pages/LandingPage.jsx';
+import CashierPage from './pages/CashierPage.jsx';
 
 // One route per original HTML page. `/orders` replaces `orders.html`.
 const PAGES = {
+  cashier: CashierPage,
 };
 
 // Keeps old links such as `dashboard.html?id=1` working by redirecting to `/dashboard?id=1`.
