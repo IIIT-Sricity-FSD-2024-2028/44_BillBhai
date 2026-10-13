@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import LandingPage from './pages/LandingPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import RegisterBusinessPage from './pages/RegisterBusinessPage.jsx';
 import CashierPage from './pages/CashierPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
@@ -12,6 +14,8 @@ import ProfilePage from './pages/ProfilePage.jsx';
 
 // One route per original HTML page. `/orders` replaces `orders.html`.
 const PAGES = {
+  login: LoginPage,
+  'register-business': RegisterBusinessPage,
   cashier: CashierPage,
   dashboard: DashboardPage,
   orders: OrdersPage,
