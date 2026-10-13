@@ -13,6 +13,7 @@ import ReturnsPage from './pages/ReturnsPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
+import NotificationsPage from './pages/NotificationsPage.jsx';
 
 // One route per original HTML page. `/orders` replaces `orders.html`.
 const PAGES = {
@@ -29,6 +30,7 @@ const PAGES = {
   reports: ReportsPage,
   users: UsersPage,
   profile: ProfilePage,
+  notifications: NotificationsPage,
 };
 
 // Keeps old links such as `dashboard.html?id=1` working by redirecting to `/dashboard?id=1`.
