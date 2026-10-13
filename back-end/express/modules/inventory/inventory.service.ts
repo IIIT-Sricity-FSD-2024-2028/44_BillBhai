@@ -1,8 +1,9 @@
 import { seedInventory } from '../../data/seed-data';
 import { InventoryItem } from '../../data/entities';
-import { BadRequestError, NotFoundError } from '../../errors/http-error';
+import { BadRequestError, ConflictError, NotFoundError } from '../../errors/http-error';
 import {
   AdjustStockDto,
+  CreateInventoryDto,
   DeleteInventoryResult,
   InventoryStatus,
   LOW_STOCK_STATUSES,
@@ -63,6 +64,31 @@ export class InventoryService {
     return this.inventory
       .filter((item) => lowStock.includes(item.status))
       .map((item) => this.clone(item));
+  }
+
+  /** Opens the stock row for a product. Each product has at most one. */
+  public create(dto: CreateInventoryDto): InventoryItem {
+    if (this.inventory.some((item) => item.productId === dto.productId)) {
+      throw new ConflictError(`Product ${dto.productId} already has an inventory record`);
+    }
+
+    const highest = this.inventory.reduce((max, item) => {
+      const n = Number.parseInt(item.id.replace(/^INV-/i, ''), 10);
+      return Number.isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+
+    const created: InventoryItem = {
+      id: `INV-${String(highest + 1).padStart(3, '0')}`,
+      productId: dto.productId,
+      stockAvailable: dto.stockAvailable,
+      reorderLevel: dto.reorderLevel,
+      location: dto.location,
+      lastUpdated: new Date().toISOString(),
+      status: this.computeStatus(dto.stockAvailable, dto.reorderLevel),
+    };
+
+    this.inventory.push(created);
+    return this.clone(created);
   }
 
   public update(id: string, dto: UpdateInventoryDto): InventoryItem {

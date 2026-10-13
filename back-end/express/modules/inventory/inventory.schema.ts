@@ -48,6 +48,22 @@ export const updateInventorySchema = z
     message: 'At least one field must be supplied',
   });
 
+/** Opens a stock row for a product that has none yet (e.g. a newly added product). */
+export const createInventorySchema = z.object({
+  productId: z.string().min(1, 'productId is required'),
+  stockAvailable: z
+    .number()
+    .int('stockAvailable must be a whole number')
+    .min(0, 'stockAvailable must not be negative')
+    .default(0),
+  reorderLevel: z
+    .number()
+    .int('reorderLevel must be a whole number')
+    .min(0, 'reorderLevel must not be negative')
+    .default(10),
+  location: z.string().min(1, 'location must not be empty').default('Shelf'),
+});
+
 export const adjustStockSchema = z.object({
   productId: z.string().min(1, 'productId is required'),
   adjustment: z
@@ -59,6 +75,7 @@ export const adjustStockSchema = z.object({
 });
 
 export type InventoryStatus = (typeof INVENTORY_STATUSES)[number];
+export type CreateInventoryDto = z.infer<typeof createInventorySchema>;
 export type UpdateInventoryDto = z.infer<typeof updateInventorySchema>;
 export type AdjustStockDto = z.infer<typeof adjustStockSchema>;
 export type { InventoryItem };

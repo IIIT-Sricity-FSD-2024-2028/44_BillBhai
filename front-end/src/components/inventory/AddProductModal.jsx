@@ -151,11 +151,13 @@ export default function AddProductModal({ open, request, onClose }) {
       },
     };
 
+    // The barcode is only sent when we already know it. A new product gets a
+    // unique one from the backend, and an edit leaves the existing one alone.
     const productBody = (base) => ({
       name: pData.name,
       category: pData.cat,
       price: Number(pData.price || 0),
-      barcode: String(base?.barcode || pData.sku || '').trim(),
+      ...(base?.barcode ? { barcode: String(base.barcode).trim() } : {}),
       size: String(base?.size || '1 unit').trim(),
       description: String(base?.description || `${pData.name} (${pData.cat})`).trim(),
     });
@@ -184,6 +186,32 @@ export default function AddProductModal({ open, request, onClose }) {
       }
     };
 
+    // A brand-new product also needs its stock row, otherwise it never shows up
+    // in the inventory list after a reload. If that fails, remove the product
+    // again so a retry starts clean.
+    const createInventoryInBackend = async () => {
+      try {
+        const createdInventory = await apiRequest('/inventory', {
+          method: 'POST',
+          role: 'inventorymanager',
+          body: {
+            productId: pData.productId,
+            stockAvailable: pData.stock,
+            reorderLevel: Number(pData.reorderLevel || 10),
+            location: String(pData.location || 'Shelf').trim(),
+          },
+        });
+        pData.inventoryId = createdInventory.id;
+        pData.sku = String(createdInventory.id).replace('INV-', 'SKU-');
+      } catch (error) {
+        await apiRequest(`/products/${encodeURIComponent(String(pData.productId))}`, {
+          method: 'DELETE',
+          role: 'inventorymanager',
+        }).catch(() => {});
+        throw error;
+      }
+    };
+
     try {
       if (existingRecord && existingRecord.productId) {
         try {
@@ -202,6 +230,7 @@ export default function AddProductModal({ open, request, onClose }) {
         }
       } else {
         await createProductInBackend();
+        await createInventoryInBackend();
       }
     } catch (error) {
       showMutationError('Product save', error);
@@ -231,7 +260,7 @@ export default function AddProductModal({ open, request, onClose }) {
     }
 
     setRows((rows) => {
-      const idx = rows.findIndex((i) => i.sku === sku);
+      const idx = rows.findIndex((i) => i.sku === pData.sku);
       if (idx === -1) return [...rows, pData];
       return rows.map((row, i) => (i === idx ? pData : row));
     });

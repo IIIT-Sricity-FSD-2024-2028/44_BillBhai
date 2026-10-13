@@ -81,6 +81,16 @@ describe('ProductsModule - ProductsService', () => {
     ).toThrow('Product with this barcode already exists');
   });
 
+  it('assigns a unique barcode when none is given', () => {
+    const first = service.create({ supplierId: 'SUP-001', name: 'New A', category: 'Test', price: 10 });
+    const second = service.create({ supplierId: 'SUP-001', name: 'New B', category: 'Test', price: 10 });
+
+    expect(first.barcode).toMatch(/^BAR\d{3}$/);
+    expect(second.barcode).toMatch(/^BAR\d{3}$/);
+    expect(second.barcode).not.toBe(first.barcode);
+    expect(service.findByBarcode(first.barcode as string).id).toBe(first.id);
+  });
+
   it('finds products by barcode and id', () => {
     expect(service.findByBarcode('BAR001').id).toBe('P001');
     expect(service.findOne('P001').barcode).toBe('BAR001');

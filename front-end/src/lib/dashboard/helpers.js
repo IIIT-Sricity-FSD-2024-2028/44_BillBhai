@@ -304,7 +304,8 @@ export function getNextSku(inventory, extraSkus = []) {
     if (match) nums.push(parseInt(match[1], 10));
   });
   const next = Math.max(...nums) + 1;
-  return `SKU-${String(next).padStart(2, '0')}`;
+  // Three digits, matching the SKUs derived from inventory ids (INV-015 -> SKU-015).
+  return `SKU-${String(next).padStart(3, '0')}`;
 }
 
 export function determineStatus(stock, selectedStatus) {

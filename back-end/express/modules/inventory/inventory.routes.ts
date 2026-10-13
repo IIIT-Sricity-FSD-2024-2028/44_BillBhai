@@ -4,6 +4,7 @@ import { validate } from '../../middleware/validate.middleware';
 import { inventoryController, InventoryController } from './inventory.controller';
 import {
   adjustStockSchema,
+  createInventorySchema,
   inventoryIdParamsSchema,
   productIdParamsSchema,
   updateInventorySchema,
@@ -50,6 +51,13 @@ export function createInventoryRouter(
     '/',
     requireRoles('superuser', 'admin', 'inventorymanager', 'cashier'),
     controller.findAll,
+  );
+
+  router.post(
+    '/',
+    requireRoles('superuser', 'admin', 'inventorymanager'),
+    validate({ body: createInventorySchema }),
+    controller.create,
   );
 
   router.get(

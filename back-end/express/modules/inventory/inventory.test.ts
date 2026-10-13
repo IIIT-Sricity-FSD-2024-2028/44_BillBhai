@@ -216,4 +216,35 @@ describe('Inventory routes', () => {
     expect(res.body.stockAvailable).toBe(10);
     expect(res.body.status).toBe('Critical');
   });
+
+  it('opens a stock row for a new product with the next id (201)', async () => {
+    const res = await request(buildTestApp())
+      .post('/api/inventory')
+      .set('x-role', 'inventorymanager')
+      .send({ productId: 'P999', stockAvailable: 40 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.id).toMatch(/^INV-\d{3}$/);
+    expect(res.body.reorderLevel).toBe(10);
+    expect(res.body.location).toBe('Shelf');
+    expect(res.body.status).toBe('In Stock');
+  });
+
+  it('refuses a second stock row for the same product (409)', async () => {
+    const res = await request(buildTestApp())
+      .post('/api/inventory')
+      .set('x-role', 'inventorymanager')
+      .send({ productId: 'P001', stockAvailable: 5 });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('does not let a cashier open stock rows (403)', async () => {
+    const res = await request(buildTestApp())
+      .post('/api/inventory')
+      .set('x-role', 'cashier')
+      .send({ productId: 'P999' });
+
+    expect(res.status).toBe(403);
+  });
 });

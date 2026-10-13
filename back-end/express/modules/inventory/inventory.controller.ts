@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { inventoryService, InventoryService } from './inventory.service';
-import { AdjustStockDto, UpdateInventoryDto } from './inventory.schema';
+import { AdjustStockDto, CreateInventoryDto, UpdateInventoryDto } from './inventory.schema';
 
 /**
  * Inventory Module Controller
@@ -58,6 +58,14 @@ export class InventoryController {
         req.body as UpdateInventoryDto,
       );
       res.status(200).json(updated);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public create = (req: Request, res: Response, next: NextFunction): void => {
+    try {
+      res.status(201).json(this.service.create(req.body as CreateInventoryDto));
     } catch (error) {
       next(error);
     }

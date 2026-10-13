@@ -52,6 +52,14 @@ export class ProductsService {
     return [...new Set(this.products.map((product) => product.category))];
   }
 
+  /** Next free BARnnn code, for products added without a barcode. */
+  private nextBarcode(): string {
+    const taken = new Set(this.products.map((product) => product.barcode));
+    let n = this.products.length + 1;
+    while (taken.has(`BAR${String(n).padStart(3, '0')}`)) n += 1;
+    return `BAR${String(n).padStart(3, '0')}`;
+  }
+
   public create(dto: CreateProductDto): Product {
     if (dto.barcode) {
       const existing = this.products.find(
@@ -65,6 +73,7 @@ export class ProductsService {
     const created: Product = {
       id: `P${String(this.counter++).padStart(3, '0')}`,
       ...dto,
+      barcode: dto.barcode || this.nextBarcode(),
     };
 
     this.products.push(created);
