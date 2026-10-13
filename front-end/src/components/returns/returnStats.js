@@ -1,6 +1,3 @@
-// Shared return aggregations (the reduce/Map blocks repeated in
-// renderReturnsRefined(), renderReturnHandlerDashboard() and initReturnCharts()).
-
 export function classifyReturnStatus(status) {
   const s = String(status || '').toLowerCase();
   if (s.includes('refund')) return 'refunded';
@@ -9,19 +6,29 @@ export function classifyReturnStatus(status) {
 }
 
 export function summarizeReturns(view) {
-  return view.reduce((acc, r) => {
-    const kind = classifyReturnStatus(r.status);
-    const amount = Number(r.amount || 0);
-    acc.total += 1;
-    acc[kind] += 1;
-    acc.valueTotal += amount;
-    if (kind === 'refunded') acc.valueRefunded += amount;
-    if (kind === 'pending') acc.valueAtRisk += amount;
-    return acc;
-  }, { total: 0, pending: 0, refunded: 0, rejected: 0, valueTotal: 0, valueRefunded: 0, valueAtRisk: 0 });
+  return view.reduce(
+    (acc, r) => {
+      const kind = classifyReturnStatus(r.status);
+      const amount = Number(r.amount || 0);
+      acc.total += 1;
+      acc[kind] += 1;
+      acc.valueTotal += amount;
+      if (kind === 'refunded') acc.valueRefunded += amount;
+      if (kind === 'pending') acc.valueAtRisk += amount;
+      return acc;
+    },
+    {
+      total: 0,
+      pending: 0,
+      refunded: 0,
+      rejected: 0,
+      valueTotal: 0,
+      valueRefunded: 0,
+      valueAtRisk: 0,
+    },
+  );
 }
 
-/** Product -> count entries sorted by count desc (skips empty / '-' products). */
 export function getReturnProductCounts(view) {
   const productCounts = new Map();
   view.forEach((r) => {

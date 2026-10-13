@@ -12,9 +12,9 @@ import Cta from '../components/landing/Cta.jsx';
 import Footer from '../components/landing/Footer.jsx';
 
 const TITLE = 'BillBhai - Smart Billing and Inventory for Modern Businesses';
-const DESCRIPTION = 'BillBhai is the all-in-one billing, inventory, and order management platform built for Indian businesses. Fast invoices, real-time stock tracking, and powerful analytics.';
+const DESCRIPTION =
+  'BillBhai is the all-in-one billing, inventory, and order management platform built for Indian businesses. Fast invoices, real-time stock tracking, and powerful analytics.';
 
-// index.html's <meta name="description">, present only while this page is mounted.
 function useMetaDescription(content) {
   useEffect(() => {
     const meta = document.createElement('meta');
@@ -31,7 +31,6 @@ export default function LandingPage() {
 
   return (
     <>
-      {/* Ambient Background */}
       <div className="ambient-glow glow-1"></div>
       <div className="ambient-glow glow-2"></div>
       <div className="ambient-glow glow-3"></div>

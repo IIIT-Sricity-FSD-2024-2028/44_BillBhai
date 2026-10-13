@@ -2,9 +2,23 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { useNavigate } from 'react-router-dom';
 import usePageSetup from '../../hooks/usePageSetup.js';
 import { CSS, FONTS } from '../../lib/pageAssets.js';
-import { FETCH_TIMEOUT_MS, PAGE_LABELS, PAGE_TITLES, ROLE_ALLOWED_PAGES } from '../../lib/dashboard/constants.js';
-import { applyBootStorageWrites, clearSession, computeBootContext } from '../../lib/dashboard/session.js';
-import { beginPageSession, getActiveCompanyPlan, registerUi, useDashboardStore } from '../../lib/dashboard/store.js';
+import {
+  FETCH_TIMEOUT_MS,
+  PAGE_LABELS,
+  PAGE_TITLES,
+  ROLE_ALLOWED_PAGES,
+} from '../../lib/dashboard/constants.js';
+import {
+  applyBootStorageWrites,
+  clearSession,
+  computeBootContext,
+} from '../../lib/dashboard/session.js';
+import {
+  beginPageSession,
+  getActiveCompanyPlan,
+  registerUi,
+  useDashboardStore,
+} from '../../lib/dashboard/store.js';
 import { useNotifications } from '../../lib/dashboard/hooks.js';
 import Sidebar from '../common/Sidebar.jsx';
 import TopHeader from '../common/TopHeader.jsx';
@@ -22,47 +36,36 @@ const PAYWALLED = {
 
 let modalSeq = 0;
 
-// Shown only when the initial backend load failed; hidden in normal use, so the
-// page looks exactly like the HTML version whenever the API is reachable.
 function BackendErrorBanner({ message, onRetry }) {
   return (
-    <section className="card" role="alert" style={{ marginBottom: '14px', borderColor: 'var(--red)' }}>
-      <div className="card-bd" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+    <section
+      className="card"
+      role="alert"
+      style={{ marginBottom: '14px', borderColor: 'var(--red)' }}
+    >
+      <div
+        className="card-bd"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+        }}
+      >
         <div>
           <strong style={{ color: 'var(--red)' }}>Backend unavailable</strong>
           <div className="text-sm text-muted">{message}</div>
         </div>
-        <button type="button" className="btn btn-primary" onClick={onRetry}>Retry</button>
+        <button type="button" className="btn btn-primary" onClick={onRetry}>
+          Retry
+        </button>
       </div>
     </section>
   );
 }
 
-/**
- * Shared shell of every dashboard-family page (dashboard, orders, inventory,
- * delivery, returns, reports, users, profile, notifications, superuser,
- * businesses) - the React port of the duplicated sidebar/header HTML plus the
- * start-up part of dashboard.js.
- *
- *   <DashboardLayout page="orders" toast="Order created successfully!" afterMain={<OrderModal />}>
- *     <OrdersContent />
- *   </DashboardLayout>
- *
- * Props
- *  page       page key (drives <body data-page>, title, active nav item, role guard)
- *  children   page content, rendered inside .content-area#contentArea only after
- *             the initial backend load finished (like renderPage after startApp).
- *             Re-mounted by renderPage().
- *  afterMain  static markup that sat between </main> and the toast in the HTML
- *             page (e.g. #newOrderModal). Rendered once data is ready; NOT
- *             re-mounted by renderPage().
- *  toast      default text of the page's static #successToast (orders,
- *             inventory, users). Pages without it get no toast and
- *             showToast() is a no-op, exactly like the HTML pages.
- */
 export default function DashboardLayout({ page, children, afterMain, toast }) {
   const navigate = useNavigate();
-  // Pure snapshot of the session decisions dashboard.js made on page load.
   const [boot] = useState(() => computeBootContext(page));
 
   usePageSetup({
@@ -94,7 +97,6 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
     document.body.setAttribute('data-app-ready', ready || revealed ? 'true' : 'false');
   }, [ready, revealed]);
 
-  // Modal / toast host exposed to the engine (openQuickForm, openConfirm, ...).
   const uiApi = useMemo(() => {
     const open = (kind, config) => setModals((list) => [...list, { id: ++modalSeq, kind, config }]);
     const openConfirm = (config) => open('confirm', config);
@@ -102,12 +104,15 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
       showToast: (message) => {
         if (!hasToast) return;
         setToastState({ message, show: true });
-        toastTimers.current.push(setTimeout(() => setToastState((t) => ({ ...t, show: false })), 3000));
+        toastTimers.current.push(
+          setTimeout(() => setToastState((t) => ({ ...t, show: false })), 3000),
+        );
       },
       openQuickForm: (config) => open('form', config),
       openConfirm,
       openPlanUpgrade: () => open('plan', null),
-      showCredentialsModal: (title, credential) => openCredentialsModal(openConfirm, title, credential),
+      showCredentialsModal: (title, credential) =>
+        openCredentialsModal(openConfirm, title, credential),
     };
   }, [hasToast]);
 
@@ -115,7 +120,6 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
 
   useEffect(() => () => toastTimers.current.forEach(clearTimeout), []);
 
-  // startApp(): storage side effects and role redirects.
   useEffect(() => {
     applyBootStorageWrites(boot);
     if (boot.redirect && !redirectedRef.current) {
@@ -124,7 +128,6 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // startApp(): backend load. Runs again when the user presses Retry.
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (boot.redirect) return undefined;
@@ -141,7 +144,6 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
     setAttempt((n) => n + 1);
   };
 
-  // renderPage() resets the scroll position of the content area.
   useEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0;
   }, [s.renderNonce]);
@@ -172,10 +174,10 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
     };
   }
 
-  // #bcPage = nav span textContent (includes " PRO" when the pill was injected).
   const proPills = s.shell.proPills || {};
   let title = PAGE_LABELS[page];
-  if ((page === 'delivery' && proPills.delivery) || (page === 'returns' && proPills.returns)) title = `${title} PRO`;
+  if ((page === 'delivery' && proPills.delivery) || (page === 'returns' && proPills.returns))
+    title = `${title} PRO`;
 
   const lockedFeature = PAYWALLED[page] && activePlan.key === 'starter' ? PAYWALLED[page] : null;
   const legacyShell = page === 'notifications';
@@ -198,7 +200,12 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
           businessName={s.shell.bcBusinessName}
           planBadge={planBadge}
           notifications={notifications}
-          user={{ name: s.shell.userName, avatar: s.shell.avatar, roleLabel: s.shell.roleLabel, email: s.shell.email }}
+          user={{
+            name: s.shell.userName,
+            avatar: s.shell.avatar,
+            roleLabel: s.shell.roleLabel,
+            email: s.shell.email,
+          }}
           page={page}
           onMenuToggle={onMenuToggle}
           onNavClick={onNavClick}
@@ -219,8 +226,10 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
       <div className="sidebar-overlay" id="sidebarOverlay" onClick={() => setMobileOpen(false)} />
       {modals.map((m) => {
         const onClose = () => closeModal(m.id);
-        if (m.kind === 'form') return <QuickFormModal key={m.id} config={m.config} onClose={onClose} />;
-        if (m.kind === 'confirm') return <QuickConfirmModal key={m.id} config={m.config} onClose={onClose} />;
+        if (m.kind === 'form')
+          return <QuickFormModal key={m.id} config={m.config} onClose={onClose} />;
+        if (m.kind === 'confirm')
+          return <QuickConfirmModal key={m.id} config={m.config} onClose={onClose} />;
         return <PlanUpgradeModal key={m.id} onClose={onClose} />;
       })}
     </>

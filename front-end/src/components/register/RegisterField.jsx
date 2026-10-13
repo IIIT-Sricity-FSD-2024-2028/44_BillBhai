@@ -1,11 +1,6 @@
 import { FIELD_ICONS, EyeClosedIcon, EyeOpenIcon } from './icons.jsx';
 import { fieldErrorStyle, groupClassName } from './groupUtils.js';
 
-/**
- * A text/email/tel/password `.input-group`. Password fields get the
- * show/hide toggle; the optional GSTIN field gets the "Optional" tag and
- * has no `.field-error`.
- */
 export default function RegisterField({
   id,
   type = 'text',
@@ -24,7 +19,11 @@ export default function RegisterField({
 }) {
   const isPassword = type === 'password';
   return (
-    <div className={groupClassName(status)} id={`${id}Group`} onAnimationEnd={status.shake ? onShakeEnd : undefined}>
+    <div
+      className={groupClassName(status)}
+      id={`${id}Group`}
+      onAnimationEnd={status.shake ? onShakeEnd : undefined}
+    >
       <input
         type={isPassword && showing ? 'text' : type}
         id={id}
@@ -43,12 +42,21 @@ export default function RegisterField({
       {optional && <span className="optional-tag">Optional</span>}
       <div className="input-highlight"></div>
       {isPassword && (
-        <button type="button" className={`toggle-password${showing ? ' showing' : ''}`} aria-label="Show password" onClick={onToggle}>
+        <button
+          type="button"
+          className={`toggle-password${showing ? ' showing' : ''}`}
+          aria-label="Show password"
+          onClick={onToggle}
+        >
           <EyeOpenIcon />
           <EyeClosedIcon />
         </button>
       )}
-      {!optional && <div className="field-error" style={fieldErrorStyle(status)}>{status.errText}</div>}
+      {!optional && (
+        <div className="field-error" style={fieldErrorStyle(status)}>
+          {status.errText}
+        </div>
+      )}
     </div>
   );
 }

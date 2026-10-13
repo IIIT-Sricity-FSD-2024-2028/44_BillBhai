@@ -18,7 +18,12 @@ export default function OnboardingHeader() {
       </div>
       <div className="header-right">
         <ThemeToggle />
-        <span className="badge b-active" style={{ padding: '5px 12px', fontSize: '0.76rem', borderRadius: '999px' }}>Step 2 of 2</span>
+        <span
+          className="badge b-active"
+          style={{ padding: '5px 12px', fontSize: '0.76rem', borderRadius: '999px' }}
+        >
+          Step 2 of 2
+        </span>
       </div>
     </header>
   );

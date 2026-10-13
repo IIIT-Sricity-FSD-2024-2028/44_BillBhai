@@ -1,32 +1,14 @@
-/**
- * API Client - Centralized wrapper for all backend API calls
- * Handles authentication, error handling, and request/response formatting
- * 
- * Usage (ES module port of front-end/pages/scripts/api-client.js):
- *   const response = await APIClient.get('/orders');
- *   const order = await APIClient.post('/orders', orderData, 'admin');
- */
-
 class APIClient {
   constructor() {
     this.baseURL = 'http://localhost:4000/api';
     this.timeout = 10000; // 10 seconds
   }
 
-  /**
-   * Make HTTP request with automatic role header injection
-   * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
-   * @param {string} path - API endpoint path (e.g., '/orders')
-   * @param {object} data - Request body (for POST/PUT)
-   * @param {string} role - User role from localStorage
-   * @returns {Promise<object>} - Response data
-   */
   async request(method, path, data = null, role = null) {
     const url = `${this.baseURL}${path}`;
-    
-    // Get role from parameter or localStorage
+
     const userRole = role || localStorage.getItem('userRole') || 'customer';
-    
+
     const options = {
       method,
       headers: {
@@ -53,7 +35,7 @@ class APIClient {
       // Handle non-JSON responses
       const contentType = response.headers.get('content-type');
       let responseData;
-      
+
       if (contentType && contentType.includes('application/json')) {
         responseData = await response.json();
       } else {
@@ -83,46 +65,22 @@ class APIClient {
     }
   }
 
-  // ─────────────────────────────────────
-  // GET Methods
-  // ─────────────────────────────────────
-
   async get(path, role = null) {
     return this.request('GET', path, null, role);
   }
-
-  // ─────────────────────────────────────
-  // POST Methods (Create)
-  // ─────────────────────────────────────
 
   async post(path, data, role = null) {
     return this.request('POST', path, data, role);
   }
 
-  // ─────────────────────────────────────
-  // PUT Methods (Update)
-  // ─────────────────────────────────────
-
   async put(path, data, role = null) {
     return this.request('PUT', path, data, role);
   }
-
-  // ─────────────────────────────────────
-  // DELETE Methods
-  // ─────────────────────────────────────
 
   async delete(path, role = null) {
     return this.request('DELETE', path, null, role);
   }
 
-  // ─────────────────────────────────────
-  // Auth Endpoints
-  // ─────────────────────────────────────
-
-  /**
-   * Dummy auth method - validates against hardcoded credentials (for demo)
-   * In production, would call backend /api/auth/login
-   */
   async login(username, password) {
     try {
       // Fetch auth config from local JSON (fallback to hardcoded)
@@ -130,12 +88,16 @@ class APIClient {
     } catch (error) {
       // Fallback: Use local validation for now
       const defaultUsers = {
-        'admin': { role: 'admin', companyId: 'BIZ-101', name: 'Admin User' },
-        'cashier': { role: 'cashier', companyId: 'BIZ-101', name: 'Cashier' },
-        'inventorymanager': { role: 'inventorymanager', companyId: 'BIZ-101', name: 'Inventory Manager' },
-        'deliveryops': { role: 'deliveryops', companyId: 'BIZ-101', name: 'Delivery Ops' },
-        'returnhandler': { role: 'returnhandler', companyId: 'BIZ-102', name: 'Return Handler' },
-        'superuser': { role: 'superuser', companyId: null, name: 'Superuser' },
+        admin: { role: 'admin', companyId: 'BIZ-101', name: 'Admin User' },
+        cashier: { role: 'cashier', companyId: 'BIZ-101', name: 'Cashier' },
+        inventorymanager: {
+          role: 'inventorymanager',
+          companyId: 'BIZ-101',
+          name: 'Inventory Manager',
+        },
+        deliveryops: { role: 'deliveryops', companyId: 'BIZ-101', name: 'Delivery Ops' },
+        returnhandler: { role: 'returnhandler', companyId: 'BIZ-102', name: 'Return Handler' },
+        superuser: { role: 'superuser', companyId: null, name: 'Superuser' },
       };
 
       if (defaultUsers[username] && password === `${username}123`) {
@@ -154,10 +116,6 @@ class APIClient {
       throw new Error('Invalid username or password');
     }
   }
-
-  // ─────────────────────────────────────
-  // Companies Endpoints
-  // ─────────────────────────────────────
 
   async getCompanies(role = 'superuser') {
     return this.get('/companies', role);
@@ -179,10 +137,6 @@ class APIClient {
     return this.delete(`/companies/${id}`, role);
   }
 
-  // ─────────────────────────────────────
-  // Users Endpoints
-  // ─────────────────────────────────────
-
   async getUsers(companyId = null, role = 'admin') {
     const path = companyId ? `/users?companyId=${companyId}` : '/users';
     return this.get(path, role);
@@ -203,10 +157,6 @@ class APIClient {
   async deleteUser(id, role = 'admin') {
     return this.delete(`/users/${id}`, role);
   }
-
-  // ─────────────────────────────────────
-  // Customers Endpoints
-  // ─────────────────────────────────────
 
   async getCustomers(companyId = null, role = 'cashier') {
     const path = companyId ? `/customers?companyId=${companyId}` : '/customers';
@@ -232,10 +182,6 @@ class APIClient {
   async deleteCustomer(id, role = 'admin') {
     return this.delete(`/customers/${id}`, role);
   }
-
-  // ─────────────────────────────────────
-  // Products Endpoints
-  // ─────────────────────────────────────
 
   async getProducts(category = null, role = 'cashier') {
     const path = category ? `/products?category=${category}` : '/products';
@@ -266,10 +212,6 @@ class APIClient {
     return this.delete(`/products/${id}`, role);
   }
 
-  // ─────────────────────────────────────
-  // Inventory Endpoints
-  // ─────────────────────────────────────
-
   async getInventory(role = 'cashier') {
     return this.get('/inventory', role);
   }
@@ -294,10 +236,6 @@ class APIClient {
     return this.post('/inventory/adjust', data, role);
   }
 
-  // ─────────────────────────────────────
-  // Orders Endpoints
-  // ─────────────────────────────────────
-
   async getOrders(companyId = null, role = 'cashier') {
     const path = companyId ? `/orders?companyId=${companyId}` : '/orders';
     return this.get(path, role);
@@ -319,10 +257,6 @@ class APIClient {
     return this.delete(`/orders/${id}`, role);
   }
 
-  // ─────────────────────────────────────
-  // Bills Endpoints
-  // ─────────────────────────────────────
-
   async getBills(role = 'cashier') {
     return this.get('/orders/bills/all', role);
   }
@@ -335,10 +269,6 @@ class APIClient {
     return this.post('/orders/bills', data, role);
   }
 
-  // ─────────────────────────────────────
-  // Payments Endpoints
-  // ─────────────────────────────────────
-
   async getPayments(role = 'cashier') {
     return this.get('/orders/payments/all', role);
   }
@@ -350,10 +280,6 @@ class APIClient {
   async createPayment(data, role = 'cashier') {
     return this.post('/orders/payments', data, role);
   }
-
-  // ─────────────────────────────────────
-  // Deliveries Endpoints
-  // ─────────────────────────────────────
 
   async getDeliveries(status = null, role = 'deliveryops') {
     const path = status ? `/deliveries?status=${status}` : '/deliveries';
@@ -380,10 +306,6 @@ class APIClient {
     return this.delete(`/deliveries/${id}`, role);
   }
 
-  // ─────────────────────────────────────
-  // Returns Endpoints
-  // ─────────────────────────────────────
-
   async getReturns(status = null, role = 'returnhandler') {
     const path = status ? `/returns?status=${status}` : '/returns';
     return this.get(path, role);
@@ -405,10 +327,6 @@ class APIClient {
     return this.delete(`/returns/${id}`, role);
   }
 
-  // ─────────────────────────────────────
-  // Reports Endpoints
-  // ─────────────────────────────────────
-
   async getSalesReport(role = 'admin') {
     return this.get('/reports/sales', role);
   }
@@ -420,10 +338,6 @@ class APIClient {
   async getReturnsReport(role = 'admin') {
     return this.get('/reports/returns', role);
   }
-
-  // ─────────────────────────────────────
-  // Suppliers Endpoints
-  // ─────────────────────────────────────
 
   async getSuppliers(role = 'inventorymanager') {
     return this.get('/suppliers', role);

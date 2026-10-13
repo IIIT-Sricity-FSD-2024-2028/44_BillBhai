@@ -9,7 +9,10 @@ export default function CartSummary({ totals }) {
       </div>
       <div className="cf-row">
         <span>Discount</span>
-        <span id="discSpan" style={{ color: 'var(--green)' }}>{`- ${formatRupees(totals.discount)}`}</span>
+        <span
+          id="discSpan"
+          style={{ color: 'var(--green)' }}
+        >{`- ${formatRupees(totals.discount)}`}</span>
       </div>
       <div className="cf-tot">
         <span>Grand Total</span>

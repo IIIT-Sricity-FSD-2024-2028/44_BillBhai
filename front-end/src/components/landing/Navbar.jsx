@@ -41,18 +41,34 @@ export default function Navbar() {
         </HashLink>
         <div className={menuOpen ? 'nav-links open' : 'nav-links'} id="navLinks">
           {NAV_LINKS.map((link) => (
-            <HashLink key={link.href} href={link.href} className="nav-link" onClick={() => setMenuOpen(false)}>
+            <HashLink
+              key={link.href}
+              href={link.href}
+              className="nav-link"
+              onClick={() => setMenuOpen(false)}
+            >
               {link.label}
             </HashLink>
           ))}
         </div>
         <div className="nav-actions">
           <ThemeToggle />
-          <Link to="/login" className="btn btn-ghost" id="navSignInBtn">Sign In</Link>
-          <HashLink href="#cta" className="btn btn-primary" id="navPrimaryBtn">Get Started Free</HashLink>
+          <Link to="/login" className="btn btn-ghost" id="navSignInBtn">
+            Sign In
+          </Link>
+          <HashLink href="#cta" className="btn btn-primary" id="navPrimaryBtn">
+            Get Started Free
+          </HashLink>
         </div>
-        <button className="mobile-toggle" id="mobileToggle" aria-label="Toggle menu" onClick={() => setMenuOpen((open) => !open)}>
-          <span></span><span></span><span></span>
+        <button
+          className="mobile-toggle"
+          id="mobileToggle"
+          aria-label="Toggle menu"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
         </button>
       </div>
     </nav>

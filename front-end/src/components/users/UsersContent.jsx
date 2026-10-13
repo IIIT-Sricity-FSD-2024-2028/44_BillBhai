@@ -15,7 +15,15 @@ const SORT_OPTIONS = [
   { value: 'status', label: 'Status A-Z' },
 ];
 
-export const EMPTY_USER_FORM = { name: '', email: '', role: '', phone: '', username: '', password: '', status: 'Active' };
+export const EMPTY_USER_FORM = {
+  name: '',
+  email: '',
+  role: '',
+  phone: '',
+  username: '',
+  password: '',
+  status: 'Active',
+};
 
 export default function UsersContent({ onOpenModal }) {
   const { hasActionAccess, denyAction, activePlan } = useDashboard();
@@ -46,15 +54,19 @@ export default function UsersContent({ onOpenModal }) {
     }
     const u = users.find((item) => item.name === decodeUserToken(token));
     if (!u) return;
-    openModal('edit', {
-      ...EMPTY_USER_FORM,
-      name: u.name,
-      email: u.email || '',
-      role: u.role,
-      status: u.status,
-      phone: normalizeEditablePhone(u.phone || ''),
-      username: String(u.username || '').trim(),
-    }, true);
+    openModal(
+      'edit',
+      {
+        ...EMPTY_USER_FORM,
+        name: u.name,
+        email: u.email || '',
+        role: u.role,
+        status: u.status,
+        phone: normalizeEditablePhone(u.phone || ''),
+        username: String(u.username || '').trim(),
+      },
+      true,
+    );
   };
 
   const viewUser = (token) => {
@@ -103,14 +115,38 @@ export default function UsersContent({ onOpenModal }) {
     <>
       <PageHeader
         title="Users"
-        actions={canManage ? <button className="btn btn-primary" id="addUserBtnDyn" onClick={addUser}>+ Add User</button> : null}
+        actions={
+          canManage ? (
+            <button className="btn btn-primary" id="addUserBtnDyn" onClick={addUser}>
+              + Add User
+            </button>
+          ) : null
+        }
       />
       <section className="card" style={{ marginBottom: '14px' }}>
         <FilterToolbar
           filters={[
-            { id: 'usersRoleFilter', label: 'Role', value: role, onChange: setRole, options: [{ value: 'all', label: 'All roles' }, ...roleOptions] },
-            { id: 'usersStatusFilter', label: 'Status', value: status, onChange: setStatus, options: [{ value: 'all', label: 'All statuses' }, ...statusOptions] },
-            { id: 'usersSortSelect', label: 'Sort by', value: sortKey, onChange: setSortKey, options: SORT_OPTIONS },
+            {
+              id: 'usersRoleFilter',
+              label: 'Role',
+              value: role,
+              onChange: setRole,
+              options: [{ value: 'all', label: 'All roles' }, ...roleOptions],
+            },
+            {
+              id: 'usersStatusFilter',
+              label: 'Status',
+              value: status,
+              onChange: setStatus,
+              options: [{ value: 'all', label: 'All statuses' }, ...statusOptions],
+            },
+            {
+              id: 'usersSortSelect',
+              label: 'Sort by',
+              value: sortKey,
+              onChange: setSortKey,
+              options: SORT_OPTIONS,
+            },
           ]}
         />
       </section>

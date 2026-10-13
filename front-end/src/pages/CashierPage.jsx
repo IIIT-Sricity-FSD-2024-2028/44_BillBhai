@@ -30,8 +30,6 @@ import FulfillmentStep from '../components/cashier/FulfillmentStep.jsx';
 import PaymentStep from '../components/cashier/PaymentStep.jsx';
 import ContextMenu from '../components/cashier/ContextMenu.jsx';
 
-// React port of cashier.html + scripts/data.js, validation.js, ui.js, app.js.
-
 const EMPTY_CUSTOMER = {
   name: '',
   phone: '',
@@ -53,8 +51,6 @@ function hintFor(type, text) {
   return { className, text };
 }
 
-// Cart + discount move together: every cart change re-runs ui.js updateCartTotal(),
-// which re-derives an active promo discount from the new subtotal.
 function cartReducer(state, action) {
   let { cart, discount } = state;
   switch (action.type) {
@@ -65,7 +61,16 @@ function cartReducer(state, action) {
       if (cart.some((c) => c.cartId === cartId)) {
         cart = cart.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c));
       } else {
-        cart = [...cart, { cartId, id: product.id, name: `${product.name} (${opt.label})`, price: opt.price, qty: 1 }];
+        cart = [
+          ...cart,
+          {
+            cartId,
+            id: product.id,
+            name: `${product.name} (${opt.label})`,
+            price: opt.price,
+            qty: 1,
+          },
+        ];
       }
       break;
     }
@@ -96,7 +101,9 @@ export default function CashierPage() {
   const [step, setStep] = useState(1);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
   const [errors, setErrors] = useState(EMPTY_ERRORS);
-  const [lookupHint, setLookupHint] = useState(() => hintFor('info', getTerminalCopy(false).lookupInfo));
+  const [lookupHint, setLookupHint] = useState(() =>
+    hintFor('info', getTerminalCopy(false).lookupInfo),
+  );
   const currentCustomerProfile = useRef(null);
   const customerLookupRequestId = useRef(0);
 
@@ -117,7 +124,6 @@ export default function CashierPage() {
   const [outcome, setOutcome] = useState(null);
   const [menu, setMenu] = useState(HIDDEN_MENU);
 
-  // Terminal-specific copy only applies once app.js has booted (after DataStore.init()).
   const isCustomerTerminal = Boolean(session.isCustomerTerminal);
   const ct = booted && isCustomerTerminal;
 
@@ -155,7 +161,6 @@ export default function CashierPage() {
     setStep(1);
   }
 
-  // app.js DOMContentLoaded: DataStore.init() -> session copy -> UI.init().
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -177,7 +182,6 @@ export default function CashierPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store]);
 
-  // bindContextMenuGlobal(): any click or scroll hides the size picker.
   useEffect(() => {
     const hide = () => setMenu((m) => (m.open ? { ...m, open: false } : m));
     document.addEventListener('click', hide);
@@ -192,7 +196,6 @@ export default function CashierPage() {
     setMenu((m) => ({ ...m, x, y, measure: false }));
   }, []);
 
-  // ---- Step 1: customer details --------------------------------------------------
   function buildCustomerPayload() {
     const modeConfig = getCheckoutModeConfig(checkoutMode, isCustomerTerminal);
     return {
@@ -247,7 +250,14 @@ export default function CashierPage() {
       setLookupHint(hintFor('existing', copy.lookupExisting(profile.name)));
     } else {
       if (hadExistingProfile) {
-        setCustomer((c) => ({ ...c, email: '', address: '', notes: '', deliveryPartner: '', deliveryPartnerPhone: '' }));
+        setCustomer((c) => ({
+          ...c,
+          email: '',
+          address: '',
+          notes: '',
+          deliveryPartner: '',
+          deliveryPartnerPhone: '',
+        }));
         setCheckoutMode('takeaway_now');
       }
       setLookupHint(hintFor('new', copy.lookupNew));
@@ -277,7 +287,10 @@ export default function CashierPage() {
 
   function handleCustomerSubmit(e) {
     e.preventDefault();
-    const validation = validateCustomerStep({ ...buildCustomerPayload(), deliveryOption: 'pickup' });
+    const validation = validateCustomerStep({
+      ...buildCustomerPayload(),
+      deliveryOption: 'pickup',
+    });
     setErrors({
       name: validation.errors.name || '',
       phone: validation.errors.phone || '',
@@ -293,7 +306,6 @@ export default function CashierPage() {
     }
   }
 
-  // ---- Step 2: catalog + cart ----------------------------------------------------
   function handleSelectCategory(c) {
     setCategory(c);
     setCatClassesNormalized(true);
@@ -344,7 +356,6 @@ export default function CashierPage() {
     setStep(3);
   }
 
-  // ---- Step 3: fulfillment + checkout --------------------------------------------
   function buildCheckoutCustomerPayload() {
     const config = getCheckoutModeConfig(checkoutMode, isCustomerTerminal);
     const payload = buildCustomerPayload();
@@ -381,9 +392,11 @@ export default function CashierPage() {
         deliveryPartnerPhone: errs.deliveryPartnerPhone || '',
       });
       const hasCustomerFieldErrors = Boolean(errs.name || errs.phone || errs.email);
-      setModeError(errs.address || errs.deliveryPartnerPhone
-        ? 'Delivery needs valid details before payment.'
-        : 'Please complete customer details before payment.');
+      setModeError(
+        errs.address || errs.deliveryPartnerPhone
+          ? 'Delivery needs valid details before payment.'
+          : 'Please complete customer details before payment.',
+      );
       setStep(hasCustomerFieldErrors ? 1 : 3);
       return;
     }
@@ -393,7 +406,8 @@ export default function CashierPage() {
     let createdOrder = null;
     setCheckoutBusy(true);
     try {
-      createdOrder = (await runCheckout(store, { customer: customerPayload, cart, discount })) || null;
+      createdOrder =
+        (await runCheckout(store, { customer: customerPayload, cart, discount })) || null;
     } catch (error) {
       console.error('Checkout failed:', error);
       setModeError('Could not save this order right now. Please try again.');
@@ -404,9 +418,10 @@ export default function CashierPage() {
 
     if (createdOrder) {
       const config = getCheckoutModeConfig(customerPayload.checkoutMode, isCustomerTerminal);
-      const detailAddress = customerPayload.deliveryOption === 'delivery'
-        ? (customerPayload.address || 'Address to be confirmed')
-        : 'Counter pickup';
+      const detailAddress =
+        customerPayload.deliveryOption === 'delivery'
+          ? customerPayload.address || 'Address to be confirmed'
+          : 'Counter pickup';
       setOutcome({
         title: config.successTitle,
         subtitle: config.successSubtitle,
@@ -415,8 +430,14 @@ export default function CashierPage() {
           { label: 'Customer', value: createdOrder.customer || '-' },
           { label: 'Mode', value: config.summaryLabel },
           { label: 'Payment', value: createdOrder.paymentMethod || config.paymentMethod },
-          { label: 'Delivery Charges', value: `Rs ${Math.max(0, Number(createdOrder.deliveryCharge || 0)).toFixed(2)}` },
-          { label: 'Total', value: `Rs ${Math.max(0, Number(createdOrder.total || 0)).toFixed(2)}` },
+          {
+            label: 'Delivery Charges',
+            value: `Rs ${Math.max(0, Number(createdOrder.deliveryCharge || 0)).toFixed(2)}`,
+          },
+          {
+            label: 'Total',
+            value: `Rs ${Math.max(0, Number(createdOrder.total || 0)).toFixed(2)}`,
+          },
           { label: 'Destination', value: detailAddress },
         ],
       });
@@ -424,9 +445,12 @@ export default function CashierPage() {
     setStep(4);
   }
 
-  // ---- Render ----------------------------------------------------------------------
   const modeConfig = getCheckoutModeConfig(checkoutMode, isCustomerTerminal);
-  const totals = getCartTotals(cart, discount, getDeliveryChargeAmount(checkoutMode, checkoutSettings));
+  const totals = getCartTotals(
+    cart,
+    discount,
+    getDeliveryChargeAmount(checkoutMode, checkoutSettings),
+  );
   const hasItems = cart.length > 0;
 
   const stepCopy = {
@@ -459,10 +483,8 @@ export default function CashierPage() {
             onSubmit={handleCustomerSubmit}
           />
 
-          {/* STEP 2: POS Terminal Grid */}
           <div id="step-2-pos" className={`step-container${step === 2 ? ' active' : ''}`}>
             <div className="pos-layout">
-              {/* Products Area */}
               <div className="pos-main">
                 <div className="pos-controls">
                   <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
@@ -494,7 +516,9 @@ export default function CashierPage() {
                   onApply: handleApplyPromo,
                   onRemove: handleRemovePromo,
                 }}
-                goFulfillmentLabel={ct ? 'Continue to Fulfillment' : 'Continue to Fulfillment & Payment'}
+                goFulfillmentLabel={
+                  ct ? 'Continue to Fulfillment' : 'Continue to Fulfillment & Payment'
+                }
                 goFulfillmentDisabled={!hasItems}
                 onUpdateQty={(cartId, delta) => dispatchCart({ type: 'qty', cartId, delta })}
                 onGoFulfillment={handleGoFulfillment}
@@ -504,7 +528,9 @@ export default function CashierPage() {
 
           <FulfillmentStep
             active={step === 3}
-            heading={ct ? 'How would you like to receive this order?' : 'How should this order go out?'}
+            heading={
+              ct ? 'How would you like to receive this order?' : 'How should this order go out?'
+            }
             totals={totals}
             checkoutMode={checkoutMode}
             isDelivery={modeConfig.deliveryOption === 'delivery'}

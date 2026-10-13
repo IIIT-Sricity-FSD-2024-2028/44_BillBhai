@@ -1,6 +1,3 @@
-// List view of the notifications page: renderNotifications(filterState).
-// Stateless - `viewState` ({ status, category, sort }) is owned by the page and
-// the visible rows are derived here during render.
 import PageHeader from '../common/PageHeader.jsx';
 import { FilterSelect } from '../common/FilterToolbar.jsx';
 import NotificationRow from './NotificationRow.jsx';
@@ -20,7 +17,14 @@ const STATUS_FILTERS = [
 ];
 
 function SummaryStat({ label, value }) {
-  return <div className="stat-card"><div className="stat-info"><span className="stat-label">{label}</span><span className="stat-value">{value}</span></div></div>;
+  return (
+    <div className="stat-card">
+      <div className="stat-info">
+        <span className="stat-label">{label}</span>
+        <span className="stat-value">{value}</span>
+      </div>
+    </div>
+  );
 }
 
 export function filterAndSortNotifications(notifications, viewState) {
@@ -40,12 +44,23 @@ export function filterAndSortNotifications(notifications, viewState) {
     });
 }
 
-export default function NotificationsList({ notifications, roleKey, viewState, onViewStateChange, onMarkAllRead, onToggleRead, onOpen }) {
+export default function NotificationsList({
+  notifications,
+  roleKey,
+  viewState,
+  onViewStateChange,
+  onMarkAllRead,
+  onToggleRead,
+  onOpen,
+}) {
   const unreadCount = notifications.filter((item) => item.unread).length;
   const readCount = Math.max(0, notifications.length - unreadCount);
-  const actionableCount = notifications.filter((item) => item.unread || item.priorityRank >= 3).length;
-  const categoryOptions = Array.from(new Set(notifications.map((item) => item.category)))
-    .sort((a, b) => getNotificationCategoryLabel(a).localeCompare(getNotificationCategoryLabel(b)));
+  const actionableCount = notifications.filter(
+    (item) => item.unread || item.priorityRank >= 3,
+  ).length;
+  const categoryOptions = Array.from(new Set(notifications.map((item) => item.category))).sort(
+    (a, b) => getNotificationCategoryLabel(a).localeCompare(getNotificationCategoryLabel(b)),
+  );
   const rows = filterAndSortNotifications(notifications, viewState);
 
   const setView = (patch) => onViewStateChange({ ...viewState, ...patch });
@@ -54,7 +69,16 @@ export default function NotificationsList({ notifications, roleKey, viewState, o
     <>
       <PageHeader
         title="Notifications"
-        actions={<button className="btn btn-outline" id="markAllReadBtn" disabled={!unreadCount} onClick={onMarkAllRead}>Mark all as read</button>}
+        actions={
+          <button
+            className="btn btn-outline"
+            id="markAllReadBtn"
+            disabled={!unreadCount}
+            onClick={onMarkAllRead}
+          >
+            Mark all as read
+          </button>
+        }
       />
       <section className="stats-grid" style={{ marginBottom: '12px' }}>
         <SummaryStat label="Total" value={notifications.length} />
@@ -63,7 +87,10 @@ export default function NotificationsList({ notifications, roleKey, viewState, o
         <SummaryStat label="Actionable" value={actionableCount} />
       </section>
       <section className="card" style={{ marginBottom: '14px' }}>
-        <div className="card-bd table-toolbar" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+        <div
+          className="card-bd table-toolbar"
+          style={{ justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}
+        >
           <div className="chart-tabs">
             {STATUS_FILTERS.map((filter) => (
               <button
@@ -76,21 +103,41 @@ export default function NotificationsList({ notifications, roleKey, viewState, o
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '10px',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+            }}
+          >
             <div className="toolbar-group">
-              <label className="toolbar-label" htmlFor="notificationsCategoryFilter">Category</label>
+              <label className="toolbar-label" htmlFor="notificationsCategoryFilter">
+                Category
+              </label>
               <FilterSelect
                 id="notificationsCategoryFilter"
                 value={categoryOptions.includes(viewState.category) ? viewState.category : 'all'}
                 onChange={(category) => setView({ category })}
-                options={[{ value: 'all', label: 'All categories' }, ...categoryOptions.map((option) => ({ value: option, label: getNotificationCategoryLabel(option) }))]}
+                options={[
+                  { value: 'all', label: 'All categories' },
+                  ...categoryOptions.map((option) => ({
+                    value: option,
+                    label: getNotificationCategoryLabel(option),
+                  })),
+                ]}
               />
             </div>
             <div className="toolbar-group">
-              <label className="toolbar-label" htmlFor="notificationsSortSelect">Sort by</label>
+              <label className="toolbar-label" htmlFor="notificationsSortSelect">
+                Sort by
+              </label>
               <FilterSelect
                 id="notificationsSortSelect"
-                value={SORT_OPTIONS.some((o) => o.value === viewState.sort) ? viewState.sort : 'priority'}
+                value={
+                  SORT_OPTIONS.some((o) => o.value === viewState.sort) ? viewState.sort : 'priority'
+                }
                 onChange={(sort) => setView({ sort })}
                 options={SORT_OPTIONS}
               />
@@ -99,11 +146,22 @@ export default function NotificationsList({ notifications, roleKey, viewState, o
         </div>
       </section>
       <section className="card notification-shell" id="notificationCenter">
-        <div className="card-hd"><h3>{`${ROLE_LABELS[roleKey] || 'Team'} inbox`}</h3></div>
+        <div className="card-hd">
+          <h3>{`${ROLE_LABELS[roleKey] || 'Team'} inbox`}</h3>
+        </div>
         <div className="card-bd notification-list" style={{ padding: 0 }}>
-          {rows.length
-            ? rows.map((item) => <NotificationRow key={item.id} notification={item} onToggleRead={onToggleRead} onOpen={onOpen} />)
-            : <div className="notification-empty text-muted">No notifications match this view.</div>}
+          {rows.length ? (
+            rows.map((item) => (
+              <NotificationRow
+                key={item.id}
+                notification={item}
+                onToggleRead={onToggleRead}
+                onOpen={onOpen}
+              />
+            ))
+          ) : (
+            <div className="notification-empty text-muted">No notifications match this view.</div>
+          )}
         </div>
       </section>
     </>

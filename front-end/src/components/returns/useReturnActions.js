@@ -1,22 +1,28 @@
-// Port of window.raiseReturnRequest / editReturn / approveReturn / refundReturn /
-// rejectReturn (dashboard.js ~7083-7240). Returned as plain callbacks so the
-// page passes them down to rows as props.
 import { useDashboard, useReturns, useSession } from '../../lib/dashboard/hooks.js';
 import { buildBackendReturnPayload, updateReturnOnBackend } from '../../lib/dashboard/api.js';
 import { formatDate, getNextReturnId } from '../../lib/dashboard/helpers.js';
 
 export default function useReturnActions() {
   const {
-    inventory, returns, hasActionAccess, denyAction, openQuickForm, showToast, showMutationError,
-    updateCollection, renderPage,
+    inventory,
+    returns,
+    hasActionAccess,
+    denyAction,
+    openQuickForm,
+    showToast,
+    showMutationError,
+    updateCollection,
+    renderPage,
   } = useDashboard();
   const { userName } = useSession();
   const { create } = useReturns();
 
-  // The original mutated the found `item` in place (the backend-id helpers
-  // rewrite id/backendId). Here the helpers get a copy that is written back.
   const commit = (originalId, copy, patch, persist = true) => {
-    updateCollection('returns', (rows) => rows.map((r) => (r.id === originalId ? { ...copy, ...patch } : r)), { persist });
+    updateCollection(
+      'returns',
+      (rows) => rows.map((r) => (r.id === originalId ? { ...copy, ...patch } : r)),
+      { persist },
+    );
   };
 
   const runBackendUpdate = async (item, payload) => {
@@ -25,8 +31,8 @@ export default function useReturnActions() {
       await updateReturnOnBackend(copy, payload);
       return copy;
     } catch (error) {
-      // Keep id changes made before the failure (the original object was mutated too).
-      if (copy.id !== item.id || copy.backendId !== item.backendId) commit(item.id, copy, {}, false);
+      if (copy.id !== item.id || copy.backendId !== item.backendId)
+        commit(item.id, copy, {}, false);
       throw error;
     }
   };
@@ -36,12 +42,24 @@ export default function useReturnActions() {
       denyAction('Return request create');
       return;
     }
-    const productOptions = Array.from(new Set(
-      inventory.map((i) => String((i && i.name) || '').trim()).filter(Boolean),
-    ));
+    const productOptions = Array.from(
+      new Set(inventory.map((i) => String((i && i.name) || '').trim()).filter(Boolean)),
+    );
     const productField = productOptions.length
-      ? { name: 'product', label: 'Product', type: 'select', required: true, options: productOptions }
-      : { name: 'product', label: 'Product', type: 'text', required: true, placeholder: 'Product name' };
+      ? {
+          name: 'product',
+          label: 'Product',
+          type: 'select',
+          required: true,
+          options: productOptions,
+        }
+      : {
+          name: 'product',
+          label: 'Product',
+          type: 'text',
+          required: true,
+          placeholder: 'Product name',
+        };
     openQuickForm({
       title: 'Raise Return Request',
       submitLabel: 'Create',
@@ -49,8 +67,21 @@ export default function useReturnActions() {
         { name: 'oid', label: 'Order ID', type: 'text', required: true, placeholder: 'ORD-4821' },
         productField,
         { name: 'qty', label: 'Quantity', type: 'number', required: true, min: 1, step: 1 },
-        { name: 'reason', label: 'Reason', type: 'select', required: true, options: ['Damaged', 'Wrong Item', 'Expired', 'Stale'] },
-        { name: 'amount', label: 'Refund Amount', type: 'number', required: true, min: 0, step: 0.01 },
+        {
+          name: 'reason',
+          label: 'Reason',
+          type: 'select',
+          required: true,
+          options: ['Damaged', 'Wrong Item', 'Expired', 'Stale'],
+        },
+        {
+          name: 'amount',
+          label: 'Refund Amount',
+          type: 'number',
+          required: true,
+          min: 0,
+          step: 0.01,
+        },
       ],
       initialValues: { product: productOptions[0] || '', qty: 1, reason: 'Damaged', amount: 0 },
       onSubmit: async (values, closeModal) => {
@@ -70,8 +101,6 @@ export default function useReturnActions() {
             requestedBy: userName || 'Operator',
             updatedAt: formatDate(),
           };
-          // staffId: buildBackendReturnPayload falls back to currentUser.id || 'USR-005',
-          // the same value the original passed explicitly.
           const body = buildBackendReturnPayload(returnRecord, { orderId: returnRecord.oid });
           await create(body, {
             role: 'returnhandler',
@@ -83,7 +112,9 @@ export default function useReturnActions() {
                 id,
                 backendId: id,
                 orderId: String((created && created.orderId) || returnRecord.oid || '').trim(),
-                backendProduct: String((created && created.product) || returnRecord.product || '').trim(),
+                backendProduct: String(
+                  (created && created.product) || returnRecord.product || '',
+                ).trim(),
                 staffId: String((created && created.staffId) || body.staffId || 'USR-005').trim(),
                 returnType: String((created && created.returnType) || 'refund').trim() || 'refund',
               };
@@ -111,9 +142,28 @@ export default function useReturnActions() {
       title: `Edit Return - ${id}`,
       submitLabel: 'Save',
       fields: [
-        { name: 'status', label: 'Status', type: 'select', required: true, options: ['Pending', 'Under Review', 'Refunded', 'Rejected'] },
-        { name: 'reason', label: 'Reason', type: 'text', required: true, placeholder: 'Damaged / Wrong Item / ...' },
-        { name: 'amount', label: 'Refund Amount', type: 'number', required: true, min: 0, step: 0.01 },
+        {
+          name: 'status',
+          label: 'Status',
+          type: 'select',
+          required: true,
+          options: ['Pending', 'Under Review', 'Refunded', 'Rejected'],
+        },
+        {
+          name: 'reason',
+          label: 'Reason',
+          type: 'text',
+          required: true,
+          placeholder: 'Damaged / Wrong Item / ...',
+        },
+        {
+          name: 'amount',
+          label: 'Refund Amount',
+          type: 'number',
+          required: true,
+          min: 0,
+          step: 0.01,
+        },
       ],
       initialValues: {
         status: String(item.status || 'Pending').trim() || 'Pending',

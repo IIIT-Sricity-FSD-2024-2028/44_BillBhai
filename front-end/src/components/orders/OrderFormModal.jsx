@@ -17,11 +17,19 @@ const CHECKS = {
 };
 
 export default function OrderFormModal({ open, request, title, onClose, onSaved }) {
-  const { hasActionAccess, denyAction, inventory, apiRequest, showMutationError, showToast } = useDashboard();
+  const { hasActionAccess, denyAction, inventory, apiRequest, showMutationError, showToast } =
+    useDashboard();
   const { activeBusinessId } = useSession();
   const { rows: orders, setRows } = useOrders();
 
-  const [values, setValues] = useState({ orderId: '', customer: '', items: '', total: '', payment: '', status: 'Pending' });
+  const [values, setValues] = useState({
+    orderId: '',
+    customer: '',
+    items: '',
+    total: '',
+    payment: '',
+    status: 'Pending',
+  });
   const [errors, setErrors] = useState({});
   const [seenRequest, setSeenRequest] = useState(null);
 
@@ -53,7 +61,9 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
       status: effectiveSelectValue(STATUS_OPTIONS, values.status),
     };
     const nextErrors = {};
-    Object.keys(CHECKS).forEach((key) => { nextErrors[key] = !CHECKS[key](dom[key]); });
+    Object.keys(CHECKS).forEach((key) => {
+      nextErrors[key] = !CHECKS[key](dom[key]);
+    });
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) return;
 
@@ -74,35 +84,50 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
     const activeCompanyId = String(activeBusinessId || 'BIZ-101').trim() || 'BIZ-101';
     const activeUser = loadObject('currentUser', {});
     const fallbackProduct = inventory.find((item) => String((item && item.productId) || '').trim());
-    const fallbackProductId = String((fallbackProduct && fallbackProduct.productId) || 'P001').trim() || 'P001';
+    const fallbackProductId =
+      String((fallbackProduct && fallbackProduct.productId) || 'P001').trim() || 'P001';
     const totalItems = Math.max(1, Number(oData.items) || 1);
     const totalValue = Math.max(0, Number(oData.total) || 0);
 
     try {
       if (existingOrder && existingOrder.id) {
-        const backendOrder = await apiRequest(`/orders/${encodeURIComponent(String(existingOrder.id))}`, {
-          method: 'PUT',
-          body: {
-            status: oData.status,
-            paymentMethod: oData.payment,
-            customerName: oData.customer,
-            itemsCount: totalItems,
-            total: totalValue,
+        const backendOrder = await apiRequest(
+          `/orders/${encodeURIComponent(String(existingOrder.id))}`,
+          {
+            method: 'PUT',
+            body: {
+              status: oData.status,
+              paymentMethod: oData.payment,
+              customerName: oData.customer,
+              itemsCount: totalItems,
+              total: totalValue,
+            },
           },
-        });
+        );
         if (backendOrder && typeof backendOrder === 'object') {
           oData.customer = String(backendOrder.customerName || oData.customer).trim();
           oData.items = Math.max(0, Number(backendOrder.itemsCount || oData.items || totalItems));
           oData.total = Math.max(0, Number(backendOrder.total || oData.total));
           oData.payment = String(backendOrder.paymentMethod || oData.payment).trim();
           oData.status = String(backendOrder.status || oData.status).trim();
-          oData.date = backendOrder.orderDate ? formatBackendDate(backendOrder.orderDate) : oData.date;
+          oData.date = backendOrder.orderDate
+            ? formatBackendDate(backendOrder.orderDate)
+            : oData.date;
         }
       } else {
-        const customerRows = await apiRequest(`/customers?companyId=${encodeURIComponent(activeCompanyId)}`, { role: 'cashier' });
-        const normalizedName = String(oData.customer || '').trim().toLowerCase();
-        let customer = (Array.isArray(customerRows) ? customerRows : []).find((row) =>
-          String((row && row.name) || '').trim().toLowerCase() === normalizedName);
+        const customerRows = await apiRequest(
+          `/customers?companyId=${encodeURIComponent(activeCompanyId)}`,
+          { role: 'cashier' },
+        );
+        const normalizedName = String(oData.customer || '')
+          .trim()
+          .toLowerCase();
+        let customer = (Array.isArray(customerRows) ? customerRows : []).find(
+          (row) =>
+            String((row && row.name) || '')
+              .trim()
+              .toLowerCase() === normalizedName,
+        );
         if (!customer) {
           const generatedPhone = `9${Date.now().toString().slice(-9)}`;
           customer = await apiRequest('/customers', {
@@ -110,13 +135,16 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
             body: { companyId: activeCompanyId, name: oData.customer, mobileNo: generatedPhone },
           });
         }
-        const unitPrice = totalItems > 0 ? Number((totalValue / totalItems).toFixed(2)) : totalValue;
+        const unitPrice =
+          totalItems > 0 ? Number((totalValue / totalItems).toFixed(2)) : totalValue;
         const paymentToken = String(oData.payment || '').toLowerCase();
         const checkoutMode = paymentToken.includes('cod')
           ? 'cod_delivery'
-          : (paymentToken.includes('paid') || paymentToken.includes('upi') || paymentToken.includes('card')
+          : paymentToken.includes('paid') ||
+              paymentToken.includes('upi') ||
+              paymentToken.includes('card')
             ? 'prepaid_delivery'
-            : 'takeaway_now');
+            : 'takeaway_now';
         const orderType = checkoutMode === 'takeaway_now' ? 'pickup' : 'delivery';
 
         const createdOrder = await apiRequest('/orders', {
@@ -151,35 +179,109 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
   };
 
   return (
-    <Modal open={open} id="newOrderModal" title={title} onClose={onClose} closeButtonId="orderModalClose" closeButtonType={null}>
+    <Modal
+      open={open}
+      id="newOrderModal"
+      title={title}
+      onClose={onClose}
+      closeButtonId="orderModalClose"
+      closeButtonType={null}
+    >
       <form id="newOrderForm" noValidate onSubmit={handleSubmit}>
         <div className="modal-body">
-          <FormField label="Customer Name *" htmlFor="orderCustomer" error="Customer name is required" hasError={errors.customer}>
-            <input type="text" className={controlClass(errors.customer)} id="orderCustomer" placeholder="e.g. Rahul Sharma" required {...bind('customer')} />
+          <FormField
+            label="Customer Name *"
+            htmlFor="orderCustomer"
+            error="Customer name is required"
+            hasError={errors.customer}
+          >
+            <input
+              type="text"
+              className={controlClass(errors.customer)}
+              id="orderCustomer"
+              placeholder="e.g. Rahul Sharma"
+              required
+              {...bind('customer')}
+            />
           </FormField>
           <div className="form-row">
             <FormField label="Order ID" htmlFor="orderId" hint="Auto-generated">
-              <input type="text" className="form-control" id="orderId" placeholder="Auto-generated" readOnly value={values.orderId} />
+              <input
+                type="text"
+                className="form-control"
+                id="orderId"
+                placeholder="Auto-generated"
+                readOnly
+                value={values.orderId}
+              />
             </FormField>
-            <FormField label="No. of Items *" htmlFor="orderItems" error="Enter number of items" hasError={errors.items}>
-              <input type="number" className={controlClass(errors.items)} id="orderItems" placeholder="1" min="1" step="1" required {...bind('items')} />
+            <FormField
+              label="No. of Items *"
+              htmlFor="orderItems"
+              error="Enter number of items"
+              hasError={errors.items}
+            >
+              <input
+                type="number"
+                className={controlClass(errors.items)}
+                id="orderItems"
+                placeholder="1"
+                min="1"
+                step="1"
+                required
+                {...bind('items')}
+              />
             </FormField>
           </div>
           <div className="form-row">
-            <FormField label="Total Amount (₹) *" htmlFor="orderTotal" error="Enter a valid amount" hasError={errors.total}>
-              <input type="number" className={controlClass(errors.total)} id="orderTotal" placeholder="0.00" min="0" step="0.01" required {...bind('total')} />
+            <FormField
+              label="Total Amount (₹) *"
+              htmlFor="orderTotal"
+              error="Enter a valid amount"
+              hasError={errors.total}
+            >
+              <input
+                type="number"
+                className={controlClass(errors.total)}
+                id="orderTotal"
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                required
+                {...bind('total')}
+              />
             </FormField>
-            <FormField label="Payment Method *" htmlFor="orderPayment" error="Select payment method" hasError={errors.payment}>
-              <LegacySelect className={controlClass(errors.payment)} id="orderPayment" required options={PAYMENT_OPTIONS} {...bind('payment')} />
+            <FormField
+              label="Payment Method *"
+              htmlFor="orderPayment"
+              error="Select payment method"
+              hasError={errors.payment}
+            >
+              <LegacySelect
+                className={controlClass(errors.payment)}
+                id="orderPayment"
+                required
+                options={PAYMENT_OPTIONS}
+                {...bind('payment')}
+              />
             </FormField>
           </div>
           <FormField label="Order Status" htmlFor="orderStatus">
-            <LegacySelect className="form-control" id="orderStatus" options={STATUS_OPTIONS} {...bind('status')} />
+            <LegacySelect
+              className="form-control"
+              id="orderStatus"
+              options={STATUS_OPTIONS}
+              {...bind('status')}
+            />
           </FormField>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn btn-outline" id="orderModalCancel" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">Create Order</button>
+          <button type="button" className="btn btn-outline" id="orderModalCancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary">
+            Create Order
+          </button>
         </div>
       </form>
     </Modal>

@@ -3,20 +3,23 @@ import useReveal from './useReveal.js';
 
 const TESTIMONIALS = [
   {
-    quote: 'BillBhai transformed how we handle billing. What used to take 15 minutes per invoice now takes seconds. The inventory tracking alone saved us lakhs.',
+    quote:
+      'BillBhai transformed how we handle billing. What used to take 15 minutes per invoice now takes seconds. The inventory tracking alone saved us lakhs.',
     avatar: 'RS',
     name: 'Rahul Sharma',
     role: 'Owner, Sharma Electronics',
   },
   {
-    quote: 'We switched from paper billing to BillBhai and saw a 40% increase in order accuracy. The analytics dashboard gives me insights I never had before.',
+    quote:
+      'We switched from paper billing to BillBhai and saw a 40% increase in order accuracy. The analytics dashboard gives me insights I never had before.',
     avatar: 'PP',
     name: 'Priya Patel',
     role: 'Manager, FreshMart Groceries',
     featured: true,
   },
   {
-    quote: 'The delivery tracking feature is a game-changer. Our customers love the real-time updates, and returns handling has become completely painless.',
+    quote:
+      'The delivery tracking feature is a game-changer. Our customers love the real-time updates, and returns handling has become completely painless.',
     avatar: 'AK',
     name: 'Amit Kumar',
     role: 'Founder, QuickDrop Logistics',

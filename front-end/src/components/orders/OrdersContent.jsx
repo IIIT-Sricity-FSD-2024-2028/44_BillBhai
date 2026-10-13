@@ -4,7 +4,11 @@ import FilterToolbar from '../common/FilterToolbar.jsx';
 import OrdersTable, { ORDERS_EMPTY_MESSAGE } from './OrdersTable.jsx';
 import { useDashboard, useOrders } from '../../lib/dashboard/hooks.js';
 import { getState } from '../../lib/dashboard/store.js';
-import { getNextOrderId, normalizeOrderStatus, parseOrderDate } from '../../lib/dashboard/helpers.js';
+import {
+  getNextOrderId,
+  normalizeOrderStatus,
+  parseOrderDate,
+} from '../../lib/dashboard/helpers.js';
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
@@ -34,18 +38,22 @@ function sortRows(sortKey) {
 }
 
 function applyTablePatches(entries, patches) {
-  const firstCell = (entry) => (entry.kind === 'empty' ? ORDERS_EMPTY_MESSAGE : String(entry.order.id));
+  const firstCell = (entry) =>
+    entry.kind === 'empty' ? ORDERS_EMPTY_MESSAGE : String(entry.order.id);
   return patches.reduce((rows, patch) => {
     if (patch.type === 'delete') return rows.filter((entry) => firstCell(entry) !== patch.id);
     let last = -1;
-    rows.forEach((entry, i) => { if (firstCell(entry) === patch.oid) last = i; });
+    rows.forEach((entry, i) => {
+      if (firstCell(entry) === patch.oid) last = i;
+    });
     const saved = { kind: 'saved', order: patch.order };
     return last !== -1 ? rows.map((entry, i) => (i === last ? saved : entry)) : [saved, ...rows];
   }, entries);
 }
 
 export default function OrdersContent({ patches, onResetPatches, onTablePatch, onOpenModal }) {
-  const { orders, hasActionAccess, hasOrderDeleteAccess, denyAction, openConfirm, showToast } = useDashboard();
+  const { orders, hasActionAccess, hasOrderDeleteAccess, denyAction, openConfirm, showToast } =
+    useDashboard();
   const { remove } = useOrders();
 
   const [orderRows] = useState(() => buildOrderRows(orders));
@@ -53,7 +61,9 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
   const [payment, setPayment] = useState('all');
   const [sortKey, setSortKey] = useState('newest');
 
-  useLayoutEffect(() => { onResetPatches(); }, []);
+  useLayoutEffect(() => {
+    onResetPatches();
+  }, []);
 
   const withReset = (setter) => (value) => {
     setter(value);
@@ -61,7 +71,9 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
   };
 
   const statusOptions = Array.from(new Set(orderRows.map((item) => item.normalizedStatus))).sort();
-  const paymentOptions = Array.from(new Set(orderRows.map((item) => item.normalizedPayment))).sort();
+  const paymentOptions = Array.from(
+    new Set(orderRows.map((item) => item.normalizedPayment)),
+  ).sort();
 
   const filtered = orderRows
     .filter((item) => {
@@ -70,7 +82,9 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
       return true;
     })
     .sort(sortRows(sortKey));
-  const baseEntries = filtered.length ? filtered.map((order) => ({ kind: 'row', order })) : [{ kind: 'empty' }];
+  const baseEntries = filtered.length
+    ? filtered.map((order) => ({ kind: 'row', order }))
+    : [{ kind: 'empty' }];
   const entries = applyTablePatches(baseEntries, patches);
 
   const canEdit = hasActionAccess('orders');
@@ -83,7 +97,14 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
     }
     onOpenModal({
       edit: false,
-      values: { orderId: getNextOrderId(orders), customer: '', items: '', total: '', payment: '', status: 'Pending' },
+      values: {
+        orderId: getNextOrderId(orders),
+        customer: '',
+        items: '',
+        total: '',
+        payment: '',
+        status: 'Pending',
+      },
     });
   };
 
@@ -130,18 +151,48 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
     <>
       <PageHeader
         title="Orders"
-        actions={canEdit ? <button className="btn btn-primary" id="newOrderBtnDyn" onClick={openNewOrder}>+ New Order</button> : null}
+        actions={
+          canEdit ? (
+            <button className="btn btn-primary" id="newOrderBtnDyn" onClick={openNewOrder}>
+              + New Order
+            </button>
+          ) : null
+        }
       />
       <section className="card" style={{ marginBottom: '14px' }}>
         <FilterToolbar
           filters={[
-            { id: 'ordersStatusFilter', label: 'Status', value: status, onChange: withReset(setStatus), options: [{ value: 'all', label: 'All statuses' }, ...statusOptions] },
-            { id: 'ordersPaymentFilter', label: 'Payment', value: payment, onChange: withReset(setPayment), options: [{ value: 'all', label: 'All payments' }, ...paymentOptions] },
-            { id: 'ordersSortSelect', label: 'Sort by', value: sortKey, onChange: withReset(setSortKey), options: SORT_OPTIONS },
+            {
+              id: 'ordersStatusFilter',
+              label: 'Status',
+              value: status,
+              onChange: withReset(setStatus),
+              options: [{ value: 'all', label: 'All statuses' }, ...statusOptions],
+            },
+            {
+              id: 'ordersPaymentFilter',
+              label: 'Payment',
+              value: payment,
+              onChange: withReset(setPayment),
+              options: [{ value: 'all', label: 'All payments' }, ...paymentOptions],
+            },
+            {
+              id: 'ordersSortSelect',
+              label: 'Sort by',
+              value: sortKey,
+              onChange: withReset(setSortKey),
+              options: SORT_OPTIONS,
+            },
           ]}
         />
       </section>
-      <OrdersTable rows={entries} canEdit={canEdit} canDelete={canDelete} onEdit={editOrder} onDelete={deleteOrder} />
+      <OrdersTable
+        rows={entries}
+        canEdit={canEdit}
+        canDelete={canDelete}
+        onEdit={editOrder}
+        onDelete={deleteOrder}
+      />
     </>
   );
 }

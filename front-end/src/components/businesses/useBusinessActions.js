@@ -1,10 +1,3 @@
-// Port of the business actions in dashboard.js (window.renderBusinessesHome,
-// openBusinessDetails, openBusinessAdminDashboard, addBusiness, editBusiness,
-// deleteBusiness, add/edit/deleteBusinessUser|Store|Payment) and the helpers
-// getNextBusinessId / recalcBusinessDerivedFields / syncBusinessSnapshotToBackend.
-//
-// Business mutations in the original only called saveList('bb_businesses')
-// (no persistOperationalData), so every store update here uses { persist: false }.
 import { useNavigate } from 'react-router-dom';
 import { useBusinesses, useDashboard } from '../../lib/dashboard/hooks.js';
 import { setActiveBusiness } from '../../lib/dashboard/session.js';
@@ -23,40 +16,84 @@ const BUSINESS_FIELDS = [
   { name: 'adminName', label: 'Admin Name', type: 'text', required: true },
   { name: 'type', label: 'Business Type', type: 'text', required: true },
   { name: 'email', label: 'Business Email', type: 'email', required: true },
-  { name: 'phone', label: 'Business Phone', type: 'tel', required: true, maxLength: 10, inputMode: 'numeric' },
-  { name: 'tenureMonths', label: 'Using BillBhai (Months)', type: 'number', required: true, min: 0 },
+  {
+    name: 'phone',
+    label: 'Business Phone',
+    type: 'tel',
+    required: true,
+    maxLength: 10,
+    inputMode: 'numeric',
+  },
+  {
+    name: 'tenureMonths',
+    label: 'Using BillBhai (Months)',
+    type: 'number',
+    required: true,
+    min: 0,
+  },
   { name: 'storesCount', label: 'Stores Count', type: 'number', required: true, min: 0 },
   { name: 'profit', label: 'Profit', type: 'number', required: true, min: 0, step: 0.01 },
   { name: 'paymentDue', label: 'Payment Due', type: 'number', required: true, min: 0, step: 0.01 },
-  { name: 'status', label: 'Status', type: 'select', required: true, options: ['Active', 'Trial', 'Paused'] },
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: ['Active', 'Trial', 'Paused'],
+  },
   { name: 'productsPlan', label: 'Products Plan', type: 'text', required: true },
 ];
 
 const USER_FIELDS = [
   { name: 'name', label: 'User Name', type: 'text', required: true },
-  { name: 'role', label: 'Role', type: 'select', required: true, options: ['Admin', 'Cashier', 'Inventory Manager', 'Return Handler', 'Delivery Ops'] },
-  { name: 'status', label: 'Status', type: 'select', required: true, options: ['Active', 'Inactive'] },
+  {
+    name: 'role',
+    label: 'Role',
+    type: 'select',
+    required: true,
+    options: ['Admin', 'Cashier', 'Inventory Manager', 'Return Handler', 'Delivery Ops'],
+  },
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: ['Active', 'Inactive'],
+  },
 ];
 
 const STORE_FIELDS = [
   { name: 'code', label: 'Store Code', type: 'text', required: true },
   { name: 'city', label: 'City', type: 'text', required: true },
-  { name: 'status', label: 'Status', type: 'select', required: true, options: ['Active', 'Maintenance', 'Inactive'] },
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: ['Active', 'Maintenance', 'Inactive'],
+  },
 ];
 
 const PAYMENT_FIELDS = [
   { name: 'month', label: 'Month', type: 'text', required: true },
   { name: 'amount', label: 'Amount', type: 'number', required: true, min: 0, step: 0.01 },
-  { name: 'status', label: 'Status', type: 'select', required: true, options: ['Paid', 'Partial', 'Due'] },
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: ['Paid', 'Partial', 'Due'],
+  },
 ];
 
 export function getNextBusinessId(businesses) {
-  const nums = businesses.map((b) => parseInt(String(b.id || '').replace('BIZ-', ''), 10)).filter((n) => !Number.isNaN(n));
+  const nums = businesses
+    .map((b) => parseInt(String(b.id || '').replace('BIZ-', ''), 10))
+    .filter((n) => !Number.isNaN(n));
   const next = nums.length ? Math.max(...nums) + 1 : 101;
   return `BIZ-${next}`;
 }
 
-/** recalcBusinessDerivedFields(b), returning a new record. */
 export function recalcBusinessDerivedFields(b) {
   const paymentEntries = Array.isArray(b.payments) ? b.payments : [];
   return {
@@ -68,14 +105,16 @@ export function recalcBusinessDerivedFields(b) {
   };
 }
 
-/**
- * @param {{ showDetails(id: string): void }} view  switches the page to the
- *   business details view (renderBusinessDetails).
- */
 export default function useBusinessActions({ showDetails }) {
   const navigate = useNavigate();
   const {
-    hasActionAccess, denyAction, showToast, showMutationError, openQuickForm, openConfirm, renderPage,
+    hasActionAccess,
+    denyAction,
+    showToast,
+    showMutationError,
+    openQuickForm,
+    openConfirm,
+    renderPage,
   } = useDashboard();
   const { rows: businesses, create, update, remove } = useBusinesses();
 
@@ -92,13 +131,17 @@ export default function useBusinessActions({ showDetails }) {
   // syncBusinessSnapshotToBackend + saveBusinessAndRefresh for one business.
   const saveSnapshot = async (next) => {
     const business = recalcBusinessDerivedFields(next);
-    await update(business.id, {
-      users: Array.isArray(business.users) ? business.users : [],
-      stores: Array.isArray(business.stores) ? business.stores : [],
-      payments: Array.isArray(business.payments) ? business.payments : [],
-      storesCount: Number(business.storesCount || 0),
-      paymentDue: Number(business.paymentDue || 0),
-    }, { ...SUPERUSER, apply: () => business });
+    await update(
+      business.id,
+      {
+        users: Array.isArray(business.users) ? business.users : [],
+        stores: Array.isArray(business.stores) ? business.stores : [],
+        payments: Array.isArray(business.payments) ? business.payments : [],
+        storesCount: Number(business.storesCount || 0),
+        paymentDue: Number(business.paymentDue || 0),
+      },
+      { ...SUPERUSER, apply: () => business },
+    );
     showDetails(business.id);
   };
 
@@ -129,7 +172,14 @@ export default function useBusinessActions({ showDetails }) {
       title: 'Add New Business',
       submitLabel: 'Create Business',
       fields: BUSINESS_FIELDS,
-      initialValues: { status: 'Active', productsPlan: 'Billing Starter', tenureMonths: 1, storesCount: 1, profit: 0, paymentDue: 0 },
+      initialValues: {
+        status: 'Active',
+        productsPlan: 'Billing Starter',
+        tenureMonths: 1,
+        storesCount: 1,
+        profit: 0,
+        paymentDue: 0,
+      },
       onSubmit: async (values, closeModal) => {
         if (!isValidEmailAddress(values.email)) {
           showToast('Please enter a valid email.');
@@ -159,25 +209,28 @@ export default function useBusinessActions({ showDetails }) {
           payments: [{ month: 'Mar 2026', amount: 0, status: 'Due' }],
         };
         try {
-          await create({
-            name: record.name,
-            owner: record.owner,
-            adminName: record.adminName,
-            type: record.type,
-            email: record.email,
-            phone: record.phone,
-            productsPlan: record.productsPlan,
-            tenureMonths: Number(record.tenureMonths),
-            storesCount: Number(record.storesCount),
-          }, {
-            ...SUPERUSER,
-            prepend: true,
-            toRow: (created) => ({
-              ...record,
-              id: (created && created.id) || record.id,
-              status: (created && created.status) || record.status,
-            }),
-          });
+          await create(
+            {
+              name: record.name,
+              owner: record.owner,
+              adminName: record.adminName,
+              type: record.type,
+              email: record.email,
+              phone: record.phone,
+              productsPlan: record.productsPlan,
+              tenureMonths: Number(record.tenureMonths),
+              storesCount: Number(record.storesCount),
+            },
+            {
+              ...SUPERUSER,
+              prepend: true,
+              toRow: (created) => ({
+                ...record,
+                id: (created && created.id) || record.id,
+                status: (created && created.status) || record.status,
+              }),
+            },
+          );
         } catch (error) {
           showMutationError('Business create', error);
           return;
@@ -223,25 +276,28 @@ export default function useBusinessActions({ showDetails }) {
           productsPlan: String(values.productsPlan).trim(),
         };
         try {
-          await update(existing.id, {
-            name: updated.name,
-            owner: updated.owner,
-            adminName: updated.adminName,
-            type: updated.type,
-            email: updated.email,
-            phone: updated.phone,
-            productsPlan: updated.productsPlan,
-            tenureMonths: Number(updated.tenureMonths),
-            storesCount: Number(updated.storesCount),
-            profit: Number(updated.profit),
-            paymentDue: Number(updated.paymentDue),
-            status: updated.status,
-          }, { ...SUPERUSER, apply: () => updated });
+          await update(
+            existing.id,
+            {
+              name: updated.name,
+              owner: updated.owner,
+              adminName: updated.adminName,
+              type: updated.type,
+              email: updated.email,
+              phone: updated.phone,
+              productsPlan: updated.productsPlan,
+              tenureMonths: Number(updated.tenureMonths),
+              storesCount: Number(updated.storesCount),
+              profit: Number(updated.profit),
+              paymentDue: Number(updated.paymentDue),
+              status: updated.status,
+            },
+            { ...SUPERUSER, apply: () => updated },
+          );
         } catch (error) {
           showMutationError('Business update', error);
           return;
         }
-        // The original always switched to the details view after an edit.
         showDetails(updated.id);
         closeModal();
         showToast(`Business "${updated.name}" updated successfully.`);
@@ -258,7 +314,6 @@ export default function useBusinessActions({ showDetails }) {
       message: `Delete Business ${existing.name}?`,
       confirmLabel: 'Delete',
       onConfirm: async () => {
-        // Errors propagate: the confirm dialog shows "Action failed" and stays open.
         await remove(id, SUPERUSER);
         renderPage();
         showToast(`Business "${existing.name}" deleted.`);
@@ -305,7 +360,10 @@ export default function useBusinessActions({ showDetails }) {
         initialValues: item,
         onSubmit: async (values, closeModal) => {
           try {
-            await saveSnapshot({ ...business, [key]: list.map((x, i) => (i === index ? labels.toItem(values) : x)) });
+            await saveSnapshot({
+              ...business,
+              [key]: list.map((x, i) => (i === index ? labels.toItem(values) : x)),
+            });
           } catch (error) {
             showMutationError(`${labels.entity} update`, error);
             return;
@@ -348,9 +406,17 @@ export default function useBusinessActions({ showDetails }) {
       added: 'Business user added.',
       updated: 'Business user updated.',
       deleted: 'Business user deleted.',
-      toItem: (v) => ({ name: String(v.name).trim(), role: String(v.role).trim(), status: String(v.status).trim() }),
+      toItem: (v) => ({
+        name: String(v.name).trim(),
+        role: String(v.role).trim(),
+        status: String(v.status).trim(),
+      }),
     },
-    addForm: { title: 'Add Business User', submitLabel: 'Add User', initialValues: () => ({ role: 'Cashier', status: 'Active' }) },
+    addForm: {
+      title: 'Add Business User',
+      submitLabel: 'Add User',
+      initialValues: () => ({ role: 'Cashier', status: 'Active' }),
+    },
     editTitle: (u) => `Edit User - ${u.name}`,
     deleteConfirm: { title: 'Delete Business User', message: (u) => `Delete user ${u.name}?` },
   });
@@ -363,7 +429,11 @@ export default function useBusinessActions({ showDetails }) {
       added: 'Store added.',
       updated: 'Store updated.',
       deleted: 'Store deleted.',
-      toItem: (v) => ({ code: String(v.code).trim(), city: String(v.city).trim(), status: String(v.status).trim() }),
+      toItem: (v) => ({
+        code: String(v.code).trim(),
+        city: String(v.city).trim(),
+        status: String(v.status).trim(),
+      }),
     },
     addForm: {
       title: 'Add Store',
@@ -382,11 +452,22 @@ export default function useBusinessActions({ showDetails }) {
       added: 'Payment entry added.',
       updated: 'Payment entry updated.',
       deleted: 'Payment entry deleted.',
-      toItem: (v) => ({ month: String(v.month).trim(), amount: Number(v.amount), status: String(v.status).trim() }),
+      toItem: (v) => ({
+        month: String(v.month).trim(),
+        amount: Number(v.amount),
+        status: String(v.status).trim(),
+      }),
     },
-    addForm: { title: 'Add Payment Entry', submitLabel: 'Add Payment', initialValues: () => ({ month: 'Apr 2026', amount: 0, status: 'Due' }) },
+    addForm: {
+      title: 'Add Payment Entry',
+      submitLabel: 'Add Payment',
+      initialValues: () => ({ month: 'Apr 2026', amount: 0, status: 'Due' }),
+    },
     editTitle: (p) => `Edit Payment - ${p.month}`,
-    deleteConfirm: { title: 'Delete Payment Entry', message: (p) => `Delete payment record ${p.month}?` },
+    deleteConfirm: {
+      title: 'Delete Payment Entry',
+      message: (p) => `Delete payment record ${p.month}?`,
+    },
   });
 
   return {

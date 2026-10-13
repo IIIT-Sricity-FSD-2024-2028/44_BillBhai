@@ -1,5 +1,3 @@
-// Same-page `#section` links scroll smoothly with an 80px navbar offset.
-// `href="#"` has no target, so (as in landing.js) the browser default runs.
 export function smoothScrollToHash(event) {
   const href = event.currentTarget.getAttribute('href');
   if (!href || href === '#') return;

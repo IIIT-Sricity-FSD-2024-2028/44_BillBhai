@@ -25,7 +25,9 @@ export default function BrandHeader() {
   return (
     <div className="brand-header">
       <img src={logo} alt="BillBhai Logo" className="brand-logo-img" />
-      <p className="brand-subtitle" id="brandSubtitle">{subtitle}</p>
+      <p className="brand-subtitle" id="brandSubtitle">
+        {subtitle}
+      </p>
     </div>
   );
 }

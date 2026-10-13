@@ -26,11 +26,22 @@ export default function OrdersPage() {
     <DashboardLayout
       page="orders"
       toast="Order created successfully!"
-      afterMain={(
-        <OrderFormModal open={modalOpen} request={modalRequest} title={modalTitle} onClose={closeModal} onSaved={onSaved} />
-      )}
+      afterMain={
+        <OrderFormModal
+          open={modalOpen}
+          request={modalRequest}
+          title={modalTitle}
+          onClose={closeModal}
+          onSaved={onSaved}
+        />
+      }
     >
-      <OrdersContent patches={tablePatches} onResetPatches={resetPatches} onTablePatch={addPatch} onOpenModal={openModal} />
+      <OrdersContent
+        patches={tablePatches}
+        onResetPatches={resetPatches}
+        onTablePatch={addPatch}
+        onOpenModal={openModal}
+      />
     </DashboardLayout>
   );
 }

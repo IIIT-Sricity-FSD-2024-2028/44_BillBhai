@@ -1,20 +1,21 @@
 // Pure helpers shared by the Delivery page and the Delivery Ops dashboard.
 import { normalizeDeliveryStatus } from '../../lib/dashboard/helpers.js';
 
-/** The `counts` reduce from renderDelivery() / renderDeliveryOpsDashboard(). */
 export function getDeliveryCounts(view) {
-  return view.reduce((acc, d) => {
-    acc.total += 1;
-    if (d.status === 'Delivered') acc.delivered += 1;
-    else if (d.status === 'In Transit') acc.inTransit += 1;
-    else if (d.status === 'Failed') acc.failed += 1;
-    else acc.pending += 1;
-    if (d.partner === 'Unassigned') acc.unassigned += 1;
-    return acc;
-  }, { total: 0, delivered: 0, inTransit: 0, pending: 0, failed: 0, unassigned: 0 });
+  return view.reduce(
+    (acc, d) => {
+      acc.total += 1;
+      if (d.status === 'Delivered') acc.delivered += 1;
+      else if (d.status === 'In Transit') acc.inTransit += 1;
+      else if (d.status === 'Failed') acc.failed += 1;
+      else acc.pending += 1;
+      if (d.partner === 'Unassigned') acc.unassigned += 1;
+      return acc;
+    },
+    { total: 0, delivered: 0, inTransit: 0, pending: 0, failed: 0, unassigned: 0 },
+  );
 }
 
-/** Data half of initDeliveryCharts() (reads the raw deliveries, not the view). */
 export function getDeliveryChartData(deliveries) {
   const statusCounts = { delivered: 0, inTransit: 0, pending: 0, failed: 0 };
   const partnerCounts = new Map();

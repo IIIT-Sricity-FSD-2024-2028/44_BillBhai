@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 
-// landing.js added `reveal` to these blocks and `visible` once they scrolled
-// into view (one-shot IntersectionObserver). Returns [ref, extra class names].
 export default function useReveal() {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);

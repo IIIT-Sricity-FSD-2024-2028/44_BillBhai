@@ -1,7 +1,3 @@
-// Port of scripts/data.js - core POS data store.
-// Loads the POS catalog from the backend and keeps transient session state
-// in memory. One store is created per CashierPage mount (createDataStore()).
-
 const API_BASE = 'http://localhost:4000/api';
 const CUSTOMER_SESSION_NOTIFICATION_KEY = 'bb_customer_session_notifications';
 const LIVE_SYNC_KEY = 'bb_live_sync';
@@ -33,12 +29,27 @@ export function normalizePhone(value) {
 }
 
 function normalizeRoleKey(role) {
-  return String(role || '').toLowerCase().replace(/\s+/g, '');
+  return String(role || '')
+    .toLowerCase()
+    .replace(/\s+/g, '');
 }
 
 function formatOrderMoment() {
   const now = new Date();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   const hh = String(now.getHours()).padStart(2, '0');
   const mm = String(now.getMinutes()).padStart(2, '0');
   return `${now.getDate()} ${months[now.getMonth()]} ${hh}:${mm}`;
@@ -64,7 +75,9 @@ export function getSessionContext() {
     businessName: businessContext.name,
     userName: storedName || (isCustomerTerminal ? 'Self Checkout' : 'Cashier'),
     roleKey,
-    roleLabel: isCustomerTerminal ? 'Self Checkout' : (String(localStorage.getItem('userRole') || 'Cashier').trim() || 'Cashier'),
+    roleLabel: isCustomerTerminal
+      ? 'Self Checkout'
+      : String(localStorage.getItem('userRole') || 'Cashier').trim() || 'Cashier',
     isCustomerTerminal,
   };
 }
@@ -81,16 +94,23 @@ export function searchCatalog(catalog, query, category) {
   }
   if (query) {
     const normalizedQuery = query.toLowerCase();
-    results = results.filter((product) =>
-      String(product.name || '').toLowerCase().includes(normalizedQuery) ||
-      String(product.category || '').toLowerCase().includes(normalizedQuery)
+    results = results.filter(
+      (product) =>
+        String(product.name || '')
+          .toLowerCase()
+          .includes(normalizedQuery) ||
+        String(product.category || '')
+          .toLowerCase()
+          .includes(normalizedQuery),
     );
   }
   return results;
 }
 
 export async function applyPromo(code, subtotal) {
-  const upper = String(code || '').trim().toUpperCase();
+  const upper = String(code || '')
+    .trim()
+    .toUpperCase();
   const safeSubtotal = Math.max(0, Number(subtotal) || 0);
   if (!upper) return { active: false, discount: 0, error: 'Enter a promo code.' };
 
@@ -177,17 +197,23 @@ export function createDataStore() {
 
     try {
       const userRole = localStorage.getItem('userRole') || 'cashier';
-      const companyId = String(localStorage.getItem('activeBusinessId') || 'BIZ-101').trim() || 'BIZ-101';
-      const response = await fetch(`${API_BASE}/customers?companyId=${encodeURIComponent(companyId)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-role': userRole,
+      const companyId =
+        String(localStorage.getItem('activeBusinessId') || 'BIZ-101').trim() || 'BIZ-101';
+      const response = await fetch(
+        `${API_BASE}/customers?companyId=${encodeURIComponent(companyId)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-role': userRole,
+          },
         },
-      });
+      );
       if (!response.ok) return null;
       const rows = await response.json();
-      const matched = (Array.isArray(rows) ? rows : []).filter((row) => normalizePhone(row && row.mobileNo) === normalized);
+      const matched = (Array.isArray(rows) ? rows : []).filter(
+        (row) => normalizePhone(row && row.mobileNo) === normalized,
+      );
       if (!matched.length) return null;
 
       const mapped = mapBackendCustomersToLookup(matched);
@@ -203,21 +229,28 @@ export function createDataStore() {
     const phone = normalizePhone(order && order.phone);
     if (phone.length !== 10) return;
 
-    const existing = customers[phone] && typeof customers[phone] === 'object'
-      ? customers[phone]
-      : {};
+    const existing =
+      customers[phone] && typeof customers[phone] === 'object' ? customers[phone] : {};
 
     customers[phone] = {
       ...existing,
-      id: String((order && (order.customerId || order.backendCustomerId || order.id)) || existing.id || '').trim(),
+      id: String(
+        (order && (order.customerId || order.backendCustomerId || order.id)) || existing.id || '',
+      ).trim(),
       phone,
       name: String((order && order.customer) || existing.name || '').trim(),
       email: String((order && order.email) || existing.email || '').trim(),
       address: String((order && order.address) || existing.address || '').trim(),
       notes: String((order && order.notes) || existing.notes || '').trim(),
-      preferredDeliveryOption: String((order && order.deliveryOption) || existing.preferredDeliveryOption || 'pickup').toLowerCase(),
-      deliveryPartner: String((order && order.deliveryPartner) || existing.deliveryPartner || '').trim(),
-      deliveryPartnerPhone: String((order && order.deliveryPartnerPhone) || existing.deliveryPartnerPhone || '').trim(),
+      preferredDeliveryOption: String(
+        (order && order.deliveryOption) || existing.preferredDeliveryOption || 'pickup',
+      ).toLowerCase(),
+      deliveryPartner: String(
+        (order && order.deliveryPartner) || existing.deliveryPartner || '',
+      ).trim(),
+      deliveryPartnerPhone: String(
+        (order && order.deliveryPartnerPhone) || existing.deliveryPartnerPhone || '',
+      ).trim(),
       lastOrderId: String((order && order.id) || existing.lastOrderId || '').trim(),
       lastOrderAt: String((order && order.date) || existing.lastOrderAt || '').trim(),
       orderCount: Number(existing.orderCount || 0) + 1,
@@ -242,7 +275,8 @@ export function createDataStore() {
 
     const timestamp = Date.now();
     const timeLabel = formatOrderMoment();
-    const safeBusinessName = String((businessContext && businessContext.name) || 'BillBhai').trim() || 'BillBhai';
+    const safeBusinessName =
+      String((businessContext && businessContext.name) || 'BillBhai').trim() || 'BillBhai';
     const totalLabel = `Rs ${Math.max(0, Number(order.total || 0)).toLocaleString()}`;
     const nextNotifications = [
       {
@@ -250,7 +284,7 @@ export function createDataStore() {
         category: 'orders',
         priority: 'medium',
         title: `${order.id} created`,
-        desc: `Your self-checkout order at ${safeBusinessName} is set to ${order.checkoutMode === 'takeaway_now' ? 'take away now' : (order.checkoutMode === 'cod_delivery' ? 'cash on delivery' : 'prepaid delivery')}.`,
+        desc: `Your self-checkout order at ${safeBusinessName} is set to ${order.checkoutMode === 'takeaway_now' ? 'take away now' : order.checkoutMode === 'cod_delivery' ? 'cash on delivery' : 'prepaid delivery'}.`,
         time: timeLabel,
         sortTimeMs: timestamp,
         detailRows: [
@@ -267,9 +301,10 @@ export function createDataStore() {
         category: 'payments',
         priority: 'high',
         title: `Payment pending for ${order.id}`,
-        desc: order.paymentMethod === 'COD'
-          ? `Payment of ${totalLabel} will be collected on delivery.`
-          : `Checkout mode recorded as ${order.paymentMethod || 'Pending'} for ${totalLabel}.`,
+        desc:
+          order.paymentMethod === 'COD'
+            ? `Payment of ${totalLabel} will be collected on delivery.`
+            : `Checkout mode recorded as ${order.paymentMethod || 'Pending'} for ${totalLabel}.`,
         time: timeLabel,
         sortTimeMs: timestamp - 1,
         detailRows: [
@@ -300,7 +335,7 @@ export function createDataStore() {
 
     sessionStorage.setItem(
       CUSTOMER_SESSION_NOTIFICATION_KEY,
-      JSON.stringify([...nextNotifications, ...notifications].slice(0, 25))
+      JSON.stringify([...nextNotifications, ...notifications].slice(0, 25)),
     );
   }
 
@@ -359,21 +394,29 @@ export function createDataStore() {
       size: p.size,
       description: p.description,
       image: p.image || `images/${p.id}.png`,
-      options: Array.isArray(p.options) && p.options.length
-        ? p.options.map((opt) => ({
-          label: String((opt && opt.label) || (opt && opt.size) || p.size || 'Unit').trim() || 'Unit',
-          price: Number(opt && opt.price),
-        })).filter((opt) => Number.isFinite(opt.price) && opt.price >= 0)
-        : [{
-          label: String(p.size || 'Unit').trim() || 'Unit',
-          price: Number(p.price),
-        }],
+      options:
+        Array.isArray(p.options) && p.options.length
+          ? p.options
+              .map((opt) => ({
+                label:
+                  String((opt && opt.label) || (opt && opt.size) || p.size || 'Unit').trim() ||
+                  'Unit',
+                price: Number(opt && opt.price),
+              }))
+              .filter((opt) => Number.isFinite(opt.price) && opt.price >= 0)
+          : [
+              {
+                label: String(p.size || 'Unit').trim() || 'Unit',
+                price: Number(p.price),
+              },
+            ],
     }));
-    catalog = catalog.filter((item) =>
-      item &&
-      Array.isArray(item.options) &&
-      item.options.length > 0 &&
-      Number.isFinite(Number(item.options[0].price))
+    catalog = catalog.filter(
+      (item) =>
+        item &&
+        Array.isArray(item.options) &&
+        item.options.length > 0 &&
+        Number.isFinite(Number(item.options[0].price)),
     );
 
     if (!catalog.length) {
@@ -383,14 +426,18 @@ export function createDataStore() {
 
   async function loadCustomersFromBackend() {
     const userRole = localStorage.getItem('userRole') || 'cashier';
-    const companyId = String(localStorage.getItem('activeBusinessId') || 'BIZ-101').trim() || 'BIZ-101';
-    const response = await fetch(`${API_BASE}/customers?companyId=${encodeURIComponent(companyId)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-role': userRole,
+    const companyId =
+      String(localStorage.getItem('activeBusinessId') || 'BIZ-101').trim() || 'BIZ-101';
+    const response = await fetch(
+      `${API_BASE}/customers?companyId=${encodeURIComponent(companyId)}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-role': userRole,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to load customers from backend (HTTP ${response.status})`);
@@ -438,7 +485,7 @@ export function createDataStore() {
       id: order.id,
       companyId: String(order.companyId || '').trim(),
       customer: order.customer,
-      items: cartItems.reduce((sum, item) => sum + (Math.max(1, Number(item.qty) || 1)), 0),
+      items: cartItems.reduce((sum, item) => sum + Math.max(1, Number(item.qty) || 1), 0),
       total: order.total,
       payment: order.paymentMethod || 'Pending',
       status: order.status || 'Processing',
@@ -450,10 +497,18 @@ export function createDataStore() {
     if (!Array.isArray(inventoryRows)) return;
 
     cartItems.forEach((item) => {
-      const baseName = String((item && item.name) || '').split(' (')[0].trim().toLowerCase();
+      const baseName = String((item && item.name) || '')
+        .split(' (')[0]
+        .trim()
+        .toLowerCase();
       if (!baseName) return;
 
-      const inventoryItem = inventoryRows.find((row) => String((row && row.name) || '').trim().toLowerCase() === baseName);
+      const inventoryItem = inventoryRows.find(
+        (row) =>
+          String((row && row.name) || '')
+            .trim()
+            .toLowerCase() === baseName,
+      );
       if (!inventoryItem) return;
 
       const qty = Math.max(1, Number(item && item.qty) || 1);
@@ -465,9 +520,11 @@ export function createDataStore() {
   function syncScopedOperationalData(order, cartItems) {
     const businessContext = resolveBusinessContext();
     const operationalStore = loadStoredValue('bb_business_data', {}, true);
-    const scoped = operationalStore[businessContext.id] && typeof operationalStore[businessContext.id] === 'object'
-      ? operationalStore[businessContext.id]
-      : { orders: [], inventory: [], deliveries: [], returns: [], users: [] };
+    const scoped =
+      operationalStore[businessContext.id] &&
+      typeof operationalStore[businessContext.id] === 'object'
+        ? operationalStore[businessContext.id]
+        : { orders: [], inventory: [], deliveries: [], returns: [], users: [] };
 
     const scopedOrders = Array.isArray(scoped.orders) ? scoped.orders : [];
     const scopedInventory = Array.isArray(scoped.inventory) ? scoped.inventory : [];
@@ -540,43 +597,87 @@ export function createDataStore() {
 
   function createOrder(customerData, cartItems, discountApplied, options) {
     const opts = options && typeof options === 'object' ? options : {};
-    const backendOrder = opts.backendOrder && typeof opts.backendOrder === 'object' ? opts.backendOrder : null;
+    const backendOrder =
+      opts.backendOrder && typeof opts.backendOrder === 'object' ? opts.backendOrder : null;
     const businessContext = resolveBusinessContext();
-    const checkoutMode = String((customerData && customerData.checkoutMode) || '').trim().toLowerCase();
-    const deliveryOption = checkoutMode === 'prepaid_delivery' || checkoutMode === 'cod_delivery'
-      ? 'delivery'
-      : (String((customerData && customerData.deliveryOption) || 'pickup').toLowerCase() === 'delivery' ? 'delivery' : 'pickup');
-    const requestedDeliveryCharge = Math.max(0, Number((customerData && customerData.deliveryCharge) || 0));
+    const checkoutMode = String((customerData && customerData.checkoutMode) || '')
+      .trim()
+      .toLowerCase();
+    const deliveryOption =
+      checkoutMode === 'prepaid_delivery' || checkoutMode === 'cod_delivery'
+        ? 'delivery'
+        : String((customerData && customerData.deliveryOption) || 'pickup').toLowerCase() ===
+            'delivery'
+          ? 'delivery'
+          : 'pickup';
+    const requestedDeliveryCharge = Math.max(
+      0,
+      Number((customerData && customerData.deliveryCharge) || 0),
+    );
     const deliveryCharge = deliveryOption === 'delivery' ? requestedDeliveryCharge : 0;
-    const paymentMethod = checkoutMode === 'prepaid_delivery'
-      ? 'Paid Upfront'
-      : (checkoutMode === 'cod_delivery' ? 'COD' : (String((customerData && customerData.paymentMethod) || 'Counter Paid').trim() || 'Counter Paid'));
-    const orderStatus = checkoutMode === 'takeaway_now'
-      ? 'Delivered'
-      : (String((customerData && customerData.orderStatus) || 'Processing').trim() || 'Processing');
-    const backendItems = Array.isArray(backendOrder && backendOrder.items) ? backendOrder.items : [];
-    const backendItemCount = backendItems.reduce((sum, item) => sum + Math.max(0, Number((item && item.quantity) || 0)), 0);
-    const itemCount = backendItemCount || cartItems.reduce((sum, item) => sum + (Math.max(1, Number(item.qty) || 1)), 0);
+    const paymentMethod =
+      checkoutMode === 'prepaid_delivery'
+        ? 'Paid Upfront'
+        : checkoutMode === 'cod_delivery'
+          ? 'COD'
+          : String((customerData && customerData.paymentMethod) || 'Counter Paid').trim() ||
+            'Counter Paid';
+    const orderStatus =
+      checkoutMode === 'takeaway_now'
+        ? 'Delivered'
+        : String((customerData && customerData.orderStatus) || 'Processing').trim() || 'Processing';
+    const backendItems = Array.isArray(backendOrder && backendOrder.items)
+      ? backendOrder.items
+      : [];
+    const backendItemCount = backendItems.reduce(
+      (sum, item) => sum + Math.max(0, Number((item && item.quantity) || 0)),
+      0,
+    );
+    const itemCount =
+      backendItemCount ||
+      cartItems.reduce((sum, item) => sum + Math.max(1, Number(item.qty) || 1), 0);
     const order = {
       id: String((backendOrder && backendOrder.id) || generateId()).trim(),
       companyId: String((backendOrder && backendOrder.companyId) || businessContext.id).trim(),
-      customerId: String(opts.customerId || (backendOrder && (backendOrder.customerId || backendOrder.customer)) || (customerData && customerData.id) || '').trim(),
-      customer: String((backendOrder && (backendOrder.customerName || backendOrder.customer)) || (customerData && customerData.name) || '').trim(),
-      phone: normalizePhone((backendOrder && (backendOrder.customerPhone || backendOrder.mobileNo)) || (customerData && customerData.phone) || ''),
-      email: String((backendOrder && backendOrder.customerEmail) || (customerData && customerData.email) || '').trim(),
-      address: String((backendOrder && (backendOrder.customerAddress || backendOrder.address)) || (customerData && customerData.address) || '').trim(),
+      customerId: String(
+        opts.customerId ||
+          (backendOrder && (backendOrder.customerId || backendOrder.customer)) ||
+          (customerData && customerData.id) ||
+          '',
+      ).trim(),
+      customer: String(
+        (backendOrder && (backendOrder.customerName || backendOrder.customer)) ||
+          (customerData && customerData.name) ||
+          '',
+      ).trim(),
+      phone: normalizePhone(
+        (backendOrder && (backendOrder.customerPhone || backendOrder.mobileNo)) ||
+          (customerData && customerData.phone) ||
+          '',
+      ),
+      email: String(
+        (backendOrder && backendOrder.customerEmail) || (customerData && customerData.email) || '',
+      ).trim(),
+      address: String(
+        (backendOrder && (backendOrder.customerAddress || backendOrder.address)) ||
+          (customerData && customerData.address) ||
+          '',
+      ).trim(),
       notes: String((customerData && customerData.notes) || '').trim(),
-      checkoutMode: checkoutMode || (deliveryOption === 'delivery' ? 'prepaid_delivery' : 'takeaway_now'),
+      checkoutMode:
+        checkoutMode || (deliveryOption === 'delivery' ? 'prepaid_delivery' : 'takeaway_now'),
       deliveryOption,
       deliveryPartner: String((customerData && customerData.deliveryPartner) || '').trim(),
-      deliveryPartnerPhone: String((customerData && customerData.deliveryPartnerPhone) || '').trim(),
+      deliveryPartnerPhone: String(
+        (customerData && customerData.deliveryPartnerPhone) || '',
+      ).trim(),
       items: cartItems.map((item) => ({
         id: item.id,
         name: item.name,
         price: item.price,
         qty: item.qty,
       })),
-      subtotal: cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0),
+      subtotal: cartItems.reduce((sum, item) => sum + item.price * item.qty, 0),
       discount: discountApplied.active ? discountApplied.discount : 0,
       deliveryCharge,
       promoCode: discountApplied.active ? discountApplied.code : null,

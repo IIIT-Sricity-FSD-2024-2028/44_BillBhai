@@ -1,23 +1,12 @@
 import { useLayoutEffect } from 'react';
 
-/**
- * Each original HTML page loaded its own stylesheets, Google Font weights and
- * <body> attributes. In a single-page app those would leak between routes, so
- * every page mounts exactly what its HTML file had and removes it on unmount.
- *
- *   usePageSetup({
- *     title: 'BillBhai - Dashboard',
- *     styles: [dashboardCss],               // CSS text imported with `?inline`
- *     fonts: FONTS.inter300to700,           // Google Fonts stylesheet href
- *     bodyClass: 'no-sidebar',              // optional
- *     bodyAttrs: { 'data-page': 'orders' }, // optional
- *   });
- *
- * Attributes/classes added later by other components (data-role,
- * data-app-ready, no-sidebar-layout) are also cleared on unmount so the next
- * page starts from a clean <body>, just like a fresh HTML page load.
- */
-export default function usePageSetup({ title, styles = [], fonts, bodyClass = '', bodyAttrs = {} }) {
+export default function usePageSetup({
+  title,
+  styles = [],
+  fonts,
+  bodyClass = '',
+  bodyAttrs = {},
+}) {
   const stylesKey = styles.join('\n/* -- */\n');
   const attrsKey = JSON.stringify(bodyAttrs);
 

@@ -1,7 +1,3 @@
-// Static #addProductModal of inventory.html + handleAddProduct() /
-// closeAddProductModal() / field-error helpers from dashboard.js.
-// The page opens it through `request` ({ id, mode: 'add' | 'edit', values });
-// every new request re-runs the reset done by openAddProductModal()/editProduct().
 import { useState } from 'react';
 import Modal from '../common/Modal.jsx';
 import FormField from '../common/FormField.jsx';
@@ -19,13 +15,26 @@ import {
 
 export const CATEGORY_OPTIONS = [
   { value: '', label: 'Select category' },
-  'Grocery', 'Dairy', 'Beverages', 'Snacks', 'Personal Care', 'Other',
+  'Grocery',
+  'Dairy',
+  'Beverages',
+  'Snacks',
+  'Personal Care',
+  'Other',
 ];
 export const STATUS_OPTIONS = ['In Stock', 'Low Stock', 'Critical', 'Out of Stock'];
 
 export const EMPTY_PRODUCT_FORM = {
-  sku: '', name: '', category: '', supplier: '', supplierPhone: '', supplierEmail: '',
-  leadTime: '', price: '', stock: '', status: 'In Stock',
+  sku: '',
+  name: '',
+  category: '',
+  supplier: '',
+  supplierPhone: '',
+  supplierEmail: '',
+  leadTime: '',
+  price: '',
+  stock: '',
+  status: 'In Stock',
 };
 
 const TEXTS = {
@@ -34,13 +43,13 @@ const TEXTS = {
 };
 
 export default function AddProductModal({ open, request, onClose }) {
-  const { hasActionAccess, denyAction, apiRequest, showMutationError, renderPage, showToast } = useDashboard();
+  const { hasActionAccess, denyAction, apiRequest, showMutationError, renderPage, showToast } =
+    useDashboard();
   const { rows: inventory, setRows } = useInventory();
 
   const [values, setValues] = useState(EMPTY_PRODUCT_FORM);
   // `.has-error` / `.error` per field (cleared on input and on every open).
   const [errors, setErrors] = useState({});
-  // Inline `.form-error` state written by setFieldError/clearFieldError (never reset by open, as in the original).
   const [fieldErrorUi, setFieldErrorUi] = useState({});
   const [seenRequest, setSeenRequest] = useState(null);
 
@@ -138,7 +147,9 @@ export default function AddProductModal({ open, request, onClose }) {
       price: parseFloat(values.price),
       stock,
       status: determineStatus(stock, selectedStatus),
-      supplierPhone: supplierPhoneRaw ? normalizePhoneDigits(supplierPhoneRaw) : supplierDefaults.phone,
+      supplierPhone: supplierPhoneRaw
+        ? normalizePhoneDigits(supplierPhoneRaw)
+        : supplierDefaults.phone,
       supplierEmail: supplierEmailRaw || supplierDefaults.email,
       leadTimeDays,
       supplierDetails: {
@@ -151,8 +162,6 @@ export default function AddProductModal({ open, request, onClose }) {
       },
     };
 
-    // The barcode is only sent when we already know it. A new product gets a
-    // unique one from the backend, and an edit leaves the existing one alone.
     const productBody = (base) => ({
       name: pData.name,
       category: pData.cat,
@@ -164,15 +173,24 @@ export default function AddProductModal({ open, request, onClose }) {
 
     const createProductInBackend = async () => {
       const supplierRows = await apiRequest('/suppliers', { role: 'inventorymanager' });
-      const normalizedSupplier = String(pData.supplier || '').trim().toLowerCase();
-      const matchedSupplier = (Array.isArray(supplierRows) ? supplierRows : []).find((row) =>
-        String((row && row.name) || '').trim().toLowerCase() === normalizedSupplier);
+      const normalizedSupplier = String(pData.supplier || '')
+        .trim()
+        .toLowerCase();
+      const matchedSupplier = (Array.isArray(supplierRows) ? supplierRows : []).find(
+        (row) =>
+          String((row && row.name) || '')
+            .trim()
+            .toLowerCase() === normalizedSupplier,
+      );
 
       const createdProduct = await apiRequest('/products', {
         method: 'POST',
         role: 'inventorymanager',
         body: {
-          supplierId: String((matchedSupplier && matchedSupplier.id) || existingRecord?.supplierId || 'SUP-001').trim() || 'SUP-001',
+          supplierId:
+            String(
+              (matchedSupplier && matchedSupplier.id) || existingRecord?.supplierId || 'SUP-001',
+            ).trim() || 'SUP-001',
           ...productBody(existingRecord),
         },
       });
@@ -182,13 +200,11 @@ export default function AddProductModal({ open, request, onClose }) {
         pData.supplierId = createdProduct.supplierId || pData.supplierId;
         pData.barcode = createdProduct.barcode || pData.barcode || pData.sku;
         pData.size = createdProduct.size || pData.size || '1 unit';
-        pData.description = createdProduct.description || pData.description || `${pData.name} (${pData.cat})`;
+        pData.description =
+          createdProduct.description || pData.description || `${pData.name} (${pData.cat})`;
       }
     };
 
-    // A brand-new product also needs its stock row, otherwise it never shows up
-    // in the inventory list after a reload. If that fails, remove the product
-    // again so a retry starts clean.
     const createInventoryInBackend = async () => {
       try {
         const createdInventory = await apiRequest('/inventory', {
@@ -250,7 +266,6 @@ export default function AddProductModal({ open, request, onClose }) {
         });
       } catch (error) {
         if (isNotFoundError(error)) {
-          // Stale local pointer after backend restart; stop retrying this missing inventory row.
           pData.inventoryId = undefined;
         } else {
           showMutationError('Inventory update', error);
@@ -270,58 +285,182 @@ export default function AddProductModal({ open, request, onClose }) {
   }
 
   return (
-    <Modal open={open} id="addProductModal" title={texts.title} onClose={onClose} closeButtonId="modalClose" closeButtonType={null}>
+    <Modal
+      open={open}
+      id="addProductModal"
+      title={texts.title}
+      onClose={onClose}
+      closeButtonId="modalClose"
+      closeButtonType={null}
+    >
       <form id="addProductForm" noValidate onSubmit={handleSubmit}>
         <div className="modal-body">
-          <FormField label="Product Name *" htmlFor="prodName" error="Product name is required" hasError={errors.name}>
-            <input type="text" className={cls('name')} id="prodName" placeholder="e.g. Basmati Rice (5kg)" required {...bind('name')} />
+          <FormField
+            label="Product Name *"
+            htmlFor="prodName"
+            error="Product name is required"
+            hasError={errors.name}
+          >
+            <input
+              type="text"
+              className={cls('name')}
+              id="prodName"
+              placeholder="e.g. Basmati Rice (5kg)"
+              required
+              {...bind('name')}
+            />
           </FormField>
           <div className="form-row">
             <FormField label="SKU" htmlFor="prodSku" hint="Auto-generated based on product count">
-              <input type="text" className="form-control" id="prodSku" placeholder="Auto-generated" readOnly value={values.sku} />
-            </FormField>
-            <FormField label="Category *" htmlFor="prodCategory" error="Please select a category" hasError={errors.category}>
-              <LegacySelect className={cls('category')} id="prodCategory" required options={CATEGORY_OPTIONS} {...bind('category')} />
-            </FormField>
-          </div>
-          <FormField label="Supplier *" htmlFor="prodSupplier" error="Supplier is required" hasError={errors.supplier}>
-            <input type="text" className={cls('supplier')} id="prodSupplier" placeholder="e.g. Sharma Wholesale" required {...bind('supplier')} />
-          </FormField>
-          <div className="form-row">
-            <FormField
-              label="Supplier Phone" htmlFor="prodSupplierPhone" error="Enter a valid supplier phone" hasError={errors.supplierPhone}
-              errorDisplay={fieldErrorUi.supplierPhone?.display} errorMessage={fieldErrorUi.supplierPhone?.message}
-            >
-              <input type="tel" className={cls('supplierPhone')} id="prodSupplierPhone" placeholder="10-digit phone" maxLength={10} inputMode="numeric" {...bind('supplierPhone')} />
+              <input
+                type="text"
+                className="form-control"
+                id="prodSku"
+                placeholder="Auto-generated"
+                readOnly
+                value={values.sku}
+              />
             </FormField>
             <FormField
-              label="Supplier Email" htmlFor="prodSupplierEmail" error="Enter a valid supplier email" hasError={errors.supplierEmail}
-              errorDisplay={fieldErrorUi.supplierEmail?.display} errorMessage={fieldErrorUi.supplierEmail?.message}
+              label="Category *"
+              htmlFor="prodCategory"
+              error="Please select a category"
+              hasError={errors.category}
             >
-              <input type="email" className={cls('supplierEmail')} id="prodSupplierEmail" placeholder="supplier@domain.com" {...bind('supplierEmail')} />
+              <LegacySelect
+                className={cls('category')}
+                id="prodCategory"
+                required
+                options={CATEGORY_OPTIONS}
+                {...bind('category')}
+              />
             </FormField>
           </div>
           <FormField
-            label="Lead Time (Days)" htmlFor="prodLeadTime" hasError={errors.leadTime} hintFirst
-            hint="How many days this supplier usually takes to deliver." error="Lead time should be at least 1 day"
+            label="Supplier *"
+            htmlFor="prodSupplier"
+            error="Supplier is required"
+            hasError={errors.supplier}
           >
-            <input type="number" className={cls('leadTime')} id="prodLeadTime" placeholder="e.g. 3" min="1" step="1" {...bind('leadTime')} />
+            <input
+              type="text"
+              className={cls('supplier')}
+              id="prodSupplier"
+              placeholder="e.g. Sharma Wholesale"
+              required
+              {...bind('supplier')}
+            />
           </FormField>
           <div className="form-row">
-            <FormField label="Unit Price (?) *" htmlFor="prodPrice" error="Enter a valid price" hasError={errors.price}>
-              <input type="number" className={cls('price')} id="prodPrice" placeholder="0.00" min="0" step="0.01" required {...bind('price')} />
+            <FormField
+              label="Supplier Phone"
+              htmlFor="prodSupplierPhone"
+              error="Enter a valid supplier phone"
+              hasError={errors.supplierPhone}
+              errorDisplay={fieldErrorUi.supplierPhone?.display}
+              errorMessage={fieldErrorUi.supplierPhone?.message}
+            >
+              <input
+                type="tel"
+                className={cls('supplierPhone')}
+                id="prodSupplierPhone"
+                placeholder="10-digit phone"
+                maxLength={10}
+                inputMode="numeric"
+                {...bind('supplierPhone')}
+              />
             </FormField>
-            <FormField label="Stock Quantity *" htmlFor="prodStock" error="Enter stock quantity" hasError={errors.stock}>
-              <input type="number" className={cls('stock')} id="prodStock" placeholder="0" min="0" step="1" required {...bind('stock')} />
+            <FormField
+              label="Supplier Email"
+              htmlFor="prodSupplierEmail"
+              error="Enter a valid supplier email"
+              hasError={errors.supplierEmail}
+              errorDisplay={fieldErrorUi.supplierEmail?.display}
+              errorMessage={fieldErrorUi.supplierEmail?.message}
+            >
+              <input
+                type="email"
+                className={cls('supplierEmail')}
+                id="prodSupplierEmail"
+                placeholder="supplier@domain.com"
+                {...bind('supplierEmail')}
+              />
             </FormField>
           </div>
-          <FormField label="Status" htmlFor="prodStatus" hint={'Will be auto-determined by stock quantity if left as "In Stock"'}>
-            <LegacySelect className={cls('status')} id="prodStatus" options={STATUS_OPTIONS} {...bind('status')} />
+          <FormField
+            label="Lead Time (Days)"
+            htmlFor="prodLeadTime"
+            hasError={errors.leadTime}
+            hintFirst
+            hint="How many days this supplier usually takes to deliver."
+            error="Lead time should be at least 1 day"
+          >
+            <input
+              type="number"
+              className={cls('leadTime')}
+              id="prodLeadTime"
+              placeholder="e.g. 3"
+              min="1"
+              step="1"
+              {...bind('leadTime')}
+            />
+          </FormField>
+          <div className="form-row">
+            <FormField
+              label="Unit Price (?) *"
+              htmlFor="prodPrice"
+              error="Enter a valid price"
+              hasError={errors.price}
+            >
+              <input
+                type="number"
+                className={cls('price')}
+                id="prodPrice"
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                required
+                {...bind('price')}
+              />
+            </FormField>
+            <FormField
+              label="Stock Quantity *"
+              htmlFor="prodStock"
+              error="Enter stock quantity"
+              hasError={errors.stock}
+            >
+              <input
+                type="number"
+                className={cls('stock')}
+                id="prodStock"
+                placeholder="0"
+                min="0"
+                step="1"
+                required
+                {...bind('stock')}
+              />
+            </FormField>
+          </div>
+          <FormField
+            label="Status"
+            htmlFor="prodStatus"
+            hint={'Will be auto-determined by stock quantity if left as "In Stock"'}
+          >
+            <LegacySelect
+              className={cls('status')}
+              id="prodStatus"
+              options={STATUS_OPTIONS}
+              {...bind('status')}
+            />
           </FormField>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn btn-outline" id="modalCancel" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">{texts.submit}</button>
+          <button type="button" className="btn btn-outline" id="modalCancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary">
+            {texts.submit}
+          </button>
         </div>
       </form>
     </Modal>

@@ -13,32 +13,76 @@ function QuotaMeter({ label, count, max, style }) {
         <span className="quota-meter-label">{label}</span>
         <span className="quota-meter-count">{`${count} / ${maxText} Used`}</span>
       </div>
-      <div className="quota-meter-bar"><div className="quota-meter-fill" style={{ width: `${pct}%` }} /></div>
+      <div className="quota-meter-bar">
+        <div className="quota-meter-fill" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
 
-export default function SubscriptionPlanCard({ plan, usersCount, productsCount, onUpgrade, onCancel }) {
+export default function SubscriptionPlanCard({
+  plan,
+  usersCount,
+  productsCount,
+  onUpgrade,
+  onCancel,
+}) {
   return (
     <div className="card">
-      <div className="card-hd" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        className="card-hd"
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      >
         <h3>Subscription &amp; Plan</h3>
-        <span className={`badge ${planBadgeClass(plan.key)}`} style={{ padding: '5px 12px' }}>{plan.name}</span>
+        <span className={`badge ${planBadgeClass(plan.key)}`} style={{ padding: '5px 12px' }}>
+          {plan.name}
+        </span>
       </div>
       <div className="card-bd">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            marginBottom: '12px',
+          }}
+        >
           <div>
-            <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>{`₹${plan.price}`}<small style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>/month</small></div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Renews on 30 Sept 2026</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              {`₹${plan.price}`}
+              <small style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>
+                /month
+              </small>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              Renews on 30 Sept 2026
+            </div>
           </div>
           <span className="badge b-active">Active</span>
         </div>
-        <QuotaMeter label="Team Members" count={usersCount} max={plan.limits.maxUsers} style={{ marginTop: '16px' }} />
+        <QuotaMeter
+          label="Team Members"
+          count={usersCount}
+          max={plan.limits.maxUsers}
+          style={{ marginTop: '16px' }}
+        />
         <QuotaMeter label="Product Catalog" count={productsCount} max={plan.limits.maxProducts} />
         <QuotaMeter label="Store Locations" count={1} max={plan.limits.maxStores} />
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-          <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={onUpgrade}>Upgrade / Change Plan</button>
-          <button className="btn btn-outline" style={{ color: 'var(--red)', borderColor: 'var(--red)' }} onClick={onCancel}>Cancel Plan</button>
+          <button
+            className="btn btn-primary"
+            style={{ flex: 1, justifyContent: 'center' }}
+            onClick={onUpgrade}
+          >
+            Upgrade / Change Plan
+          </button>
+          <button
+            className="btn btn-outline"
+            style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
+            onClick={onCancel}
+          >
+            Cancel Plan
+          </button>
         </div>
       </div>
     </div>

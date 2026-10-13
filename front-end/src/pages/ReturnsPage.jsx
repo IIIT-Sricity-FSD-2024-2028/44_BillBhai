@@ -1,5 +1,3 @@
-// React port of returns.html + renderReturnsRefined() / initReturnCharts() in dashboard.js.
-// The Starter-plan paywall (renderPlanFeatureLock) is handled by DashboardLayout.
 import { useState } from 'react';
 import DashboardLayout from '../components/dashboard/DashboardLayout.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
@@ -9,7 +7,11 @@ import ReturnCharts from '../components/returns/ReturnCharts.jsx';
 import ReturnRow from '../components/returns/ReturnRow.jsx';
 import ReturnStatCard from '../components/returns/ReturnStatCard.jsx';
 import { COMPACT_VALUE_STYLE, RETURN_ICONS } from '../components/returns/returnIcons.jsx';
-import { classifyReturnStatus, getReturnProductCounts, summarizeReturns } from '../components/returns/returnStats.js';
+import {
+  classifyReturnStatus,
+  getReturnProductCounts,
+  summarizeReturns,
+} from '../components/returns/returnStats.js';
 import useReturnActions from '../components/returns/useReturnActions.js';
 import { useDashboard } from '../lib/dashboard/hooks.js';
 import { getReturnView, parseOrderDate } from '../lib/dashboard/helpers.js';
@@ -29,9 +31,26 @@ const SORT_OPTIONS = [
   { value: 'qty_high', label: 'Qty high-low' },
 ];
 
-const COLUMNS = ['Return', 'Order', 'Customer', 'Product', 'Qty', 'Reason', 'Amount', 'Status', 'Requested By', 'Updated', 'Actions'];
+const COLUMNS = [
+  'Return',
+  'Order',
+  'Customer',
+  'Product',
+  'Qty',
+  'Reason',
+  'Amount',
+  'Status',
+  'Requested By',
+  'Updated',
+  'Actions',
+];
 
-const CARD_HD_STYLE = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' };
+const CARD_HD_STYLE = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '12px',
+};
 const CONTROLS_STYLE = { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' };
 
 function matchesFilter(item, filter) {
@@ -67,26 +86,52 @@ function ReturnsContent() {
     <>
       <PageHeader
         title="Returns"
-        actions={(
+        actions={
           <>
-            {canManage && <button className="btn btn-primary" id="raiseReturnBtnDyn" onClick={raiseReturnRequest}>+ Raise Return</button>}
-            <button className="btn btn-outline" onClick={() => window.print()}>Print</button>
+            {canManage && (
+              <button
+                className="btn btn-primary"
+                id="raiseReturnBtnDyn"
+                onClick={raiseReturnRequest}
+              >
+                + Raise Return
+              </button>
+            )}
+            <button className="btn btn-outline" onClick={() => window.print()}>
+              Print
+            </button>
           </>
-        )}
+        }
       />
 
       <section className="stats-grid">
-        <ReturnStatCard icon={RETURN_ICONS.returns} color="red" label="Total Requests" value={counts.total} />
         <ReturnStatCard
-          icon={RETURN_ICONS.clock} color="amber" label="Pending / Open" value={counts.pending}
+          icon={RETURN_ICONS.returns}
+          color="red"
+          label="Total Requests"
+          value={counts.total}
+        />
+        <ReturnStatCard
+          icon={RETURN_ICONS.clock}
+          color="amber"
+          label="Pending / Open"
+          value={counts.pending}
           sub={`Pending ${counts.pending} • Rejected ${counts.rejected}`}
         />
         <ReturnStatCard
-          icon={RETURN_ICONS.money} color="green" label="Refunded Value"
+          icon={RETURN_ICONS.money}
+          color="green"
+          label="Refunded Value"
           value={`₹${Math.round(counts.valueRefunded).toLocaleString()}`}
           sub={`At risk ₹${Math.round(counts.valueAtRisk).toLocaleString()}`}
         />
-        <ReturnStatCard icon={RETURN_ICONS.bars} color="purple" label="Top Product" value={topProductLabel} valueStyle={COMPACT_VALUE_STYLE} />
+        <ReturnStatCard
+          icon={RETURN_ICONS.bars}
+          color="purple"
+          label="Top Product"
+          value={topProductLabel}
+          valueStyle={COMPACT_VALUE_STYLE}
+        />
       </section>
 
       <ReturnCharts view={view} />
@@ -108,7 +153,12 @@ function ReturnsContent() {
                 </button>
               ))}
             </div>
-            <FilterSelect id="returnsSortSelect" value={sortKey} onChange={setSortKey} options={SORT_OPTIONS} />
+            <FilterSelect
+              id="returnsSortSelect"
+              value={sortKey}
+              onChange={setSortKey}
+              options={SORT_OPTIONS}
+            />
           </div>
         </div>
         <div className="card-bd">

@@ -4,25 +4,18 @@ import { BellIcon, LogoutMenuIcon, MenuToggleIcon, ProfileMenuIcon } from './ico
 import NotificationIcon from './NotificationIcon.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 
-/**
- * <header class="top-header"> of the dashboard pages.
- *
- * Props
- *  title           #bcPage text (page label)
- *  businessName    breadcrumb `.bc-app` becomes "BillBhai / {businessName}" when set
- *  planBadge       null, or { label, className, title, onClick } -> #headerPlanBadge (first in .header-right)
- *  notifications   active notification list (unread flag, color, iconKey, title, time)
- *  user            { name, avatar, roleLabel, email }
- *  page            current page (the profile link gets `active` on /profile)
- *  onMenuToggle    menu button click
- *  onNavClick      click on the Profile & Settings link (closes the mobile sidebar)
- *  onLogout        click on the Logout link
- *  legacyMenu      notifications.html's simplified user menu (no icons, no nav-item class)
- *
- * The notification / user dropdowns keep their own open state: clicking a trigger
- * toggles it and closes the other one, any other click on the page closes both.
- */
-export default function TopHeader({ title, businessName, planBadge, notifications = [], user = {}, page, onMenuToggle, onNavClick, onLogout, legacyMenu }) {
+export default function TopHeader({
+  title,
+  businessName,
+  planBadge,
+  notifications = [],
+  user = {},
+  page,
+  onMenuToggle,
+  onNavClick,
+  onLogout,
+  legacyMenu,
+}) {
   const [openMenu, setOpenMenu] = useState(null); // 'notif' | 'user' | null
 
   useEffect(() => {
@@ -42,13 +35,20 @@ export default function TopHeader({ title, businessName, planBadge, notification
   return (
     <header className="top-header">
       <div className="header-left">
-        <button className="menu-toggle" id="menuToggle" aria-label="Toggle menu" onClick={onMenuToggle}>
+        <button
+          className="menu-toggle"
+          id="menuToggle"
+          aria-label="Toggle menu"
+          onClick={onMenuToggle}
+        >
           {MenuToggleIcon}
         </button>
         <div className="breadcrumb">
           <span className="bc-app">{businessName ? `BillBhai / ${businessName}` : 'BillBhai'}</span>
           <span className="bc-sep">/</span>
-          <span className="bc-page" id="bcPage">{title}</span>
+          <span className="bc-page" id="bcPage">
+            {title}
+          </span>
         </div>
       </div>
       <div className="header-right">
@@ -65,28 +65,68 @@ export default function TopHeader({ title, businessName, planBadge, notification
         )}
         <ThemeToggle />
         <div className="dropdown-container" id="notifContainer">
-          <button className="icon-btn notif-btn" id="notifBtn" aria-label="Notifications" onClick={toggle('notif')}>
+          <button
+            className="icon-btn notif-btn"
+            id="notifBtn"
+            aria-label="Notifications"
+            onClick={toggle('notif')}
+          >
             {BellIcon}
             <span className="notif-dot" style={unreadCount ? undefined : { display: 'none' }} />
           </button>
-          <div className={openMenu === 'notif' ? 'dropdown-menu show' : 'dropdown-menu'} id="notifDropdown" style={{ width: '260px' }}>
+          <div
+            className={openMenu === 'notif' ? 'dropdown-menu show' : 'dropdown-menu'}
+            id="notifDropdown"
+            style={{ width: '260px' }}
+          >
             <div className="dropdown-header">
               <strong>Notifications</strong>
-              <div className="text-sm text-muted">{unreadCount ? `You have ${unreadCount} new notifications` : 'All caught up'}</div>
-            </div>
-            {previewItems.length ? previewItems.map((item) => (
-              <div className="dropdown-item" style={{ alignItems: 'flex-start', cursor: 'default' }} key={item.id}>
-                <div style={{ background: `var(--${item.color || 'blue'}-bg)`, color: `var(--${item.color || 'blue'})`, padding: '6px', borderRadius: '6px', marginRight: '4px' }}>
-                  <NotificationIcon iconKey={item.iconKey} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>{item.title}</div>
-                  <div className="text-sm text-muted">{item.time}</div>
-                </div>
+              <div className="text-sm text-muted">
+                {unreadCount ? `You have ${unreadCount} new notifications` : 'All caught up'}
               </div>
-            )) : <div className="dropdown-item text-muted" style={{ cursor: 'default' }}>No notifications for this role right now.</div>}
+            </div>
+            {previewItems.length ? (
+              previewItems.map((item) => (
+                <div
+                  className="dropdown-item"
+                  style={{ alignItems: 'flex-start', cursor: 'default' }}
+                  key={item.id}
+                >
+                  <div
+                    style={{
+                      background: `var(--${item.color || 'blue'}-bg)`,
+                      color: `var(--${item.color || 'blue'})`,
+                      padding: '6px',
+                      borderRadius: '6px',
+                      marginRight: '4px',
+                    }}
+                  >
+                    <NotificationIcon iconKey={item.iconKey} />
+                  </div>
+                  <div>
+                    <div
+                      style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}
+                    >
+                      {item.title}
+                    </div>
+                    <div className="text-sm text-muted">{item.time}</div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="dropdown-item text-muted" style={{ cursor: 'default' }}>
+                No notifications for this role right now.
+              </div>
+            )}
             <div className="dropdown-divider" />
-            <Link to="/notifications" className="dropdown-item nav-item" data-page="notifications" style={{ justifyContent: 'center', fontWeight: 500, color: 'var(--accent)' }}>View all notifications</Link>
+            <Link
+              to="/notifications"
+              className="dropdown-item nav-item"
+              data-page="notifications"
+              style={{ justifyContent: 'center', fontWeight: 500, color: 'var(--accent)' }}
+            >
+              View all notifications
+            </Link>
           </div>
         </div>
 
@@ -98,22 +138,36 @@ export default function TopHeader({ title, businessName, planBadge, notification
               <span className="user-role">{user.roleLabel}</span>
             </div>
           </div>
-          <div className={openMenu === 'user' ? 'dropdown-menu show' : 'dropdown-menu'} id="userDropdown">
+          <div
+            className={openMenu === 'user' ? 'dropdown-menu show' : 'dropdown-menu'}
+            id="userDropdown"
+          >
             <div className="dropdown-header">
               <strong>{user.name}</strong>
               <div className="text-sm text-muted">{user.email}</div>
             </div>
             {legacyMenu ? (
-              <Link to="/profile" className="dropdown-item">Profile &amp; Settings</Link>
+              <Link to="/profile" className="dropdown-item">
+                Profile &amp; Settings
+              </Link>
             ) : (
-              <Link to="/profile" className={page === 'profile' ? 'dropdown-item nav-item active' : 'dropdown-item nav-item'} data-page="profile" onClick={onNavClick}>
+              <Link
+                to="/profile"
+                className={
+                  page === 'profile' ? 'dropdown-item nav-item active' : 'dropdown-item nav-item'
+                }
+                data-page="profile"
+                onClick={onNavClick}
+              >
                 {ProfileMenuIcon}
                 {' Profile & Settings'}
               </Link>
             )}
             <div className="dropdown-divider" />
             {legacyMenu ? (
-              <Link to="/login" className="dropdown-item text-danger" onClick={onLogout}>Logout</Link>
+              <Link to="/login" className="dropdown-item text-danger" onClick={onLogout}>
+                Logout
+              </Link>
             ) : (
               <Link to="/login" className="dropdown-item text-danger" onClick={onLogout}>
                 {LogoutMenuIcon}

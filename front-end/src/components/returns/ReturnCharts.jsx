@@ -1,4 +1,3 @@
-// Port of the three-card `.grid-3` chart section + initReturnCharts() (dashboard.js).
 import ChartCanvas, { getColors } from '../common/ChartCanvas.jsx';
 import { getReturnProductCounts, getReturnReasonCounts, summarizeReturns } from './returnStats.js';
 
@@ -22,7 +21,13 @@ export default function ReturnCharts({ view }) {
     const top = getReturnProductCounts(view).slice(0, 6);
     return {
       labels: top.length ? top.map(([p]) => p) : ['No data'],
-      datasets: [{ label: 'Returns', data: top.length ? top.map(([, n]) => n) : [0], backgroundColor: c.purple }],
+      datasets: [
+        {
+          label: 'Returns',
+          data: top.length ? top.map(([, n]) => n) : [0],
+          backgroundColor: c.purple,
+        },
+      ],
     };
   };
   const reasonData = () => {
@@ -30,7 +35,13 @@ export default function ReturnCharts({ view }) {
     const sorted = getReturnReasonCounts(view);
     return {
       labels: sorted.length ? sorted.map(([r]) => r) : ['No data'],
-      datasets: [{ label: 'Returns', data: sorted.length ? sorted.map(([, n]) => n) : [0], backgroundColor: c.red }],
+      datasets: [
+        {
+          label: 'Returns',
+          data: sorted.length ? sorted.map(([, n]) => n) : [0],
+          backgroundColor: c.red,
+        },
+      ],
     };
   };
   const statusData = () => {
@@ -38,20 +49,60 @@ export default function ReturnCharts({ view }) {
     const counts = summarizeReturns(view);
     return {
       labels: ['Pending', 'Refunded', 'Rejected'],
-      datasets: [{
-        data: [counts.pending, counts.refunded, counts.rejected],
-        backgroundColor: [c.amber, c.green, c.red],
-        borderWidth: 0,
-      }],
+      datasets: [
+        {
+          data: [counts.pending, counts.refunded, counts.rejected],
+          backgroundColor: [c.amber, c.green, c.red],
+          borderWidth: 0,
+        },
+      ],
     };
   };
-  const statusOptions = () => ({ plugins: { legend: { position: 'right', labels: { color: getColors().text } } } });
+  const statusOptions = () => ({
+    plugins: { legend: { position: 'right', labels: { color: getColors().text } } },
+  });
 
   return (
     <section className="grid-3">
-      <div className="card"><div className="card-hd"><h3>Top Returned Products</h3></div><div className="card-bd" style={CHART_BODY_STYLE}><ChartCanvas id="retProductChart" type="bar" data={productData} options={horizontalBarOptions} /></div></div>
-      <div className="card"><div className="card-hd"><h3>Return Reasons</h3></div><div className="card-bd" style={CHART_BODY_STYLE}><ChartCanvas id="retReasonChart" type="bar" data={reasonData} options={horizontalBarOptions} /></div></div>
-      <div className="card"><div className="card-hd"><h3>Status Breakdown</h3></div><div className="card-bd" style={CHART_BODY_STYLE}><ChartCanvas id="retStatusChart" type="doughnut" data={statusData} options={statusOptions} /></div></div>
+      <div className="card">
+        <div className="card-hd">
+          <h3>Top Returned Products</h3>
+        </div>
+        <div className="card-bd" style={CHART_BODY_STYLE}>
+          <ChartCanvas
+            id="retProductChart"
+            type="bar"
+            data={productData}
+            options={horizontalBarOptions}
+          />
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-hd">
+          <h3>Return Reasons</h3>
+        </div>
+        <div className="card-bd" style={CHART_BODY_STYLE}>
+          <ChartCanvas
+            id="retReasonChart"
+            type="bar"
+            data={reasonData}
+            options={horizontalBarOptions}
+          />
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-hd">
+          <h3>Status Breakdown</h3>
+        </div>
+        <div className="card-bd" style={CHART_BODY_STYLE}>
+          <ChartCanvas
+            id="retStatusChart"
+            type="doughnut"
+            data={statusData}
+            options={statusOptions}
+          />
+        </div>
+      </div>
     </section>
   );
 }

@@ -8,9 +8,6 @@ import PlanCard from '../components/choosePlan/PlanCard.jsx';
 import Toast from '../components/choosePlan/Toast.jsx';
 import { PLANS } from '../components/choosePlan/plans.js';
 
-// React port of choose-plan.html (and its inline <style>/<script>).
-
-// Kept as in the original page script (other pages use port 4000).
 const API_BASE_URL = 'http://localhost:3000/api';
 
 function readSignupData() {
@@ -80,9 +77,11 @@ export default function ChoosePlanPage() {
       }
     }
 
-    // The "Skip" link navigates away immediately, like the original page did.
     if (!mounted.current) return;
-    setToast({ message: `${planName} activated! Loading your dashboard credentials...`, visible: true });
+    setToast({
+      message: `${planName} activated! Loading your dashboard credentials...`,
+      visible: true,
+    });
     redirectTimer.current = setTimeout(() => {
       navigate('/business-welcome');
     }, 800);
@@ -92,17 +91,31 @@ export default function ChoosePlanPage() {
     <>
       <OnboardingHeader />
 
-      <main className="content-area" style={{ maxWidth: '1100px', margin: '40px auto', padding: '0 24px' }}>
+      <main
+        className="content-area"
+        style={{ maxWidth: '1100px', margin: '40px auto', padding: '0 24px' }}
+      >
         <div style={{ textAlign: 'center', marginBottom: '36px' }}>
           <h2 style={{ fontSize: '1.85rem', fontWeight: 700, marginBottom: '8px' }}>
-            Welcome to BillBhai, <span id="displayBusinessName" style={{ color: 'var(--accent)' }}>{businessName}</span>!
+            Welcome to BillBhai,{' '}
+            <span id="displayBusinessName" style={{ color: 'var(--accent)' }}>
+              {businessName}
+            </span>
+            !
           </h2>
-          <p className="text-muted" style={{ fontSize: '0.95rem', maxWidth: '600px', margin: '0 auto', lineHeight: 1.5 }}>
-            Your account is ready. Select a subscription plan to configure your team limits, outlets, and unlocked modules. You can upgrade or change anytime.
+          <p
+            className="text-muted"
+            style={{ fontSize: '0.95rem', maxWidth: '600px', margin: '0 auto', lineHeight: 1.5 }}
+          >
+            Your account is ready. Select a subscription plan to configure your team limits,
+            outlets, and unlocked modules. You can upgrade or change anytime.
           </p>
         </div>
 
-        <div className="subscription-plans-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '22px' }}>
+        <div
+          className="subscription-plans-grid"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '22px' }}
+        >
           {PLANS.map((plan) => (
             <PlanCard key={plan.key} plan={plan} onSelect={selectPlan} />
           ))}
@@ -112,7 +125,12 @@ export default function ChoosePlanPage() {
           <Link
             to="/business-welcome"
             onClick={() => selectPlan('starter', 0, 'Starter Plan (Free)')}
-            style={{ color: 'var(--text-muted)', fontSize: '0.88rem', textDecoration: 'none', transition: 'color 0.2s' }}
+            style={{
+              color: 'var(--text-muted)',
+              fontSize: '0.88rem',
+              textDecoration: 'none',
+              transition: 'color 0.2s',
+            }}
           >
             Skip for now &mdash; continue with Free Starter Tier &rarr;
           </Link>

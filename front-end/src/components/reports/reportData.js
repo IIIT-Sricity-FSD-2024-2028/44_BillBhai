@@ -1,6 +1,3 @@
-// Pure data layer of dashboard.js renderReports() / renderReportView().
-// Every figure, table row and chart series of the Reports page is derived here
-// from the store rows plus the three toolbar choices.
 import {
   getSupplierDetails,
   normalizeInventoryStatus,
@@ -34,9 +31,18 @@ export const SUPPLIER_SORT_OPTIONS = [
 ];
 
 function buildContext(orders, returns) {
-  const orderRows = orders.map((order) => ({ ...order, parsedDate: parseOrderDate(order && order.date) }));
-  const returnRows = returns.map((item) => ({ ...item, parsedDate: parseOrderDate(item && item.updatedAt) }));
-  const allDates = [...orderRows.map((item) => item.parsedDate), ...returnRows.map((item) => item.parsedDate)].filter(Boolean);
+  const orderRows = orders.map((order) => ({
+    ...order,
+    parsedDate: parseOrderDate(order && order.date),
+  }));
+  const returnRows = returns.map((item) => ({
+    ...item,
+    parsedDate: parseOrderDate(item && item.updatedAt),
+  }));
+  const allDates = [
+    ...orderRows.map((item) => item.parsedDate),
+    ...returnRows.map((item) => item.parsedDate),
+  ].filter(Boolean);
   const latestDataDate = allDates.length
     ? allDates.reduce((latest, item) => (item > latest ? item : latest), allDates[0])
     : new Date();
@@ -61,7 +67,8 @@ function matchesRange(dateValue, rangeKey, latestDataDate) {
 }
 
 function getBucketMeta(dateValue, rangeKey, latestDataDate) {
-  const safeDate = dateValue instanceof Date && !Number.isNaN(dateValue.getTime()) ? dateValue : latestDataDate;
+  const safeDate =
+    dateValue instanceof Date && !Number.isNaN(dateValue.getTime()) ? dateValue : latestDataDate;
 
   if (rangeKey === 'all') {
     return {
@@ -128,17 +135,19 @@ function sortSummaryRows(rows, sortKey) {
 
 function buildSupplierRows(inventory, sortKey) {
   const rows = Array.from(
-    inventory.reduce((acc, item) => {
-      const supplier = getSupplierDetails(item);
-      const key = supplier.name || 'Unknown Supplier';
-      if (!acc.has(key)) acc.set(key, { supplier: key, skus: 0, totalPrice: 0, stockValue: 0 });
-      const entry = acc.get(key);
-      const price = Math.max(0, Number(item && item.price) || 0);
-      entry.skus += 1;
-      entry.totalPrice += price;
-      entry.stockValue += price * Math.max(0, Number(item && item.stock) || 0);
-      return acc;
-    }, new Map()).values(),
+    inventory
+      .reduce((acc, item) => {
+        const supplier = getSupplierDetails(item);
+        const key = supplier.name || 'Unknown Supplier';
+        if (!acc.has(key)) acc.set(key, { supplier: key, skus: 0, totalPrice: 0, stockValue: 0 });
+        const entry = acc.get(key);
+        const price = Math.max(0, Number(item && item.price) || 0);
+        entry.skus += 1;
+        entry.totalPrice += price;
+        entry.stockValue += price * Math.max(0, Number(item && item.stock) || 0);
+        return acc;
+      }, new Map())
+      .values(),
   ).map((item) => ({ ...item, avgPrice: item.skus ? item.totalPrice / item.skus : 0 }));
 
   return rows.slice().sort((a, b) => {
@@ -149,24 +158,49 @@ function buildSupplierRows(inventory, sortKey) {
   });
 }
 
-/**
- * renderReportView(): everything shown for the selected range and sorts.
- * Returns { stats, summaryRows, supplierRows, chartState }.
- */
-export function buildReportView({ orders, returns, inventory, rangeKey, summarySort, supplierSort }) {
+export function buildReportView({
+  orders,
+  returns,
+  inventory,
+  rangeKey,
+  summarySort,
+  supplierSort,
+}) {
   const { orderRows, returnRows, latestDataDate } = buildContext(orders, returns);
-  const filteredOrders = orderRows.filter((item) => matchesRange(item.parsedDate, rangeKey, latestDataDate));
-  const filteredReturns = returnRows.filter((item) => matchesRange(item.parsedDate, rangeKey, latestDataDate));
+  const filteredOrders = orderRows.filter((item) =>
+    matchesRange(item.parsedDate, rangeKey, latestDataDate),
+  );
+  const filteredReturns = returnRows.filter((item) =>
+    matchesRange(item.parsedDate, rangeKey, latestDataDate),
+  );
 
-  const totalRevenue = filteredOrders.reduce((sum, order) => sum + Math.max(0, Number(order && order.total) || 0), 0);
-  const totalReturnsValue = filteredReturns.reduce((sum, item) => sum + Math.max(0, Number(item && item.amount) || 0), 0);
+  const totalRevenue = filteredOrders.reduce(
+    (sum, order) => sum + Math.max(0, Number(order && order.total) || 0),
+    0,
+  );
+  const totalReturnsValue = filteredReturns.reduce(
+    (sum, item) => sum + Math.max(0, Number(item && item.amount) || 0),
+    0,
+  );
   const netRevenue = Math.max(0, totalRevenue - totalReturnsValue);
-  const avgOrderValue = filteredOrders.length ? Math.round(totalRevenue / filteredOrders.length) : 0;
-  const countStatus = (status) => filteredOrders.filter((order) => normalizeOrderStatus(order && order.status) === status).length;
+  const avgOrderValue = filteredOrders.length
+    ? Math.round(totalRevenue / filteredOrders.length)
+    : 0;
+  const countStatus = (status) =>
+    filteredOrders.filter((order) => normalizeOrderStatus(order && order.status) === status).length;
   const deliveredOrders = countStatus('Delivered');
-  const completionRate = filteredOrders.length ? Math.round((deliveredOrders / filteredOrders.length) * 100) : 0;
-  const pendingReturns = filteredReturns.filter((item) => String((item && item.status) || '').trim().toLowerCase().includes('pending')).length;
-  const inventoryAlerts = inventory.filter((item) => normalizeInventoryStatus(item && item.status, item && item.stock) !== 'In Stock').length;
+  const completionRate = filteredOrders.length
+    ? Math.round((deliveredOrders / filteredOrders.length) * 100)
+    : 0;
+  const pendingReturns = filteredReturns.filter((item) =>
+    String((item && item.status) || '')
+      .trim()
+      .toLowerCase()
+      .includes('pending'),
+  ).length;
+  const inventoryAlerts = inventory.filter(
+    (item) => normalizeInventoryStatus(item && item.status, item && item.stock) !== 'In Stock',
+  ).length;
 
   const buckets = buildSummaryBuckets(filteredOrders, filteredReturns, rangeKey, latestDataDate);
   const summaryRows = sortSummaryRows(buckets, summarySort);
@@ -205,7 +239,9 @@ export function buildReportView({ orders, returns, inventory, rangeKey, summaryS
     revenueWindow: `${buckets.length} bucket${buckets.length === 1 ? '' : 's'}`,
     scopeMeta: `Inventory alerts: ${inventoryAlerts}`,
     supplierCount: supplierRows.length.toLocaleString(),
-    supplierMeta: supplierRows.length ? `${supplierRows[0].supplier} leads current value` : 'Current stock snapshot',
+    supplierMeta: supplierRows.length
+      ? `${supplierRows[0].supplier} leads current value`
+      : 'Current stock snapshot',
   };
 
   return { stats, summaryRows, supplierRows, chartState };

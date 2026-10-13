@@ -1,5 +1,3 @@
-// React port of renderDelivery() (+ initDeliveryCharts) in dashboard.js.
-// The Starter-plan paywall is rendered by DashboardLayout.
 import { useState } from 'react';
 import PageHeader from '../common/PageHeader.jsx';
 import StatCard from '../common/StatCard.jsx';
@@ -13,9 +11,30 @@ import DeliveryRow from './DeliveryRow.jsx';
 import useDeliveryActions from './useDeliveryActions.js';
 import { getDeliveryCounts } from './deliveryView.js';
 
-const COLUMNS = ['Delivery', 'Order', 'Customer', 'Address', 'Partner', 'ETA', 'Status', 'Updated', 'External', 'Actions'];
-const QUEUE_HEADER_STYLE = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' };
-const QUEUE_CONTROLS_STYLE = { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' };
+const COLUMNS = [
+  'Delivery',
+  'Order',
+  'Customer',
+  'Address',
+  'Partner',
+  'ETA',
+  'Status',
+  'Updated',
+  'External',
+  'Actions',
+];
+const QUEUE_HEADER_STYLE = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '12px',
+};
+const QUEUE_CONTROLS_STYLE = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  flexWrap: 'wrap',
+};
 
 const FILTER_TABS = [
   { value: 'active', label: 'Active' },
@@ -53,7 +72,8 @@ function compareBy(sortKey) {
     if (sortKey === 'updated_old') return updatedA - updatedB;
     if (sortKey === 'eta_low') return etaA - etaB;
     if (sortKey === 'eta_high') return etaB - etaA;
-    if (sortKey === 'partner') return String(a.partner || '').localeCompare(String(b.partner || ''));
+    if (sortKey === 'partner')
+      return String(a.partner || '').localeCompare(String(b.partner || ''));
     return updatedB - updatedA;
   };
 }
@@ -71,12 +91,29 @@ export default function DeliveryContent() {
 
   return (
     <>
-      <PageHeader title="Delivery" actions={<button className="btn btn-outline" onClick={() => window.print()}>Print</button>} />
+      <PageHeader
+        title="Delivery"
+        actions={
+          <button className="btn btn-outline" onClick={() => window.print()}>
+            Print
+          </button>
+        }
+      />
 
       <section className="stats-grid">
         <ActiveDeliveriesCard counts={counts} />
-        <StatCard icon={DELIVERY_ICONS.check} label="Delivered" value={counts.delivered} color="green" />
-        <StatCard icon={DELIVERY_ICONS.clock} label="Unassigned" value={counts.unassigned} color="amber" />
+        <StatCard
+          icon={DELIVERY_ICONS.check}
+          label="Delivered"
+          value={counts.delivered}
+          color="green"
+        />
+        <StatCard
+          icon={DELIVERY_ICONS.clock}
+          label="Unassigned"
+          value={counts.unassigned}
+          color="amber"
+        />
         <StatCard icon={DELIVERY_ICONS.alert} label="Failed" value={counts.failed} color="red" />
       </section>
 
@@ -99,7 +136,12 @@ export default function DeliveryContent() {
                 </button>
               ))}
             </div>
-            <FilterSelect id="deliverySortSelect" value={sortKey} onChange={setSortKey} options={SORT_OPTIONS} />
+            <FilterSelect
+              id="deliverySortSelect"
+              value={sortKey}
+              onChange={setSortKey}
+              options={SORT_OPTIONS}
+            />
           </div>
         </div>
         <div className="card-bd">
@@ -109,7 +151,13 @@ export default function DeliveryContent() {
             tbodyId="deliveryTableBody"
             emptyMessage="No deliveries found."
             renderRow={(d, i) => (
-              <DeliveryRow key={`${d.id}-${i}`} d={d} canManage={canManage} onAssign={assignDeliveryPartner} onEdit={editDelivery} />
+              <DeliveryRow
+                key={`${d.id}-${i}`}
+                d={d}
+                canManage={canManage}
+                onAssign={assignDeliveryPartner}
+                onEdit={editDelivery}
+              />
             )}
           />
         </div>

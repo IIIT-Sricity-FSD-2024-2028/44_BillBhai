@@ -1,10 +1,5 @@
-// Port of scripts/validation.js - client-side validation for the customer /
-// fulfillment details captured by the POS wizard.
-
 export function validateCustomerStep(input, phoneArg) {
-  const customer = (input && typeof input === 'object')
-    ? input
-    : { name: input, phone: phoneArg };
+  const customer = input && typeof input === 'object' ? input : { name: input, phone: phoneArg };
   const errors = {};
   const name = String(customer.name || '').trim();
   const phone = String(customer.phone || '').trim();
@@ -13,7 +8,9 @@ export function validateCustomerStep(input, phoneArg) {
   const address = String(customer.address || '').trim();
   const deliveryPartnerPhone = String(customer.deliveryPartnerPhone || '').trim();
   const deliveryPartnerPhoneDigits = deliveryPartnerPhone.replace(/\D/g, '');
-  const deliveryOption = String(customer.deliveryOption || 'pickup').trim().toLowerCase();
+  const deliveryOption = String(customer.deliveryOption || 'pickup')
+    .trim()
+    .toLowerCase();
 
   if (!name) {
     errors.name = 'Customer name is required.';
@@ -35,7 +32,11 @@ export function validateCustomerStep(input, phoneArg) {
     errors.address = 'Address is required for delivery orders.';
   }
 
-  if (deliveryOption === 'delivery' && deliveryPartnerPhone && !/^[6-9]\d{9}$/.test(deliveryPartnerPhoneDigits)) {
+  if (
+    deliveryOption === 'delivery' &&
+    deliveryPartnerPhone &&
+    !/^[6-9]\d{9}$/.test(deliveryPartnerPhoneDigits)
+  ) {
     errors.deliveryPartnerPhone = 'Enter a valid 10-digit phone number.';
   }
 

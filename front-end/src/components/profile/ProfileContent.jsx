@@ -43,8 +43,19 @@ function initialFormValues(profile) {
 
 export default function ProfileContent({ onSaved }) {
   const {
-    state, roleKey, orders, returns, deliveries, inventory, users, activePlan,
-    loadProfileSettingsRecord, saveProfileSettings, showToast, openPlanUpgrade, cancelSubscription,
+    state,
+    roleKey,
+    orders,
+    returns,
+    deliveries,
+    inventory,
+    users,
+    activePlan,
+    loadProfileSettingsRecord,
+    saveProfileSettings,
+    showToast,
+    openPlanUpgrade,
+    cancelSubscription,
   } = useDashboard();
 
   const [profile] = useState(() => loadProfileSettingsRecord());
@@ -136,11 +147,19 @@ export default function ProfileContent({ onSaved }) {
     <>
       <PageHeader
         title="Profile & Settings"
-        actions={<button className="btn btn-primary" id="saveProfileSettingsBtn" onClick={saveProfile}>Save Changes</button>}
+        actions={
+          <button className="btn btn-primary" id="saveProfileSettingsBtn" onClick={saveProfile}>
+            Save Changes
+          </button>
+        }
       />
       <section className="grid-2">
         <div style={COLUMN_STYLE}>
-          <ProfileIdentityCard fullName={profile.fullName} roleLabel={ROLE_LABELS[roleKey] || 'Team Member'} email={profile.email} />
+          <ProfileIdentityCard
+            fullName={profile.fullName}
+            roleLabel={ROLE_LABELS[roleKey] || 'Team Member'}
+            email={profile.email}
+          />
           <SecurityCard
             newPassword={newPassword}
             confirmPassword={confirmPassword}

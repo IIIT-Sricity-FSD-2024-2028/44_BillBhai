@@ -2,9 +2,24 @@ import SectionHeader from './SectionHeader.jsx';
 import useReveal from './useReveal.js';
 
 const STEPS = [
-  { number: '01', title: 'Create Your Account', description: 'Sign up in 30 seconds with just your email. No credit card required to start your free trial.' },
-  { number: '02', title: 'Add Your Products', description: 'Import your catalog via CSV or add items manually. Set prices, categories, and stock levels in one go.' },
-  { number: '03', title: 'Start Billing', description: 'Create invoices, track orders, and manage inventory — all from a single beautiful dashboard.' },
+  {
+    number: '01',
+    title: 'Create Your Account',
+    description:
+      'Sign up in 30 seconds with just your email. No credit card required to start your free trial.',
+  },
+  {
+    number: '02',
+    title: 'Add Your Products',
+    description:
+      'Import your catalog via CSV or add items manually. Set prices, categories, and stock levels in one go.',
+  },
+  {
+    number: '03',
+    title: 'Start Billing',
+    description:
+      'Create invoices, track orders, and manage inventory — all from a single beautiful dashboard.',
+  },
 ];
 
 function StepCard({ number, title, description, showConnector }) {

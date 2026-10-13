@@ -48,8 +48,14 @@ export default function LoginForm({
         onShakeEnd={() => onShakeEnd('password')}
         onTogglePassword={onTogglePassword}
       />
-      <FormOptions rememberMe={rememberMe} onToggleRemember={onToggleRemember} onForgotClick={onForgotClick} />
-      <p className="login-error" id="loginError">{errorMessage}</p>
+      <FormOptions
+        rememberMe={rememberMe}
+        onToggleRemember={onToggleRemember}
+        onForgotClick={onForgotClick}
+      />
+      <p className="login-error" id="loginError">
+        {errorMessage}
+      </p>
       <LoginButton isLoading={isLoading} isSuccess={isSuccess} />
     </form>
   );

@@ -1,5 +1,3 @@
-// React port of renderDeliveryOpsDashboard() (+ initDeliveryCharts) in dashboard.js.
-// Rendered by DashboardPage for the deliveryops role.
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../common/PageHeader.jsx';
 import StatCard from '../common/StatCard.jsx';
@@ -12,8 +10,24 @@ import DeliveryRow from './DeliveryRow.jsx';
 import useDeliveryActions from './useDeliveryActions.js';
 import { getDeliveryCounts } from './deliveryView.js';
 
-const COLUMNS = ['Delivery', 'Order', 'Customer', 'Address', 'Partner Info', 'ETA', 'Status', 'Updated', 'External', 'Actions'];
-const QUEUE_HEADER_STYLE = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' };
+const COLUMNS = [
+  'Delivery',
+  'Order',
+  'Customer',
+  'Address',
+  'Partner Info',
+  'ETA',
+  'Status',
+  'Updated',
+  'External',
+  'Actions',
+];
+const QUEUE_HEADER_STYLE = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '12px',
+};
 
 export default function DeliveryOpsDashboard() {
   const navigate = useNavigate();
@@ -37,19 +51,33 @@ export default function DeliveryOpsDashboard() {
     <>
       <PageHeader
         title={`Delivery Dashboard${scopedBusinessName ? ` - ${scopedBusinessName}` : ''}`}
-        actions={(
+        actions={
           <>
-            <button className="btn btn-primary" onClick={() => navigate('/delivery')}>Open Delivery</button>
-            <button className="btn btn-outline" onClick={() => window.print()}>Print</button>
+            <button className="btn btn-primary" onClick={() => navigate('/delivery')}>
+              Open Delivery
+            </button>
+            <button className="btn btn-outline" onClick={() => window.print()}>
+              Print
+            </button>
           </>
-        )}
+        }
       />
 
       <section className="stats-grid">
         <ActiveDeliveriesCard counts={counts} />
-        <StatCard icon={DELIVERY_ICONS.check} label="Delivered" value={counts.delivered} color="green" />
+        <StatCard
+          icon={DELIVERY_ICONS.check}
+          label="Delivered"
+          value={counts.delivered}
+          color="green"
+        />
         <StatCard icon={DELIVERY_ICONS.alert} label="Failed" value={counts.failed} color="red" />
-        <StatCard icon={DELIVERY_ICONS.clock} label="Avg ETA (Active)" value={etaLabel} color="amber" />
+        <StatCard
+          icon={DELIVERY_ICONS.clock}
+          label="Avg ETA (Active)"
+          value={etaLabel}
+          color="amber"
+        />
       </section>
 
       <DeliveryCharts deliveries={deliveries} partnerTitle="Partner Load (Active)" />
@@ -65,7 +93,13 @@ export default function DeliveryOpsDashboard() {
             rows={activeRows}
             emptyMessage="No active deliveries."
             renderRow={(d, i) => (
-              <DeliveryRow key={`${d.id}-${i}`} d={d} canManage={canManage} onAssign={assignDeliveryPartner} onEdit={editDelivery} />
+              <DeliveryRow
+                key={`${d.id}-${i}`}
+                d={d}
+                canManage={canManage}
+                onAssign={assignDeliveryPartner}
+                onEdit={editDelivery}
+              />
             )}
           />
         </div>

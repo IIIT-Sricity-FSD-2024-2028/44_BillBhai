@@ -2,7 +2,6 @@ import DataTable from '../common/DataTable.jsx';
 
 const money = (value) => `Rs ${Math.round(value).toLocaleString()}`;
 
-/** #reportsSupplierTableBody rows. */
 export function SupplierTable({ rows }) {
   return (
     <DataTable
@@ -21,7 +20,6 @@ export function SupplierTable({ rows }) {
   );
 }
 
-/** #reportsSummaryTableBody rows (one per period bucket). */
 export function SummaryTable({ rows }) {
   return (
     <DataTable

@@ -21,8 +21,6 @@ export default function LoginPage() {
     password: { error: false, shake: false },
   });
 
-  // Mount the login stylesheet only while this page is open; a global import
-  // would leak its `body { display: flex; overflow: hidden }` onto every page.
   usePageSetup({ title: 'BillBhai - Admin Login', styles: [CSS.login], fonts: FONTS.auth });
 
   const handleFieldFocus = (fieldName) => {
@@ -103,14 +101,17 @@ export default function LoginPage() {
 
       localStorage.setItem('userRole', role);
       localStorage.setItem('userName', userData.username);
-      localStorage.setItem('currentUser', JSON.stringify({
-        id: userData.id,
-        username: userData.username,
-        name: userData.name || userData.username,
-        role: role,
-        email: userData.email || '',
-        companyId: userData.companyId || null,
-      }));
+      localStorage.setItem(
+        'currentUser',
+        JSON.stringify({
+          id: userData.id,
+          username: userData.username,
+          name: userData.name || userData.username,
+          role: role,
+          email: userData.email || '',
+          companyId: userData.companyId || null,
+        }),
+      );
 
       if (userData.companyId) {
         localStorage.setItem('activeBusinessId', userData.companyId);
@@ -135,7 +136,6 @@ export default function LoginPage() {
           navigate('/dashboard');
         }
       }, 1000);
-
     } catch (err) {
       console.error('Login error:', err);
       setErrorMessage('Backend is unavailable. Start backend server and try again.');
@@ -159,7 +159,9 @@ export default function LoginPage() {
         onPasswordChange={setPassword}
         onTogglePassword={() => setShowPassword(!showPassword)}
         onToggleRemember={() => setRememberMe(!rememberMe)}
-        onForgotClick={() => setErrorMessage('Password reset is backend-managed. Please contact system admin.')}
+        onForgotClick={() =>
+          setErrorMessage('Password reset is backend-managed. Please contact system admin.')
+        }
         onFieldFocus={handleFieldFocus}
         onShakeEnd={handleShakeEnd}
         onSubmit={handleSubmit}

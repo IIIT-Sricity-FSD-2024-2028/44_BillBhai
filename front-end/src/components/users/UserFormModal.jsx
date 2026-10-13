@@ -5,10 +5,26 @@ import LegacySelect, { effectiveSelectValue } from '../common/LegacySelect.jsx';
 import { EMPTY_USER_FORM } from './UsersContent.jsx';
 import { useDashboard, useSession, useUsers } from '../../lib/dashboard/hooks.js';
 import { mapRoleLabelToBackendRole } from '../../lib/dashboard/api.js';
-import { mapUserRoleToAuthRole, normalizeAuthUserKey, upsertAuthCredentialsForUser } from '../../lib/dashboard/credentials.js';
-import { isValidEmailAddress, isValidPhoneNumber, normalizePhoneDigits } from '../../lib/dashboard/helpers.js';
+import {
+  mapUserRoleToAuthRole,
+  normalizeAuthUserKey,
+  upsertAuthCredentialsForUser,
+} from '../../lib/dashboard/credentials.js';
+import {
+  isValidEmailAddress,
+  isValidPhoneNumber,
+  normalizePhoneDigits,
+} from '../../lib/dashboard/helpers.js';
 
-const ROLE_VALUES = ['Admin', 'Cashier', 'Return Handler', 'Inventory Manager', 'Delivery Ops', 'Customer', 'Super User'];
+const ROLE_VALUES = [
+  'Admin',
+  'Cashier',
+  'Return Handler',
+  'Inventory Manager',
+  'Delivery Ops',
+  'Customer',
+  'Super User',
+];
 const STATUS_OPTIONS = ['Active', 'Offline', 'Suspended'];
 const PHONE_ERROR = 'Enter a valid 10-digit phone number.';
 
@@ -21,8 +37,10 @@ function roleOptions(planFeatures) {
   return [
     { value: '', label: 'Select role' },
     ...ROLE_VALUES.map((value) => {
-      const locked = !!planFeatures && (
-        (value === 'Delivery Ops' && !planFeatures.delivery) || (value === 'Return Handler' && !planFeatures.returns));
+      const locked =
+        !!planFeatures &&
+        ((value === 'Delivery Ops' && !planFeatures.delivery) ||
+          (value === 'Return Handler' && !planFeatures.returns));
       return { value, label: value, hidden: locked, disabled: locked };
     }),
   ];
@@ -30,7 +48,14 @@ function roleOptions(planFeatures) {
 
 export default function UserFormModal({ open, request, onClose }) {
   const {
-    hasActionAccess, denyAction, activePlan, apiRequest, showToast, showMutationError, showCredentialsModal, renderPage,
+    hasActionAccess,
+    denyAction,
+    activePlan,
+    apiRequest,
+    showToast,
+    showMutationError,
+    showCredentialsModal,
+    renderPage,
   } = useDashboard();
   const { activeBusinessId } = useSession();
   const { rows: users, setRows } = useUsers();
@@ -83,7 +108,10 @@ export default function UserFormModal({ open, request, onClose }) {
     });
 
     const features = activePlan.features;
-    if ((roleValue === 'Delivery Ops' && !features.delivery) || (roleValue === 'Return Handler' && !features.returns)) {
+    if (
+      (roleValue === 'Delivery Ops' && !features.delivery) ||
+      (roleValue === 'Return Handler' && !features.returns)
+    ) {
       showToast('Role not allowed on your current plan.');
       valid = false;
     }
@@ -139,18 +167,21 @@ export default function UserFormModal({ open, request, onClose }) {
 
     try {
       if (existingUser && existingUser.id) {
-        const backendUser = await apiRequest(`/users/${encodeURIComponent(String(existingUser.id))}`, {
-          method: 'PUT',
-          role: 'admin',
-          body: {
-            name: uData.name,
-            role: mapRoleLabelToBackendRole(uData.role),
-            email: uData.email,
-            mobileNo: uData.phone || '',
-            status: uData.status,
-            ...(typedPassword ? { password: typedPassword } : {}),
+        const backendUser = await apiRequest(
+          `/users/${encodeURIComponent(String(existingUser.id))}`,
+          {
+            method: 'PUT',
+            role: 'admin',
+            body: {
+              name: uData.name,
+              role: mapRoleLabelToBackendRole(uData.role),
+              email: uData.email,
+              mobileNo: uData.phone || '',
+              status: uData.status,
+              ...(typedPassword ? { password: typedPassword } : {}),
+            },
           },
-        });
+        );
         uData.id = backendUser.id || existingUser.id;
       } else {
         const backendUser = await apiRequest('/users', {
@@ -195,18 +226,61 @@ export default function UserFormModal({ open, request, onClose }) {
   };
 
   return (
-    <Modal open={open} id="addUserModal" title={texts.title} onClose={onClose} closeButtonId="userModalClose" closeButtonType={null}>
+    <Modal
+      open={open}
+      id="addUserModal"
+      title={texts.title}
+      onClose={onClose}
+      closeButtonId="userModalClose"
+      closeButtonType={null}
+    >
       <form id="addUserForm" noValidate onSubmit={handleSubmit}>
         <div className="modal-body">
-          <FormField label="Full Name *" htmlFor="userName" error="Full name is required" hasError={errors.name}>
-            <input type="text" className={controlClass(errors.name)} id="userName" placeholder="e.g. Rahul Sharma" required readOnly={readOnly} {...bind('name')} />
+          <FormField
+            label="Full Name *"
+            htmlFor="userName"
+            error="Full name is required"
+            hasError={errors.name}
+          >
+            <input
+              type="text"
+              className={controlClass(errors.name)}
+              id="userName"
+              placeholder="e.g. Rahul Sharma"
+              required
+              readOnly={readOnly}
+              {...bind('name')}
+            />
           </FormField>
-          <FormField label="Email *" htmlFor="userEmail" error="Valid email is required" hasError={errors.email}>
-            <input type="email" className={controlClass(errors.email)} id="userEmail" placeholder="e.g. rahul.s@billbhai.com" required {...bind('email')} />
+          <FormField
+            label="Email *"
+            htmlFor="userEmail"
+            error="Valid email is required"
+            hasError={errors.email}
+          >
+            <input
+              type="email"
+              className={controlClass(errors.email)}
+              id="userEmail"
+              placeholder="e.g. rahul.s@billbhai.com"
+              required
+              {...bind('email')}
+            />
           </FormField>
           <div className="form-row">
-            <FormField label="Role *" htmlFor="userRole" error="Please select a role" hasError={errors.role}>
-              <LegacySelect className={controlClass(errors.role)} id="userRole" required options={roleOpts} {...bind('role')} />
+            <FormField
+              label="Role *"
+              htmlFor="userRole"
+              error="Please select a role"
+              hasError={errors.role}
+            >
+              <LegacySelect
+                className={controlClass(errors.role)}
+                id="userRole"
+                required
+                options={roleOpts}
+                {...bind('role')}
+              />
             </FormField>
             <FormField
               label="Phone"
@@ -216,24 +290,64 @@ export default function UserFormModal({ open, request, onClose }) {
               errorDisplay={phoneError.display}
               errorMessage={phoneError.message}
             >
-              <input type="tel" className={controlClass(errors.phone)} id="userPhone" placeholder="e.g. 9876543210" maxLength={10} inputMode="numeric" {...bind('phone')} />
+              <input
+                type="tel"
+                className={controlClass(errors.phone)}
+                id="userPhone"
+                placeholder="e.g. 9876543210"
+                maxLength={10}
+                inputMode="numeric"
+                {...bind('phone')}
+              />
             </FormField>
           </div>
           <div className="form-row">
-            <FormField label="Username" htmlFor="userUsername" error="Use only letters, numbers, dot, underscore, or hyphen" hasError={errors.username}>
-              <input type="text" className={controlClass(errors.username)} id="userUsername" placeholder="e.g. rahul.sharma" readOnly={readOnly} {...bind('username')} />
+            <FormField
+              label="Username"
+              htmlFor="userUsername"
+              error="Use only letters, numbers, dot, underscore, or hyphen"
+              hasError={errors.username}
+            >
+              <input
+                type="text"
+                className={controlClass(errors.username)}
+                id="userUsername"
+                placeholder="e.g. rahul.sharma"
+                readOnly={readOnly}
+                {...bind('username')}
+              />
             </FormField>
-            <FormField label="Password" htmlFor="userPassword" error="Password must be at least 6 characters" hasError={errors.password}>
-              <input type="password" className={controlClass(errors.password)} id="userPassword" placeholder="Minimum 6 characters" {...bind('password')} />
+            <FormField
+              label="Password"
+              htmlFor="userPassword"
+              error="Password must be at least 6 characters"
+              hasError={errors.password}
+            >
+              <input
+                type="password"
+                className={controlClass(errors.password)}
+                id="userPassword"
+                placeholder="Minimum 6 characters"
+                {...bind('password')}
+              />
             </FormField>
           </div>
           <FormField label="Status" htmlFor="userStatus">
-            <LegacySelect className="form-control" id="userStatus" options={STATUS_OPTIONS} {...bind('status')} />
+            <LegacySelect
+              className="form-control"
+              id="userStatus"
+              options={STATUS_OPTIONS}
+              {...bind('status')}
+            />
           </FormField>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn btn-outline" id="userModalCancel" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">{texts.submit}</button>
+          <button type="button" className="btn btn-outline" id="userModalCancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary">
+            {texts.submit}
+          </button>
         </div>
       </form>
     </Modal>

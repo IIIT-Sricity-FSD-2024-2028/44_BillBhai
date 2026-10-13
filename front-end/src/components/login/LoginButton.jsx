@@ -6,12 +6,7 @@ export default function LoginButton({ isLoading, isSuccess }) {
   if (isSuccess) buttonClasses += ' success';
 
   return (
-    <button
-      type="submit"
-      id="btnLogin"
-      className={buttonClasses}
-      disabled={isLoading || isSuccess}
-    >
+    <button type="submit" id="btnLogin" className={buttonClasses} disabled={isLoading || isSuccess}>
       <span className="btn-text">Sign In</span>
 
       <span className="btn-loader">

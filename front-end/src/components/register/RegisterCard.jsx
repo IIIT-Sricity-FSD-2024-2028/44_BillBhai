@@ -15,11 +15,17 @@ export default function RegisterCard({ children }) {
     const r = cardRef.current.getBoundingClientRect();
     const rx = ((e.clientY - r.top - r.height / 2) / (r.height / 2)) * -2;
     const ry = ((e.clientX - r.left - r.width / 2) / (r.width / 2)) * 2;
-    setTilt((prev) => ({ ...prev, transform: `perspective(1200px) rotateX(${rx}deg) rotateY(${ry}deg)` }));
+    setTilt((prev) => ({
+      ...prev,
+      transform: `perspective(1200px) rotateX(${rx}deg) rotateY(${ry}deg)`,
+    }));
   }
 
   function handleMouseLeave() {
-    setTilt({ transform: 'perspective(1200px) rotateX(0) rotateY(0)', transition: 'transform 0.5s ease' });
+    setTilt({
+      transform: 'perspective(1200px) rotateX(0) rotateY(0)',
+      transition: 'transform 0.5s ease',
+    });
     clearTimeout(resetTimer.current);
     resetTimer.current = setTimeout(() => {
       setTilt((prev) => ({ transform: prev.transform }));
@@ -46,9 +52,13 @@ export default function RegisterCard({ children }) {
         {children}
 
         <div className="register-footer">
-          <p>Already have an account? <Link to="/login">Sign In</Link></p>
+          <p>
+            Already have an account? <Link to="/login">Sign In</Link>
+          </p>
         </div>
-        <div className="register-copyright"><p>&copy; 2026 BillBhai Systems</p></div>
+        <div className="register-copyright">
+          <p>&copy; 2026 BillBhai Systems</p>
+        </div>
       </div>
     </div>
   );

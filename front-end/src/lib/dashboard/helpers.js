@@ -1,5 +1,3 @@
-// Pure helpers ported from dashboard.js. Functions that read the page-level
-// collections in the original (orders, inventory, ...) take them as arguments.
 import {
   DELIVERY_PARTNER_DIRECTORY,
   EMAIL_PATTERN,
@@ -7,14 +5,13 @@ import {
   SUPPLIER_DIRECTORY,
 } from './constants.js';
 
-// ── badge() / statusBadge() class names ──────────────────────────────
-/** CSS class for badge(txt, type): `badge b-<type>` */
 export function badgeClass(txt, type) {
-  const safeType = String(type || txt || 'default').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const safeType = String(type || txt || 'default')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
   return `badge b-${safeType || 'default'}`;
 }
 
-/** statusBadge(s) uses type = s.toLowerCase() without spaces. */
 export function statusBadgeType(status) {
   return status.toLowerCase().replace(/ /g, '');
 }
@@ -32,22 +29,32 @@ export function escapeHtml(text) {
     .replace(/'/g, '&#39;');
 }
 
-// ── Status normalisation ─────────────────────────────────────────────
 export function normalizeDeliveryStatus(status) {
-  const raw = String(status || '').trim().toLowerCase();
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return 'Pending';
   if (raw.includes('deliver')) return 'Delivered';
-  if (raw.includes('out for') || raw.includes('transit') || raw.includes('dispatch') || raw.includes('processing')) return 'In Transit';
+  if (
+    raw.includes('out for') ||
+    raw.includes('transit') ||
+    raw.includes('dispatch') ||
+    raw.includes('processing')
+  )
+    return 'In Transit';
   if (raw.includes('fail') || raw.includes('cancel')) return 'Failed';
   if (raw.includes('pending')) return 'Pending';
   return 'Pending';
 }
 
 export function normalizeOrderStatus(status) {
-  const raw = String(status || '').trim().toLowerCase();
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return 'Pending';
   if (raw.includes('deliver')) return 'Delivered';
-  if (raw.includes('process') || raw.includes('transit') || raw.includes('dispatch')) return 'Processing';
+  if (raw.includes('process') || raw.includes('transit') || raw.includes('dispatch'))
+    return 'Processing';
   if (raw.includes('cancel') || raw.includes('fail')) return 'Cancelled';
   if (raw.includes('pending')) return 'Pending';
   return 'Pending';
@@ -55,7 +62,9 @@ export function normalizeOrderStatus(status) {
 
 export function normalizeInventoryStatus(status, stockValue) {
   const stock = Number.isFinite(Number(stockValue)) ? Number(stockValue) : 0;
-  const raw = String(status || '').trim().toLowerCase();
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase();
   if (raw.includes('out')) return 'Out of Stock';
   if (raw.includes('critical')) return 'Critical';
   if (raw.includes('low')) return 'Low Stock';
@@ -71,7 +80,6 @@ export function normalizeInventoryStatus(status, stockValue) {
   return 'In Stock';
 }
 
-/** deliveryBadge(status) -> { text, type } for <Badge text type /> */
 export function deliveryBadgeProps(status) {
   const normalized = normalizeDeliveryStatus(status);
   if (normalized === 'Delivered') return { text: 'Delivered', type: 'delivered' };
@@ -80,10 +88,17 @@ export function deliveryBadgeProps(status) {
   return { text: 'Pending', type: 'pending' };
 }
 
-// ── Metrics ──────────────────────────────────────────────────────────
 export function getInventoryMetrics(inventory) {
   const list = Array.isArray(inventory) ? inventory : [];
-  const metrics = { totalSkus: list.length, totalUnits: 0, inStock: 0, lowStock: 0, critical: 0, outOfStock: 0, alerts: 0 };
+  const metrics = {
+    totalSkus: list.length,
+    totalUnits: 0,
+    inStock: 0,
+    lowStock: 0,
+    critical: 0,
+    outOfStock: 0,
+    alerts: 0,
+  };
   list.forEach((item) => {
     const stock = Math.max(0, Number(item && item.stock) || 0);
     const status = normalizeInventoryStatus(item && item.status, stock);
@@ -109,7 +124,9 @@ export function getInventoryCategoryCounts(inventory) {
 }
 
 export function getDashboardStatusMetrics({ orders, returns, inventory }) {
-  const deliveredOrders = orders.filter((o) => normalizeOrderStatus(o && o.status) === 'Delivered').length;
+  const deliveredOrders = orders.filter(
+    (o) => normalizeOrderStatus(o && o.status) === 'Delivered',
+  ).length;
   const openOrders = orders.length - deliveredOrders;
   return {
     deliveredOrders,
@@ -119,7 +136,6 @@ export function getDashboardStatusMetrics({ orders, returns, inventory }) {
   };
 }
 
-// ── Dates ────────────────────────────────────────────────────────────
 export function parseOrderDate(dateText) {
   const raw = String(dateText || '').trim();
   if (!raw) return null;
@@ -132,7 +148,20 @@ export function parseOrderDate(dateText) {
 
   const day = Number(match[1]);
   const monthLabel = match[2].slice(0, 3).toLowerCase();
-  const monthMap = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  const monthMap = {
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
+  };
   const month = monthMap[monthLabel];
   if (month === undefined) return null;
 
@@ -187,10 +216,15 @@ export function buildRevenueTrendDays(orders, dayCount) {
   if (timelineEntries.length) {
     const currentWindowStart = new Date(now);
     currentWindowStart.setDate(now.getDate() - (count - 1));
-    const hasRecentData = timelineEntries.some((entry) => startOfDay(entry.date).getTime() >= currentWindowStart.getTime());
+    const hasRecentData = timelineEntries.some(
+      (entry) => startOfDay(entry.date).getTime() >= currentWindowStart.getTime(),
+    );
     if (!hasRecentData) {
       anchorDay = startOfDay(
-        timelineEntries.reduce((latest, entry) => (entry.date > latest ? entry.date : latest), timelineEntries[0].date)
+        timelineEntries.reduce(
+          (latest, entry) => (entry.date > latest ? entry.date : latest),
+          timelineEntries[0].date,
+        ),
       );
     }
   }
@@ -218,7 +252,10 @@ export function buildRevenueTrendWeeks(orders, weekCount) {
   let anchorWeek = startOfWeek(new Date());
   if (timelineEntries.length) {
     anchorWeek = startOfWeek(
-      timelineEntries.reduce((latest, entry) => (entry.date > latest ? entry.date : latest), timelineEntries[0].date)
+      timelineEntries.reduce(
+        (latest, entry) => (entry.date > latest ? entry.date : latest),
+        timelineEntries[0].date,
+      ),
     );
   }
 
@@ -234,10 +271,22 @@ export function buildRevenueTrendWeeks(orders, weekCount) {
   return { labels, values };
 }
 
-/** formatDate(): "18 Sep 14:05" for now. */
 export function formatDate() {
   const now = new Date();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   const d = now.getDate();
   const m = months[now.getMonth()];
   const h = String(now.getHours()).padStart(2, '0');
@@ -249,7 +298,20 @@ export function formatBackendDate(value) {
   if (!value) return formatDate();
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return String(value);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   const hh = String(parsed.getHours()).padStart(2, '0');
   const mm = String(parsed.getMinutes()).padStart(2, '0');
   return `${parsed.getDate()} ${months[parsed.getMonth()]} ${hh}:${mm}`;
@@ -276,8 +338,6 @@ export function parseMonthEntry(monthLabel, fallbackIndex) {
   return Date.now() - (Number(fallbackIndex) || 0) * 86400000;
 }
 
-// ── Id generators ────────────────────────────────────────────────────
-/** getNextOrderId(). `extraIds` replaces the original scan of #ordersTableBody. */
 export function getNextOrderId(orders, extraIds = []) {
   const nums = orders.map((o) => parseInt(o.id.replace('ORD-', ''), 10));
   extraIds.forEach((id) => {
@@ -296,7 +356,6 @@ export function getNextReturnId(returns) {
   return `RET-${next}`;
 }
 
-/** getNextSku(). `extraSkus` replaces the original scan of #inventoryTableBody. */
 export function getNextSku(inventory, extraSkus = []) {
   const nums = inventory.map((i) => parseInt(i.sku.replace('SKU-', ''), 10));
   extraSkus.forEach((sku) => {
@@ -304,7 +363,6 @@ export function getNextSku(inventory, extraSkus = []) {
     if (match) nums.push(parseInt(match[1], 10));
   });
   const next = Math.max(...nums) + 1;
-  // Three digits, matching the SKUs derived from inventory ids (INV-015 -> SKU-015).
   return `SKU-${String(next).padStart(3, '0')}`;
 }
 
@@ -316,7 +374,6 @@ export function determineStatus(stock, selectedStatus) {
   return 'In Stock';
 }
 
-// ── Validation ───────────────────────────────────────────────────────
 export function normalizePhoneDigits(value) {
   return String(value || '').replace(/\D/g, '');
 }
@@ -334,7 +391,6 @@ export function isValidPhoneNumber(value) {
   return PHONE_PATTERN.test(normalizePhoneDigits(value));
 }
 
-// ── Views ────────────────────────────────────────────────────────────
 export function getDeliveryPartnerDetails(item) {
   const partnerName = String((item && item.partner) || '').trim();
   const directory = DELIVERY_PARTNER_DIRECTORY[partnerName] || {};
@@ -343,9 +399,10 @@ export function getDeliveryPartnerDetails(item) {
   return {
     name: partnerName || 'Unassigned',
     phone: phoneRaw || 'Not available',
-    phoneHref: normalizedPhone && normalizedPhone !== '+'
-      ? `tel:${normalizedPhone.startsWith('+') ? normalizedPhone : `+91${normalizedPhone}`}`
-      : '',
+    phoneHref:
+      normalizedPhone && normalizedPhone !== '+'
+        ? `tel:${normalizedPhone.startsWith('+') ? normalizedPhone : `+91${normalizedPhone}`}`
+        : '',
     agency: String((item && item.partnerAgency) || directory.agency || 'External partner').trim(),
     vehicle: String((item && item.partnerVehicle) || directory.vehicle || 'Bike').trim(),
     coverage: String((item && item.partnerCoverage) || directory.coverage || 'City zone').trim(),
@@ -404,25 +461,29 @@ export function getReturnView({ returns, orders }) {
 
 export function getSupplierDetails(item) {
   const supplierName = String((item && item.supplier) || '').trim() || 'Unknown Supplier';
-  const meta = item && item.supplierDetails && typeof item.supplierDetails === 'object' ? item.supplierDetails : {};
+  const meta =
+    item && item.supplierDetails && typeof item.supplierDetails === 'object'
+      ? item.supplierDetails
+      : {};
   const directory = SUPPLIER_DIRECTORY[supplierName] || {};
   return {
     name: supplierName,
-    contact: String(meta.contact || item.supplierContact || directory.contact || 'Procurement Desk').trim(),
+    contact: String(
+      meta.contact || item.supplierContact || directory.contact || 'Procurement Desk',
+    ).trim(),
     phone: String(meta.phone || item.supplierPhone || directory.phone || 'Not available').trim(),
-    email: String(meta.email || item.supplierEmail || directory.email || 'supplier@na.local').trim(),
-    leadTimeDays: Math.max(1, Number(meta.leadTimeDays || item.leadTimeDays || directory.leadTimeDays || 3)),
+    email: String(
+      meta.email || item.supplierEmail || directory.email || 'supplier@na.local',
+    ).trim(),
+    leadTimeDays: Math.max(
+      1,
+      Number(meta.leadTimeDays || item.leadTimeDays || directory.leadTimeDays || 3),
+    ),
     moq: Math.max(1, Number(meta.moq || item.minimumOrderQty || directory.moq || 10)),
     rating: Math.max(0, Number(meta.rating || item.supplierRating || directory.rating || 4.2)),
   };
 }
 
-/**
- * getRecentProfileActivity(). The original returned HTML strings like
- * `Processed order <strong>#ORD-1</strong> for X`; here each entry is
- * { time, before, strong, after } so it can be rendered as
- * `{before}<strong>{strong}</strong>{after}`.
- */
 export function getRecentProfileActivity({ orders, returns, deliveries, inventory }) {
   const items = [];
 
@@ -431,7 +492,12 @@ export function getRecentProfileActivity({ orders, returns, deliveries, inventor
     .filter((entry) => entry.timestamp)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
   if (latestOrder) {
-    items.push({ time: latestOrder.order.date, before: 'Processed order ', strong: `#${latestOrder.order.id}`, after: ` for ${latestOrder.order.customer}` });
+    items.push({
+      time: latestOrder.order.date,
+      before: 'Processed order ',
+      strong: `#${latestOrder.order.id}`,
+      after: ` for ${latestOrder.order.customer}`,
+    });
   }
 
   const latestReturn = returns
@@ -439,7 +505,12 @@ export function getRecentProfileActivity({ orders, returns, deliveries, inventor
     .filter((entry) => entry.timestamp)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
   if (latestReturn) {
-    items.push({ time: latestReturn.item.updatedAt, before: 'Updated return ', strong: `#${latestReturn.item.id}`, after: ` to ${latestReturn.item.status}` });
+    items.push({
+      time: latestReturn.item.updatedAt,
+      before: 'Updated return ',
+      strong: `#${latestReturn.item.id}`,
+      after: ` to ${latestReturn.item.status}`,
+    });
   }
 
   const latestDelivery = deliveries
@@ -464,13 +535,17 @@ export function getRecentProfileActivity({ orders, returns, deliveries, inventor
     .filter((entry) => entry.status !== 'In Stock')
     .sort((a, b) => a.stock - b.stock)[0];
   if (alertItem) {
-    items.push({ time: 'Current inventory snapshot', before: 'Reviewed stock alert for ', strong: alertItem.item.name, after: ` (${alertItem.status})` });
+    items.push({
+      time: 'Current inventory snapshot',
+      before: 'Reviewed stock alert for ',
+      strong: alertItem.item.name,
+      after: ` (${alertItem.status})`,
+    });
   }
 
   return items.slice(0, 4);
 }
 
-// ── Business records ─────────────────────────────────────────────────
 export function normalizeBusinessRecord(raw, fallbackId, fallbackName) {
   const safe = raw && typeof raw === 'object' ? raw : {};
   const id = String(safe.id || fallbackId || 'BIZ-000').trim();
@@ -478,32 +553,36 @@ export function normalizeBusinessRecord(raw, fallbackId, fallbackName) {
 
   const usersList = Array.isArray(safe.users)
     ? safe.users.map((u, idx) => ({
-      name: String((u && u.name) || `User ${idx + 1}`).trim(),
-      role: String((u && u.role) || 'Staff').trim(),
-      status: String((u && u.status) || 'Active').trim(),
-    }))
+        name: String((u && u.name) || `User ${idx + 1}`).trim(),
+        role: String((u && u.role) || 'Staff').trim(),
+        status: String((u && u.status) || 'Active').trim(),
+      }))
     : [];
 
   const storesList = Array.isArray(safe.stores)
     ? safe.stores.map((s, idx) => ({
-      code: String((s && s.code) || `${id}-S${idx + 1}`).trim(),
-      city: String((s && s.city) || 'Unknown').trim(),
-      status: String((s && s.status) || 'Active').trim(),
-    }))
+        code: String((s && s.code) || `${id}-S${idx + 1}`).trim(),
+        city: String((s && s.city) || 'Unknown').trim(),
+        status: String((s && s.status) || 'Active').trim(),
+      }))
     : [];
 
   const paymentsList = Array.isArray(safe.payments)
     ? safe.payments.map((p, idx) => ({
-      month: String((p && p.month) || `Entry ${idx + 1}`).trim(),
-      amount: Math.max(0, Number((p && p.amount) || 0) || 0),
-      status: String((p && p.status) || 'Due').trim(),
-    }))
+        month: String((p && p.month) || `Entry ${idx + 1}`).trim(),
+        amount: Math.max(0, Number((p && p.amount) || 0) || 0),
+        status: String((p && p.status) || 'Due').trim(),
+      }))
     : [];
 
-  const storesCount = Number.isFinite(Number(safe.storesCount)) ? Math.max(0, Number(safe.storesCount)) : storesList.length;
+  const storesCount = Number.isFinite(Number(safe.storesCount))
+    ? Math.max(0, Number(safe.storesCount))
+    : storesList.length;
   const paymentDue = Number.isFinite(Number(safe.paymentDue))
     ? Math.max(0, Number(safe.paymentDue))
-    : paymentsList.filter((p) => String(p.status).toLowerCase() !== 'paid').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    : paymentsList
+        .filter((p) => String(p.status).toLowerCase() !== 'paid')
+        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   return {
     id,
@@ -565,53 +644,290 @@ export function mergePrimaryWithSecondary(primaryRows, secondaryRows, key) {
   return merged;
 }
 
-/** buildBusinessSeedData(business, idx) - demo data per business (used by the
- *  superuser notification generator for businesses without loaded data). */
 export function buildBusinessSeedData(business, idx) {
   const userList = Array.isArray(business.users) ? business.users : [];
-  const adminName = userList.find((u) => String(u.role || '').toLowerCase() === 'admin')?.name || business.adminName || 'Store Admin';
-  const cashierName = userList.find((u) => String(u.role || '').toLowerCase().includes('cashier'))?.name || 'POS Counter';
-  const inventoryManager = userList.find((u) => String(u.role || '').toLowerCase().includes('inventory'))?.name || 'Inventory Desk';
-  const deliveryLead = userList.find((u) => String(u.role || '').toLowerCase().includes('delivery'))?.name || 'Delivery Desk';
-  const returnLead = userList.find((u) => String(u.role || '').toLowerCase().includes('return'))?.name || 'Returns Desk';
-  const city = Array.isArray(business.stores) && business.stores[0] ? business.stores[0].city : 'Primary City';
+  const adminName =
+    userList.find((u) => String(u.role || '').toLowerCase() === 'admin')?.name ||
+    business.adminName ||
+    'Store Admin';
+  const cashierName =
+    userList.find((u) =>
+      String(u.role || '')
+        .toLowerCase()
+        .includes('cashier'),
+    )?.name || 'POS Counter';
+  const inventoryManager =
+    userList.find((u) =>
+      String(u.role || '')
+        .toLowerCase()
+        .includes('inventory'),
+    )?.name || 'Inventory Desk';
+  const deliveryLead =
+    userList.find((u) =>
+      String(u.role || '')
+        .toLowerCase()
+        .includes('delivery'),
+    )?.name || 'Delivery Desk';
+  const returnLead =
+    userList.find((u) =>
+      String(u.role || '')
+        .toLowerCase()
+        .includes('return'),
+    )?.name || 'Returns Desk';
+  const city =
+    Array.isArray(business.stores) && business.stores[0] ? business.stores[0].city : 'Primary City';
   const seedNum = 500 + idx * 50;
 
   const seedOrders = [
-    { id: `ORD-${seedNum + 1}`, customer: `${city} Walk-in`, items: 6, total: 4280 + idx * 180, payment: 'Paid Upfront', status: 'Processing', date: '17 Feb 16:42' },
-    { id: `ORD-${seedNum + 2}`, customer: 'Anita Verma', items: 2, total: 980 + idx * 90, payment: 'COD', status: 'Processing', date: '17 Feb 16:05' },
+    {
+      id: `ORD-${seedNum + 1}`,
+      customer: `${city} Walk-in`,
+      items: 6,
+      total: 4280 + idx * 180,
+      payment: 'Paid Upfront',
+      status: 'Processing',
+      date: '17 Feb 16:42',
+    },
+    {
+      id: `ORD-${seedNum + 2}`,
+      customer: 'Anita Verma',
+      items: 2,
+      total: 980 + idx * 90,
+      payment: 'COD',
+      status: 'Processing',
+      date: '17 Feb 16:05',
+    },
   ];
 
-  const addressBook = [
-    `12, MG Road, ${city}`,
-    `A-204, Green Park, ${city}`,
-  ];
+  const addressBook = [`12, MG Road, ${city}`, `A-204, Green Park, ${city}`];
 
   const seedDeliveries = [
-    { id: `DEL-${seedNum + 1}`, oid: seedOrders[0].id, customer: seedOrders[0].customer, customerName: seedOrders[0].customer, address: addressBook[0], partner: 'Rajesh K.', partnerPhone: '+91 98214 44770', partnerAgency: 'SwiftDrop Logistics', status: 'Pending', etaMin: 35, updatedAt: '17 Feb 05:30' },
-    { id: `DEL-${seedNum + 2}`, oid: seedOrders[1].id, customer: seedOrders[1].customer, customerName: seedOrders[1].customer, address: addressBook[1], partner: 'Sunil M.', partnerPhone: '+91 98214 44771', partnerAgency: 'SwiftDrop Logistics', status: 'In Transit', etaMin: 18, updatedAt: '17 Feb 16:20' },
+    {
+      id: `DEL-${seedNum + 1}`,
+      oid: seedOrders[0].id,
+      customer: seedOrders[0].customer,
+      customerName: seedOrders[0].customer,
+      address: addressBook[0],
+      partner: 'Rajesh K.',
+      partnerPhone: '+91 98214 44770',
+      partnerAgency: 'SwiftDrop Logistics',
+      status: 'Pending',
+      etaMin: 35,
+      updatedAt: '17 Feb 05:30',
+    },
+    {
+      id: `DEL-${seedNum + 2}`,
+      oid: seedOrders[1].id,
+      customer: seedOrders[1].customer,
+      customerName: seedOrders[1].customer,
+      address: addressBook[1],
+      partner: 'Sunil M.',
+      partnerPhone: '+91 98214 44771',
+      partnerAgency: 'SwiftDrop Logistics',
+      status: 'In Transit',
+      etaMin: 18,
+      updatedAt: '17 Feb 16:20',
+    },
   ];
 
   const seedInventory = [
-    { sku: `SKU-${seedNum + 1}`, name: 'Basmati Rice', cat: 'Grocery', supplier: 'Agarwal Traders', supplierPhone: '+91 98115 44101', supplierEmail: 'sanjay@agarwaltraders.in', leadTimeDays: 2, stock: 145 - idx * 3, price: 380 + idx * 5, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 2}`, name: 'Toor Dal', cat: 'Grocery', supplier: 'Sharma Wholesale', supplierPhone: '+91 98917 22055', supplierEmail: 'orders@sharmawholesale.in', leadTimeDays: 3, stock: 230 - idx * 5, price: 120 + idx * 4, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 3}`, name: 'Refined Oil', cat: 'Grocery', supplier: 'Fortune Dist.', supplierPhone: '+91 99004 11233', supplierEmail: 'north@fortunedist.in', leadTimeDays: 4, stock: 18 + idx, price: 155 + idx * 3, status: 'Low Stock' },
-    { sku: `SKU-${seedNum + 4}`, name: 'Atta Flour', cat: 'Grocery', supplier: 'Agarwal Traders', supplierPhone: '+91 98115 44101', supplierEmail: 'sanjay@agarwaltraders.in', leadTimeDays: 2, stock: 122 - idx * 2, price: 248 + idx * 3, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 5}`, name: 'Sugar', cat: 'Grocery', supplier: 'Sharma Wholesale', supplierPhone: '+91 98917 22055', supplierEmail: 'orders@sharmawholesale.in', leadTimeDays: 3, stock: 64 - idx * 3, price: 48 + idx * 2, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 6}`, name: 'Paneer', cat: 'Dairy', supplier: 'City Dairy', supplierPhone: '+91 97170 55544', supplierEmail: 'supply@citydairy.in', leadTimeDays: 1, stock: 21 + idx, price: 78, status: 'Low Stock' },
-    { sku: `SKU-${seedNum + 7}`, name: 'Curd Cup', cat: 'Dairy', supplier: 'City Dairy', supplierPhone: '+91 97170 55544', supplierEmail: 'supply@citydairy.in', leadTimeDays: 1, stock: 88 + idx * 2, price: 26, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 8}`, name: 'Butter', cat: 'Dairy', supplier: 'City Dairy', supplierPhone: '+91 97170 55544', supplierEmail: 'supply@citydairy.in', leadTimeDays: 1, stock: 14 + idx, price: 60, status: 'Low Stock' },
-    { sku: `SKU-${seedNum + 9}`, name: 'Potato Chips', cat: 'Snacks', supplier: 'SnackHub Foods', supplierPhone: '+91 99100 77442', supplierEmail: 'supply@snackhubfoods.in', leadTimeDays: 2, stock: 172 + idx * 6, price: 20, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 10}`, name: 'Biscuits', cat: 'Snacks', supplier: 'SnackHub Foods', supplierPhone: '+91 99100 77442', supplierEmail: 'supply@snackhubfoods.in', leadTimeDays: 2, stock: 154 + idx * 5, price: 12, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 11}`, name: 'Orange Juice', cat: 'Beverages', supplier: 'Cool Bev', supplierPhone: '+91 98180 33021', supplierEmail: 'ops@coolbev.in', leadTimeDays: 2, stock: 37 - idx, price: 42, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 12}`, name: 'Mineral Water', cat: 'Beverages', supplier: 'Cool Bev', supplierPhone: '+91 98180 33021', supplierEmail: 'ops@coolbev.in', leadTimeDays: 2, stock: 9 + idx, price: 20, status: 'Critical' },
-    { sku: `SKU-${seedNum + 13}`, name: 'Dishwash Liquid', cat: 'Home Care', supplier: 'HomeSpark Supplies', supplierPhone: '+91 98101 56512', supplierEmail: 'care@homespark.in', leadTimeDays: 3, stock: 48 + idx * 2, price: 58, status: 'In Stock' },
-    { sku: `SKU-${seedNum + 14}`, name: 'Detergent Powder', cat: 'Home Care', supplier: 'HomeSpark Supplies', supplierPhone: '+91 98101 56512', supplierEmail: 'care@homespark.in', leadTimeDays: 3, stock: Math.max(0, idx - 1), price: 96, status: idx > 0 ? 'Critical' : 'Out of Stock' },
+    {
+      sku: `SKU-${seedNum + 1}`,
+      name: 'Basmati Rice',
+      cat: 'Grocery',
+      supplier: 'Agarwal Traders',
+      supplierPhone: '+91 98115 44101',
+      supplierEmail: 'sanjay@agarwaltraders.in',
+      leadTimeDays: 2,
+      stock: 145 - idx * 3,
+      price: 380 + idx * 5,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 2}`,
+      name: 'Toor Dal',
+      cat: 'Grocery',
+      supplier: 'Sharma Wholesale',
+      supplierPhone: '+91 98917 22055',
+      supplierEmail: 'orders@sharmawholesale.in',
+      leadTimeDays: 3,
+      stock: 230 - idx * 5,
+      price: 120 + idx * 4,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 3}`,
+      name: 'Refined Oil',
+      cat: 'Grocery',
+      supplier: 'Fortune Dist.',
+      supplierPhone: '+91 99004 11233',
+      supplierEmail: 'north@fortunedist.in',
+      leadTimeDays: 4,
+      stock: 18 + idx,
+      price: 155 + idx * 3,
+      status: 'Low Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 4}`,
+      name: 'Atta Flour',
+      cat: 'Grocery',
+      supplier: 'Agarwal Traders',
+      supplierPhone: '+91 98115 44101',
+      supplierEmail: 'sanjay@agarwaltraders.in',
+      leadTimeDays: 2,
+      stock: 122 - idx * 2,
+      price: 248 + idx * 3,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 5}`,
+      name: 'Sugar',
+      cat: 'Grocery',
+      supplier: 'Sharma Wholesale',
+      supplierPhone: '+91 98917 22055',
+      supplierEmail: 'orders@sharmawholesale.in',
+      leadTimeDays: 3,
+      stock: 64 - idx * 3,
+      price: 48 + idx * 2,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 6}`,
+      name: 'Paneer',
+      cat: 'Dairy',
+      supplier: 'City Dairy',
+      supplierPhone: '+91 97170 55544',
+      supplierEmail: 'supply@citydairy.in',
+      leadTimeDays: 1,
+      stock: 21 + idx,
+      price: 78,
+      status: 'Low Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 7}`,
+      name: 'Curd Cup',
+      cat: 'Dairy',
+      supplier: 'City Dairy',
+      supplierPhone: '+91 97170 55544',
+      supplierEmail: 'supply@citydairy.in',
+      leadTimeDays: 1,
+      stock: 88 + idx * 2,
+      price: 26,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 8}`,
+      name: 'Butter',
+      cat: 'Dairy',
+      supplier: 'City Dairy',
+      supplierPhone: '+91 97170 55544',
+      supplierEmail: 'supply@citydairy.in',
+      leadTimeDays: 1,
+      stock: 14 + idx,
+      price: 60,
+      status: 'Low Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 9}`,
+      name: 'Potato Chips',
+      cat: 'Snacks',
+      supplier: 'SnackHub Foods',
+      supplierPhone: '+91 99100 77442',
+      supplierEmail: 'supply@snackhubfoods.in',
+      leadTimeDays: 2,
+      stock: 172 + idx * 6,
+      price: 20,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 10}`,
+      name: 'Biscuits',
+      cat: 'Snacks',
+      supplier: 'SnackHub Foods',
+      supplierPhone: '+91 99100 77442',
+      supplierEmail: 'supply@snackhubfoods.in',
+      leadTimeDays: 2,
+      stock: 154 + idx * 5,
+      price: 12,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 11}`,
+      name: 'Orange Juice',
+      cat: 'Beverages',
+      supplier: 'Cool Bev',
+      supplierPhone: '+91 98180 33021',
+      supplierEmail: 'ops@coolbev.in',
+      leadTimeDays: 2,
+      stock: 37 - idx,
+      price: 42,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 12}`,
+      name: 'Mineral Water',
+      cat: 'Beverages',
+      supplier: 'Cool Bev',
+      supplierPhone: '+91 98180 33021',
+      supplierEmail: 'ops@coolbev.in',
+      leadTimeDays: 2,
+      stock: 9 + idx,
+      price: 20,
+      status: 'Critical',
+    },
+    {
+      sku: `SKU-${seedNum + 13}`,
+      name: 'Dishwash Liquid',
+      cat: 'Home Care',
+      supplier: 'HomeSpark Supplies',
+      supplierPhone: '+91 98101 56512',
+      supplierEmail: 'care@homespark.in',
+      leadTimeDays: 3,
+      stock: 48 + idx * 2,
+      price: 58,
+      status: 'In Stock',
+    },
+    {
+      sku: `SKU-${seedNum + 14}`,
+      name: 'Detergent Powder',
+      cat: 'Home Care',
+      supplier: 'HomeSpark Supplies',
+      supplierPhone: '+91 98101 56512',
+      supplierEmail: 'care@homespark.in',
+      leadTimeDays: 3,
+      stock: Math.max(0, idx - 1),
+      price: 96,
+      status: idx > 0 ? 'Critical' : 'Out of Stock',
+    },
   ];
 
   const seedReturns = [
-    { id: `RET-${seedNum + 1}`, oid: seedOrders[0].id, product: seedInventory[2].name, sku: seedInventory[2].sku, cat: seedInventory[2].cat, reason: 'Damaged', amount: seedInventory[2].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 16:18' },
-    { id: `RET-${seedNum + 2}`, oid: seedOrders[1].id, product: seedInventory[5].name, sku: seedInventory[5].sku, cat: seedInventory[5].cat, reason: 'Expired', amount: seedInventory[5].price, qty: 1, status: 'Pending', requestedBy: cashierName, updatedAt: '17 Feb 15:42' },
+    {
+      id: `RET-${seedNum + 1}`,
+      oid: seedOrders[0].id,
+      product: seedInventory[2].name,
+      sku: seedInventory[2].sku,
+      cat: seedInventory[2].cat,
+      reason: 'Damaged',
+      amount: seedInventory[2].price,
+      qty: 1,
+      status: 'Pending',
+      requestedBy: cashierName,
+      updatedAt: '17 Feb 16:18',
+    },
+    {
+      id: `RET-${seedNum + 2}`,
+      oid: seedOrders[1].id,
+      product: seedInventory[5].name,
+      sku: seedInventory[5].sku,
+      cat: seedInventory[5].cat,
+      reason: 'Expired',
+      amount: seedInventory[5].price,
+      qty: 1,
+      status: 'Pending',
+      requestedBy: cashierName,
+      updatedAt: '17 Feb 15:42',
+    },
   ];
 
   const fallbackUsers = [

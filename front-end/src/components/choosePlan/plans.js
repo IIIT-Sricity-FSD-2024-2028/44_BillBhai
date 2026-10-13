@@ -1,5 +1,3 @@
-// The three plan cards of choose-plan.html, in page order.
-// Feature `strong` is rendered bold, followed by `rest` as plain text.
 export const PLANS = [
   {
     key: 'starter',
@@ -10,7 +8,8 @@ export const PLANS = [
     kickerColor: 'var(--blue)',
     title: 'Starter Plan',
     priceLabel: '₹0',
-    description: 'Essential in-store POS billing and catalog for small retail shops and single counters.',
+    description:
+      'Essential in-store POS billing and catalog for small retail shops and single counters.',
     features: [
       { strong: '2 Staff Accounts', rest: ' (Admin + Cashier)' },
       { strong: '1 Store Location' },
@@ -33,7 +32,8 @@ export const PLANS = [
     kickerColor: 'var(--accent)',
     title: 'Growth / Pro',
     priceLabel: '₹1,999',
-    description: 'Omnichannel operations with delivery dispatches, returns handling, and promo engine.',
+    description:
+      'Omnichannel operations with delivery dispatches, returns handling, and promo engine.',
     features: [
       { strong: '10 Staff Accounts', rest: ' (Custom Roles)' },
       { strong: 'Up to 3 Store Locations' },
@@ -66,7 +66,14 @@ export const PLANS = [
       { text: 'Dedicated 24/7 Phone SLA Support' },
     ],
     buttonClass: 'btn btn-outline',
-    buttonStyle: { width: '100%', justifyContent: 'center', padding: '11px', fontWeight: 600, color: 'var(--amber)', borderColor: 'var(--amber)' },
+    buttonStyle: {
+      width: '100%',
+      justifyContent: 'center',
+      padding: '11px',
+      fontWeight: 600,
+      color: 'var(--amber)',
+      borderColor: 'var(--amber)',
+    },
     buttonLabel: 'Choose Enterprise',
   },
 ];

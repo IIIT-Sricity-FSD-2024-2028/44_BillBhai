@@ -1,13 +1,6 @@
 import Modal from '../common/Modal.jsx';
 import { showMutationError } from '../../lib/dashboard/store.js';
 
-/**
- * Port of openQuickConfirmModal({ title, message, confirmLabel, onConfirm }).
- * `message` may be a string or JSX (the original accepted HTML). The cancel
- * button is always labelled "Cancel" (cancelLabel was ignored by the original).
- * onConfirm() returning false (or a promise of false) keeps the modal open;
- * a thrown error shows "Action failed: ..." and keeps it open.
- */
 export default function QuickConfirmModal({ config, onClose }) {
   const { title, message, confirmLabel, onConfirm } = config;
 
@@ -26,8 +19,17 @@ export default function QuickConfirmModal({ config, onClose }) {
         <p className="text-muted">{message}</p>
       </div>
       <div className="modal-footer">
-        <button className="btn btn-outline" type="button" data-action="cancel" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" type="button" data-action="confirm" onClick={handleConfirm}>{confirmLabel || 'Confirm'}</button>
+        <button className="btn btn-outline" type="button" data-action="cancel" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className="btn btn-primary"
+          type="button"
+          data-action="confirm"
+          onClick={handleConfirm}
+        >
+          {confirmLabel || 'Confirm'}
+        </button>
       </div>
     </Modal>
   );

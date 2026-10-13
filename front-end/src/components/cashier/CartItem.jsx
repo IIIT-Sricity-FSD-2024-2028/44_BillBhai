@@ -8,9 +8,21 @@ export default function CartItem({ item, onUpdateQty }) {
         <div className="c-price">{formatRupees(item.price * item.qty)}</div>
       </div>
       <div className="c-actions">
-        <button className="qty-btn dec" data-id={item.cartId} onClick={() => onUpdateQty(item.cartId, -1)}>-</button>
+        <button
+          className="qty-btn dec"
+          data-id={item.cartId}
+          onClick={() => onUpdateQty(item.cartId, -1)}
+        >
+          -
+        </button>
         <span>{item.qty}</span>
-        <button className="qty-btn inc" data-id={item.cartId} onClick={() => onUpdateQty(item.cartId, 1)}>+</button>
+        <button
+          className="qty-btn inc"
+          data-id={item.cartId}
+          onClick={() => onUpdateQty(item.cartId, 1)}
+        >
+          +
+        </button>
       </div>
     </div>
   );

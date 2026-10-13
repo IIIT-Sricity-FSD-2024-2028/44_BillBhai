@@ -18,7 +18,9 @@ export default function ProfileIdentityCard({ fullName, roleLabel, email }) {
       <div className="card-bd" style={{ textAlign: 'center', paddingTop: '26px' }}>
         <div style={AVATAR_STYLE}>{fullName.charAt(0).toUpperCase()}</div>
         <h3 style={{ fontSize: '1.12rem', marginBottom: '4px' }}>{fullName}</h3>
-        <p className="text-muted" style={{ marginBottom: '4px' }}>{roleLabel}</p>
+        <p className="text-muted" style={{ marginBottom: '4px' }}>
+          {roleLabel}
+        </p>
         <p className="text-sm text-muted">{email}</p>
       </div>
     </div>

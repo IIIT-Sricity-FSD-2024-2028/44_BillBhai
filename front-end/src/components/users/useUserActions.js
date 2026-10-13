@@ -14,15 +14,23 @@ const findUser = (name) => getState().users.find((user) => user.name === name);
 
 export default function useUserActions() {
   const {
-    hasActionAccess, denyAction, apiRequest, openConfirm, openQuickForm, showCredentialsModal,
-    showMutationError, showToast, renderPage,
+    hasActionAccess,
+    denyAction,
+    apiRequest,
+    openConfirm,
+    openQuickForm,
+    showCredentialsModal,
+    showMutationError,
+    showToast,
+    renderPage,
   } = useDashboard();
   const { remove, setRows } = useUsers();
 
-  const replaceUser = (name, patch) => setRows((rows) => {
-    const idx = rows.findIndex((user) => user.name === name);
-    return idx === -1 ? rows : rows.map((user, i) => (i === idx ? { ...user, ...patch } : user));
-  });
+  const replaceUser = (name, patch) =>
+    setRows((rows) => {
+      const idx = rows.findIndex((user) => user.name === name);
+      return idx === -1 ? rows : rows.map((user, i) => (i === idx ? { ...user, ...patch } : user));
+    });
 
   const deleteUser = (token) => {
     if (!hasActionAccess('users')) {
@@ -58,7 +66,13 @@ export default function useUserActions() {
       title: `Change Role - ${user.name}`,
       submitLabel: 'Update Role',
       fields: [
-        { name: 'role', label: 'Role', type: 'select', required: true, options: USER_MANAGED_ROLE_OPTIONS },
+        {
+          name: 'role',
+          label: 'Role',
+          type: 'select',
+          required: true,
+          options: USER_MANAGED_ROLE_OPTIONS,
+        },
       ],
       initialValues: { role: mapUserRoleToAuthRole(user.role) },
       onSubmit: async (values, closeModal) => {
@@ -71,7 +85,9 @@ export default function useUserActions() {
             body: { role: mapRoleLabelToBackendRole(nextRole) },
           });
           const updated = { ...user, role: nextRole };
-          const credential = upsertAuthCredentialsForUser(getState().users, updated, { existingUsername: user.username });
+          const credential = upsertAuthCredentialsForUser(getState().users, updated, {
+            existingUsername: user.username,
+          });
           replaceUser(user.name, { role: nextRole, username: credential.username });
           closeModal();
           showToast(`${user.name}'s role updated to ${nextRole}.`);
@@ -132,7 +148,9 @@ export default function useUserActions() {
         body: { status: nextStatus },
       });
       const updated = { ...user, status: nextStatus };
-      const credential = upsertAuthCredentialsForUser(getState().users, updated, { existingUsername: user.username });
+      const credential = upsertAuthCredentialsForUser(getState().users, updated, {
+        existingUsername: user.username,
+      });
       replaceUser(user.name, { status: nextStatus, username: credential.username });
       showToast(currentlySuspended ? `${user.name} reactivated.` : `${user.name} suspended.`);
     } catch (error) {

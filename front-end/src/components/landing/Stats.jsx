@@ -16,7 +16,6 @@ function formatNumber(n) {
   return n.toString();
 }
 
-// Counts up from 0 (ease-out cubic over 2s) the first time the number is half visible.
 function useCounter(target) {
   const ref = useRef(null);
   const [text, setText] = useState('0');
@@ -69,9 +68,10 @@ function StatItem({ target, suffix, label }) {
   const [numberRef, text] = useCounter(target);
   return (
     <div ref={revealRef} className={`stat-item ${revealClass}`}>
-      <span ref={numberRef} className="stat-number" data-target={target}>{text}</span>{' '}
-      <span className="stat-suffix">{suffix}</span>{' '}
-      <span className="stat-label">{label}</span>
+      <span ref={numberRef} className="stat-number" data-target={target}>
+        {text}
+      </span>{' '}
+      <span className="stat-suffix">{suffix}</span> <span className="stat-label">{label}</span>
     </div>
   );
 }

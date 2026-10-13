@@ -15,9 +15,13 @@ function DashboardPreview() {
     <div className="dashboard-preview">
       <div className="preview-topbar">
         <div className="preview-dots">
-          <span></span><span></span><span></span>
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
-        <span className="preview-url" id="previewUrl">billbhai.vercel.app/dashboard</span>
+        <span className="preview-url" id="previewUrl">
+          billbhai.vercel.app/dashboard
+        </span>
       </div>
       <div className="preview-body">
         <div className="preview-sidebar">
@@ -33,8 +37,12 @@ function DashboardPreview() {
               <div className="pc-stat" key={stat.label}>
                 <div className={`pc-stat-icon ${stat.tone}`}></div>
                 <div className="pc-stat-text">
-                  <span className="pc-label" id={`previewStatLabel${index + 1}`}>{stat.label}</span>
-                  <span className="pc-val" id={`previewStatValue${index + 1}`}>{stat.value}</span>
+                  <span className="pc-label" id={`previewStatLabel${index + 1}`}>
+                    {stat.label}
+                  </span>
+                  <span className="pc-val" id={`previewStatValue${index + 1}`}>
+                    {stat.value}
+                  </span>
                 </div>
               </div>
             ))}
@@ -47,13 +55,25 @@ function DashboardPreview() {
                   <stop offset="100%" stopColor="rgba(220,53,69,0)" />
                 </linearGradient>
               </defs>
-              <path d="M0,60 Q30,55 60,45 T120,30 T180,35 T240,15 T300,20" fill="none" stroke="#dc3545" strokeWidth="2" />
-              <path d="M0,60 Q30,55 60,45 T120,30 T180,35 T240,15 T300,20 L300,80 L0,80 Z" fill="url(#chartGrad)" />
+              <path
+                d="M0,60 Q30,55 60,45 T120,30 T180,35 T240,15 T300,20"
+                fill="none"
+                stroke="#dc3545"
+                strokeWidth="2"
+              />
+              <path
+                d="M0,60 Q30,55 60,45 T120,30 T180,35 T240,15 T300,20 L300,80 L0,80 Z"
+                fill="url(#chartGrad)"
+              />
             </svg>
           </div>
           <div className="pc-table">
             {PREVIEW_ROWS.map((tone) => (
-              <div className="pc-row" key={tone}><span></span><span></span><span className={`pc-badge ${tone}`}></span></div>
+              <div className="pc-row" key={tone}>
+                <span></span>
+                <span></span>
+                <span className={`pc-badge ${tone}`}></span>
+              </div>
             ))}
           </div>
         </div>
@@ -69,19 +89,45 @@ function FloatCard({ index, tone, icon, label, value }) {
         {icon}
       </div>
       <div className="fc-text">
-        <span className="fc-label" id={`floatCardLabel${index}`}>{label}</span>
-        <span className="fc-value" id={`floatCardValue${index}`}>{value}</span>
+        <span className="fc-label" id={`floatCardLabel${index}`}>
+          {label}
+        </span>
+        <span className="fc-value" id={`floatCardValue${index}`}>
+          {value}
+        </span>
       </div>
     </div>
   );
 }
 
 const TREND_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+    <polyline points="17 6 23 6 23 12" />
+  </svg>
 );
 
 const CHECK_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
 );
 
 export default function Hero() {
@@ -93,24 +139,41 @@ export default function Hero() {
           <span id="heroBadgeText">Trusted by 500+ businesses across India</span>
         </div>
         <h1 className="hero-title">
-          <span className="hero-line" id="heroTitleLine1">Billing Made</span>{' '}
-          <span className="hero-line hero-accent" id="heroTitleLine2">Effortless.</span>
+          <span className="hero-line" id="heroTitleLine1">
+            Billing Made
+          </span>{' '}
+          <span className="hero-line hero-accent" id="heroTitleLine2">
+            Effortless.
+          </span>
         </h1>
         <p className="hero-subtitle" id="heroSubtitle">
-          BillBhai is the all-in-one platform for invoicing, inventory tracking,
-          and order management — designed for speed, built for Indian businesses.
+          BillBhai is the all-in-one platform for invoicing, inventory tracking, and order
+          management — designed for speed, built for Indian businesses.
         </p>
         <div className="hero-cta">
           <Link to="/register-business" className="btn btn-primary btn-lg" id="heroPrimaryBtn">
-            Start Free Trial{' '}
-            <ArrowIcon />
+            Start Free Trial <ArrowIcon />
           </Link>{' '}
-          <HashLink href="#how-it-works" className="btn btn-outline btn-lg" id="heroSecondaryBtn">See How It Works</HashLink>
+          <HashLink href="#how-it-works" className="btn btn-outline btn-lg" id="heroSecondaryBtn">
+            See How It Works
+          </HashLink>
         </div>
         <div className="hero-visual">
           <DashboardPreview />
-          <FloatCard index={1} tone="green" icon={TREND_ICON} label="Revenue Today" value="₹12,450" />
-          <FloatCard index={2} tone="blue" icon={CHECK_ICON} label="Order Completed" value="#4821" />
+          <FloatCard
+            index={1}
+            tone="green"
+            icon={TREND_ICON}
+            label="Revenue Today"
+            value="₹12,450"
+          />
+          <FloatCard
+            index={2}
+            tone="blue"
+            icon={CHECK_ICON}
+            label="Order Completed"
+            value="#4821"
+          />
         </div>
       </div>
     </section>

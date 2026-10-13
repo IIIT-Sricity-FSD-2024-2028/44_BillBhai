@@ -12,8 +12,6 @@ const PRO_PILL_STYLE = {
   fontWeight: 700,
 };
 
-// Final order after applyRoleBasedUI injected "POS Terminal" (after Dashboard)
-// and "Super User Portal" (after Users).
 const MAIN_ITEMS = [
   { page: 'dashboard', label: 'Dashboard' },
   { page: 'cashier', label: 'POS Terminal' },
@@ -29,28 +27,28 @@ const MANAGEMENT_ITEMS = [
 ];
 const MANAGEMENT_PAGES = ['returns', 'reports', 'users', 'superuser'];
 
-/**
- * <aside class="sidebar" id="sidebar"> exactly as the page looks after dashboard.js ran.
- *
- * Props
- *  page          current page key (active item)
- *  allowedPages  ROLE_ALLOWED_PAGES[role] - other items get the `hidden` attribute
- *  proPills      { delivery, returns } -> red "PRO" pill after the label
- *  collapsed     `.collapsed` (desktop menu toggle)
- *  mobileOpen    `.mobile-open` (mobile menu toggle)
- *  onNavClick    called on every nav item click (closes the mobile sidebar)
- *  onLogout      called when the Logout link is clicked (navigates to /login)
- *  legacyIcons   notifications.html used simplified copies of four icons
- */
-export default function Sidebar({ page, allowedPages = [], proPills = {}, collapsed, mobileOpen, onNavClick, onLogout, legacyIcons }) {
+export default function Sidebar({
+  page,
+  allowedPages = [],
+  proPills = {},
+  collapsed,
+  mobileOpen,
+  onNavClick,
+  onLogout,
+  legacyIcons,
+}) {
   const { logo } = useTheme();
   const icons = legacyIcons ? NavIconsNotificationsPage : NavIcons;
-  const cls = ['sidebar', collapsed ? 'collapsed' : '', mobileOpen ? 'mobile-open' : ''].filter(Boolean).join(' ');
+  const cls = ['sidebar', collapsed ? 'collapsed' : '', mobileOpen ? 'mobile-open' : '']
+    .filter(Boolean)
+    .join(' ');
   const hasManagement = MANAGEMENT_PAGES.some((p) => allowedPages.includes(p));
 
   const renderItem = ({ page: itemPage, label }) => {
     const allowed = allowedPages.includes(itemPage);
-    const pill = (itemPage === 'delivery' && proPills.delivery) || (itemPage === 'returns' && proPills.returns);
+    const pill =
+      (itemPage === 'delivery' && proPills.delivery) ||
+      (itemPage === 'returns' && proPills.returns);
     return (
       <Link
         key={itemPage}
@@ -61,7 +59,16 @@ export default function Sidebar({ page, allowedPages = [], proPills = {}, collap
         onClick={onNavClick}
       >
         {icons[itemPage]}
-        <span>{pill ? <>{`${label} `}<span style={PRO_PILL_STYLE}>PRO</span></> : label}</span>
+        <span>
+          {pill ? (
+            <>
+              {`${label} `}
+              <span style={PRO_PILL_STYLE}>PRO</span>
+            </>
+          ) : (
+            label
+          )}
+        </span>
       </Link>
     );
   };
@@ -74,7 +81,9 @@ export default function Sidebar({ page, allowedPages = [], proPills = {}, collap
       <nav className="sidebar-nav" id="sidebarNav">
         <div className="nav-section-label">Main</div>
         {MAIN_ITEMS.map(renderItem)}
-        <div className="nav-section-label" style={hasManagement ? undefined : { display: 'none' }}>Management</div>
+        <div className="nav-section-label" style={hasManagement ? undefined : { display: 'none' }}>
+          Management
+        </div>
         {MANAGEMENT_ITEMS.map(renderItem)}
       </nav>
       <div className="sidebar-footer">

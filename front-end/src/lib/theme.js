@@ -1,6 +1,3 @@
-// Light / dark theme shared by every page. The choice lives on <html data-theme>
-// (CSS reads it) and in localStorage (so it survives reloads). index.html applies
-// the saved value before React starts, so the page never flashes the wrong theme.
 export const THEME_STORAGE_KEY = 'billbhai-theme';
 const THEMES = ['dark', 'light'];
 

@@ -18,7 +18,6 @@ import SuperuserPage from './pages/SuperuserPage.jsx';
 import BusinessesPage from './pages/BusinessesPage.jsx';
 import ThemeToggle from './components/common/ThemeToggle.jsx';
 
-// One route per original HTML page. `/orders` replaces `orders.html`.
 const PAGES = {
   login: LoginPage,
   'register-business': RegisterBusinessPage,
@@ -41,7 +40,6 @@ const PAGES = {
 // Pages without a header of their own get the floating theme button.
 const FLOATING_TOGGLE_PATHS = ['/login', '/register-business', '/business-welcome'];
 
-// Keeps old links such as `dashboard.html?id=1` working by redirecting to `/dashboard?id=1`.
 function LegacyHtmlRedirect() {
   const { file } = useParams();
   const name = String(file || '').replace(/\.html$/, '');
@@ -50,9 +48,6 @@ function LegacyHtmlRedirect() {
 }
 
 export default function App() {
-  // Following a link in the HTML app was always a full page load, even to the
-  // page you were on. Keying each page by location.key keeps that behaviour:
-  // every navigation mounts the page fresh.
   const location = useLocation();
   return (
     <>

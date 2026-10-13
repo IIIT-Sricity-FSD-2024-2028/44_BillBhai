@@ -1,5 +1,3 @@
-// localStorage helpers (dashboard.js: loadList / loadObject / saveList / saveObject).
-
 export function loadList(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
