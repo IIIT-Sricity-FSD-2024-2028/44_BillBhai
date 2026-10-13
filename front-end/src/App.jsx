@@ -1,10 +1,26 @@
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import LandingPage from './pages/LandingPage.jsx';
 import CashierPage from './pages/CashierPage.jsx';
+import DashboardPage from './pages/DashboardPage.jsx';
+import OrdersPage from './pages/OrdersPage.jsx';
+import InventoryPage from './pages/InventoryPage.jsx';
+import DeliveryPage from './pages/DeliveryPage.jsx';
+import ReturnsPage from './pages/ReturnsPage.jsx';
+import ReportsPage from './pages/ReportsPage.jsx';
+import UsersPage from './pages/UsersPage.jsx';
+import ProfilePage from './pages/ProfilePage.jsx';
 
 // One route per original HTML page. `/orders` replaces `orders.html`.
 const PAGES = {
   cashier: CashierPage,
+  dashboard: DashboardPage,
+  orders: OrdersPage,
+  inventory: InventoryPage,
+  delivery: DeliveryPage,
+  returns: ReturnsPage,
+  reports: ReportsPage,
+  users: UsersPage,
+  profile: ProfilePage,
 };
 
 // Keeps old links such as `dashboard.html?id=1` working by redirecting to `/dashboard?id=1`.
