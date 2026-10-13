@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import Modal from '../common/Modal.jsx';
 import FormField from '../common/FormField.jsx';
 import { isValidEmailAddress, isValidPhoneNumber } from '../../lib/dashboard/helpers.js';
@@ -11,20 +11,37 @@ import { isValidEmailAddress, isValidPhoneNumber } from '../../lib/dashboard/hel
  *            inputMode, validation: 'phone', defaultValue }]
  * onSubmit(values, closeModal): the modal only closes when closeModal() is
  * called. A rejected promise keeps it open.
+ *
+ * Controlled form: every input's value lives in the `values` state object
+ * (keyed by field name) and each keystroke goes through handleChange.
  */
 export default function QuickFormModal({ config, onClose }) {
   const { title, submitLabel, fields = [], initialValues, onSubmit } = config;
-  const formRef = useRef(null);
   const [formError, setFormError] = useState(null); // null = hidden
 
   const valueFor = (f) => (initialValues && Object.prototype.hasOwnProperty.call(initialValues, f.name) ? initialValues[f.name] : (f.defaultValue || ''));
 
+  // A select starts on its matching option, or on the first one (as the browser would).
+  const startValue = (f) => {
+    const value = String(valueFor(f));
+    if (f.type !== 'select') return value;
+    const opts = (f.options || []).map(String);
+    return opts.includes(value) ? value : (opts[0] || '');
+  };
+
+  // Lazy initial state: built once when the modal mounts.
+  const [values, setValues] = useState(() => Object.fromEntries(fields.map((f) => [f.name, startValue(f)])));
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setValues((prev) => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const fd = new FormData(formRef.current);
-    const values = {};
+    const cleaned = {};
     for (const field of fields) {
-      const raw = String(fd.get(field.name) || '').trim();
+      const raw = String(values[field.name] ?? '').trim();
       if (field.required && !raw) {
         setFormError(`${field.label} is required.`);
         return;
@@ -43,29 +60,26 @@ export default function QuickFormModal({ config, onClose }) {
           setFormError(`${field.label} is invalid.`);
           return;
         }
-        values[field.name] = n;
+        cleaned[field.name] = n;
       } else {
-        values[field.name] = raw;
+        cleaned[field.name] = raw;
       }
     }
     setFormError(null);
-    Promise.resolve(onSubmit(values, onClose)).catch(() => {
+    Promise.resolve(onSubmit(cleaned, onClose)).catch(() => {
       // Keep modal open on submission failure.
     });
   };
 
   return (
     <Modal title={title} onClose={onClose} maxWidth="540px">
-      <form className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }} ref={formRef} onSubmit={handleSubmit}>
+      <form className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }} onSubmit={handleSubmit}>
         {fields.map((f) => {
-          const value = valueFor(f);
           if (f.type === 'select') {
-            const opts = f.options || [];
-            const selected = opts.find((opt) => String(value) === String(opt));
             return (
               <FormField label={f.label} key={f.name}>
-                <select className="form-control" name={f.name} required={!!f.required} defaultValue={selected !== undefined ? String(selected) : undefined}>
-                  {opts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                <select className="form-control" name={f.name} required={!!f.required} value={values[f.name]} onChange={handleChange}>
+                  {(f.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </FormField>
             );
@@ -76,7 +90,8 @@ export default function QuickFormModal({ config, onClose }) {
                 className="form-control"
                 name={f.name}
                 type={f.type || 'text'}
-                defaultValue={String(value)}
+                value={values[f.name]}
+                onChange={handleChange}
                 placeholder={f.placeholder || ''}
                 min={f.min}
                 step={f.step}
