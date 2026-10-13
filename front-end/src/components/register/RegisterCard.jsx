@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LOGO } from '../../lib/pageAssets.js';
+import useTheme from '../../hooks/useTheme.js';
 
 // `.register-card` with its header/footer and the mouse-follow 3D tilt.
 export default function RegisterCard({ children }) {
+  const { logo } = useTheme();
   const cardRef = useRef(null);
   const resetTimer = useRef(null);
   const [tilt, setTilt] = useState({});
@@ -36,7 +37,7 @@ export default function RegisterCard({ children }) {
         onMouseLeave={handleMouseLeave}
       >
         <div className="brand-header">
-          <img src={LOGO} alt="BillBhai Logo" className="brand-logo-img" />
+          <img src={logo} alt="BillBhai Logo" className="brand-logo-img" />
         </div>
 
         <h2 className="form-section-title">Business Registration</h2>

@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 import Chart from 'chart.js/auto';
+import useTheme from '../../hooks/useTheme.js';
+import { getTheme } from '../../lib/theme.js';
 
-/** dashboard.js getColors() */
+/** dashboard.js getColors(); axis text and grid lines follow the theme. */
 export function getColors() {
+  const light = getTheme() === 'light';
   return {
-    text: '#f0f0f0',
-    grid: 'rgba(255,255,255,0.05)',
+    text: light ? '#3b3f4c' : '#f0f0f0',
+    grid: light ? 'rgba(22,24,33,0.08)' : 'rgba(255,255,255,0.05)',
     red: '#dc3545', amber: '#e8a838', blue: '#64b5f6', green: '#51cf66', purple: '#bf5af2',
   };
 }
@@ -33,8 +36,10 @@ export function buildChartOptions(type, options) {
  * `options` may be objects or functions returning them (evaluated at build
  * time). Changing props does NOT rebuild the chart, exactly like the original;
  * give the component a new `key` (or call renderPage()) to rebuild it.
+ * Switching the theme also rebuilds it, so axis and legend colours follow.
  */
 export default function ChartCanvas({ id, type, data, options }) {
+  const { theme } = useTheme();
   const canvasRef = useRef(null);
   const latest = useRef({ type, data, options });
   latest.current = { type, data, options };
@@ -47,7 +52,7 @@ export default function ChartCanvas({ id, type, data, options }) {
     const chartOptions = typeof cfg.options === 'function' ? cfg.options() : cfg.options;
     const chart = new Chart(canvas, { type: cfg.type, data: chartData, options: buildChartOptions(cfg.type, chartOptions) });
     return () => chart.destroy();
-  }, []);
+  }, [theme]);
 
   return <canvas id={id} ref={canvasRef} />;
 }

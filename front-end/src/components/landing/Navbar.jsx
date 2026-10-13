@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LOGO } from '../../lib/pageAssets.js';
+import useTheme from '../../hooks/useTheme.js';
+import ThemeToggle from '../common/ThemeToggle.jsx';
 import { HashLink } from './smoothScroll.jsx';
 
 const SCROLL_THRESHOLD = 50;
@@ -13,6 +14,7 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar() {
+  const { logo } = useTheme();
   const [scrolled, setScrolled] = useState(() => window.scrollY > SCROLL_THRESHOLD);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -35,7 +37,7 @@ export default function Navbar() {
     <nav className={scrolled ? 'navbar scrolled' : 'navbar'} id="navbar">
       <div className="container nav-container">
         <HashLink href="#" className="nav-brand">
-          <img src={LOGO} alt="BillBhai" className="nav-logo-img" />
+          <img src={logo} alt="BillBhai" className="nav-logo-img" />
         </HashLink>
         <div className={menuOpen ? 'nav-links open' : 'nav-links'} id="navLinks">
           {NAV_LINKS.map((link) => (
@@ -45,6 +47,7 @@ export default function Navbar() {
           ))}
         </div>
         <div className="nav-actions">
+          <ThemeToggle />
           <Link to="/login" className="btn btn-ghost" id="navSignInBtn">Sign In</Link>
           <HashLink href="#cta" className="btn btn-primary" id="navPrimaryBtn">Get Started Free</HashLink>
         </div>

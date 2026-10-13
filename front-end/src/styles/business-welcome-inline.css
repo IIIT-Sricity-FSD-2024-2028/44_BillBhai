@@ -1,7 +1,7 @@
 :root {
     --bg: #0c0c10;
-    --card: rgba(255, 255, 255, 0.04);
-    --border: rgba(255, 255, 255, 0.1);
+    --card: rgba(var(--tint-rgb), 0.04);
+    --border: rgba(var(--tint-rgb), 0.1);
     --text: #f4f5f7;
     --muted: rgba(244, 245, 247, 0.68);
     --accent: #dc3545;
@@ -37,14 +37,14 @@ h1 { margin: 0 0 8px; font-size: 1.65rem; }
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 12px;
-    background: rgba(255,255,255,0.02);
+    background: rgba(var(--tint-rgb), 0.02);
 }
 .label { font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
 .value { font-size: 0.98rem; font-weight: 600; word-break: break-word; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .btn {
     border: 1px solid var(--border);
-    background: rgba(255,255,255,0.04);
+    background: rgba(var(--tint-rgb), 0.04);
     color: var(--text);
     padding: 10px 14px;
     border-radius: 10px;

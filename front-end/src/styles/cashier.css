@@ -88,7 +88,7 @@ body.no-sidebar .content-area {
     padding: 12px;
     border: 1px dashed var(--border);
     border-radius: var(--radius-sm);
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(var(--tint-rgb), 0.02);
 }
 
 .delivery-details-block .form-label {
@@ -142,7 +142,7 @@ body.no-sidebar .content-area {
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     background: var(--bg-body);
-    color: #ffffff;
+    color: var(--text-strong);
 }
 .pos-search input:focus {
     box-shadow: none;
@@ -169,7 +169,7 @@ body.no-sidebar .content-area {
     cursor: pointer;
     white-space: nowrap;
     transition: all var(--t);
-    color: #ffffff;
+    color: var(--text-strong);
 }
 .cat-btn.active, .cat-btn:hover {
     background: var(--accent);
@@ -318,7 +318,7 @@ body.no-sidebar .content-area {
 }
 
 .promo-block { display: flex; gap: 8px; margin-bottom: 16px; }
-.promo-input { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.8rem; background: var(--bg-body); color: #fff; }
+.promo-input { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.8rem; background: var(--bg-body); color: var(--text-strong); }
 
 /* Applied promo tag row */
 .promo-applied {
@@ -399,12 +399,12 @@ body.no-sidebar .content-area {
     position: fixed;
     z-index: 1000;
     min-width: 140px;
-    background: rgba(30, 30, 35, 0.9);
+    background: var(--menu-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(var(--tint-rgb), 0.1);
     border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 25px rgba(var(--shadow-rgb), calc(0.5 * var(--shadow-alpha)));
     padding: 6px 0;
     margin: 0;
     list-style: none;

@@ -16,6 +16,7 @@ import ProfilePage from './pages/ProfilePage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import SuperuserPage from './pages/SuperuserPage.jsx';
 import BusinessesPage from './pages/BusinessesPage.jsx';
+import ThemeToggle from './components/common/ThemeToggle.jsx';
 
 // One route per original HTML page. `/orders` replaces `orders.html`.
 const PAGES = {
@@ -37,6 +38,9 @@ const PAGES = {
   businesses: BusinessesPage,
 };
 
+// Pages without a header of their own get the floating theme button.
+const FLOATING_TOGGLE_PATHS = ['/login', '/register-business', '/business-welcome'];
+
 // Keeps old links such as `dashboard.html?id=1` working by redirecting to `/dashboard?id=1`.
 function LegacyHtmlRedirect() {
   const { file } = useParams();
@@ -51,13 +55,16 @@ export default function App() {
   // every navigation mounts the page fresh.
   const location = useLocation();
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage key={location.key} />} />
-      {Object.entries(PAGES).map(([path, Page]) => (
-        <Route key={path} path={`/${path}`} element={<Page key={location.key} />} />
-      ))}
-      <Route path="/:file" element={<LegacyHtmlRedirect />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      {FLOATING_TOGGLE_PATHS.includes(location.pathname) && <ThemeToggle floating />}
+      <Routes>
+        <Route path="/" element={<LandingPage key={location.key} />} />
+        {Object.entries(PAGES).map(([path, Page]) => (
+          <Route key={path} path={`/${path}`} element={<Page key={location.key} />} />
+        ))}
+        <Route path="/:file" element={<LegacyHtmlRedirect />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

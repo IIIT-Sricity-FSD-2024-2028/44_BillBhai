@@ -31,7 +31,7 @@ body.no-sidebar {
 .plan-onboarding-card:hover {
     border-color: var(--accent);
     transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 12px 28px rgba(var(--shadow-rgb), calc(0.35 * var(--shadow-alpha)));
 }
 
 .plan-onboarding-card.popular {
@@ -65,7 +65,7 @@ body.no-sidebar {
     border-radius: var(--radius);
     font-weight: 600;
     font-size: 0.88rem;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 10px 25px rgba(var(--shadow-rgb), calc(0.4 * var(--shadow-alpha)));
     display: none;
     z-index: 100;
     animation: toastFadeIn 0.3s ease;

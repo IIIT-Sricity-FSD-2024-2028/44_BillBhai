@@ -6,6 +6,15 @@
     <title>BillBhai</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script>
+        // Apply the saved theme before the first paint (see src/lib/theme.js).
+        try {
+            var savedTheme = localStorage.getItem('billbhai-theme');
+            document.documentElement.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+        } catch (e) {
+            document.documentElement.dataset.theme = 'dark';
+        }
+    </script>
     <style>
         /* The original pages put their layout directly inside <body>; keep #root out of the box tree. */
         #root { display: contents; }

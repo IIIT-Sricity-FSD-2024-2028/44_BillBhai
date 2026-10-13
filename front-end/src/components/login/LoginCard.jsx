@@ -43,7 +43,7 @@ export default function LoginCard(props) {
         <LoginForm {...props} />
 
         <div className="login-footer">
-          <p style={{ marginBottom: '12px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>
+          <p style={{ marginBottom: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             Don't have an account?{' '}
             <Link to="/register-business" style={{ color: '#dc3545', fontWeight: 600, textDecoration: 'none' }}>
               Sign Up

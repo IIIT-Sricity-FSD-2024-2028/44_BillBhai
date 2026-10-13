@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { LOGO } from '../../lib/pageAssets.js';
+import useTheme from '../../hooks/useTheme.js';
 import { NavIcons, NavIconsNotificationsPage } from './icons.jsx';
 
 const PRO_PILL_STYLE = {
@@ -43,6 +43,7 @@ const MANAGEMENT_PAGES = ['returns', 'reports', 'users', 'superuser'];
  *  legacyIcons   notifications.html used simplified copies of four icons
  */
 export default function Sidebar({ page, allowedPages = [], proPills = {}, collapsed, mobileOpen, onNavClick, onLogout, legacyIcons }) {
+  const { logo } = useTheme();
   const icons = legacyIcons ? NavIconsNotificationsPage : NavIcons;
   const cls = ['sidebar', collapsed ? 'collapsed' : '', mobileOpen ? 'mobile-open' : ''].filter(Boolean).join(' ');
   const hasManagement = MANAGEMENT_PAGES.some((p) => allowedPages.includes(p));
@@ -68,7 +69,7 @@ export default function Sidebar({ page, allowedPages = [], proPills = {}, collap
   return (
     <aside className={cls} id="sidebar">
       <div className="sidebar-header">
-        <img src={LOGO} alt="BillBhai" className="sidebar-brand-img" />
+        <img src={logo} alt="BillBhai" className="sidebar-brand-img" />
       </div>
       <nav className="sidebar-nav" id="sidebarNav">
         <div className="nav-section-label">Main</div>

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { LOGO } from '../../lib/pageAssets.js';
+import useTheme from '../../hooks/useTheme.js';
 
 const SUBTITLE = 'ORDER & BILLING SYSTEM';
 
 // Logo + typewriter subtitle (starts after 600ms, 60-100ms per character).
 export default function BrandHeader() {
+  const { logo } = useTheme();
   const [subtitle, setSubtitle] = useState('');
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function BrandHeader() {
 
   return (
     <div className="brand-header">
-      <img src={LOGO} alt="BillBhai Logo" className="brand-logo-img" />
+      <img src={logo} alt="BillBhai Logo" className="brand-logo-img" />
       <p className="brand-subtitle" id="brandSubtitle">{subtitle}</p>
     </div>
   );

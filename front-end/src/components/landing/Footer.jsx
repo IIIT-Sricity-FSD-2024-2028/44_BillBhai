@@ -1,4 +1,4 @@
-import { LOGO } from '../../lib/pageAssets.js';
+import useTheme from '../../hooks/useTheme.js';
 import { HashLink } from './smoothScroll.jsx';
 
 // Mirrors index.html, including the extra wrapping `.footer-col#footerColumns`.
@@ -20,12 +20,13 @@ const FOOTER_COLUMNS = [
 const LEGAL_LINKS = ['Privacy', 'Terms'];
 
 export default function Footer() {
+  const { logo } = useTheme();
   return (
     <footer className="footer">
       <div className="container">
         <div className="footer-grid">
           <div className="footer-brand">
-            <img src={LOGO} alt="BillBhai" className="footer-logo-img" />
+            <img src={logo} alt="BillBhai" className="footer-logo-img" />
             <p className="footer-tagline" id="footerTagline">Smart billing &amp; inventory management for modern Indian businesses.</p>
           </div>
           <div className="footer-col" id="footerColumns">

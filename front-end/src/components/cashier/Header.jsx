@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LOGO } from '../../lib/pageAssets.js';
+import useTheme from '../../hooks/useTheme.js';
+import ThemeToggle from '../common/ThemeToggle.jsx';
 import { clearStoredSession } from '../../lib/cashier/posHelpers.js';
 
 // cashier.html <header class="top-header">. Before app.js finishes booting the
 // header shows the static HTML copy (`session` is null), exactly like the page.
 export default function Header({ session, planBadge }) {
+  const { logo } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Inline script: any document click closes the profile dropdown.
@@ -33,7 +35,7 @@ export default function Header({ session, planBadge }) {
     <header className="top-header">
       <div className="header-left">
         <Link to="/" className="header-logo-link">
-          <img src={LOGO} alt="BillBhai" className="header-logo-img" />
+          <img src={logo} alt="BillBhai" className="header-logo-img" />
         </Link>
         <div className="breadcrumb">
           <span className="bc-app">{appLabel}</span>
@@ -51,6 +53,7 @@ export default function Header({ session, planBadge }) {
             <span>{planBadge.planName}</span>
           </div>
         )}
+        <ThemeToggle />
         {/* Profile dropdown */}
         <div className="dropdown-container" id="userContainer">
           <div

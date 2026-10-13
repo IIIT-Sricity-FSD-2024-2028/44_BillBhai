@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import usePageSetup from '../hooks/usePageSetup.js';
+import { CSS, FONTS } from '../lib/pageAssets.js';
 import AmbientGlow from '../components/login/AmbientGlow.jsx';
 import LoginCard from '../components/login/LoginCard.jsx';
-import '../styles/style.css';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -20,9 +21,9 @@ export default function LoginPage() {
     password: { error: false, shake: false },
   });
 
-  useEffect(() => {
-    document.title = 'BillBhai - Admin Login';
-  }, []);
+  // Mount the login stylesheet only while this page is open; a global import
+  // would leak its `body { display: flex; overflow: hidden }` onto every page.
+  usePageSetup({ title: 'BillBhai - Admin Login', styles: [CSS.login], fonts: FONTS.auth });
 
   const handleFieldFocus = (fieldName) => {
     setFieldStatus((prev) => ({

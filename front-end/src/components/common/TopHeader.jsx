@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BellIcon, LogoutMenuIcon, MenuToggleIcon, ProfileMenuIcon } from './icons.jsx';
 import NotificationIcon from './NotificationIcon.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 
 /**
  * <header class="top-header"> of the dashboard pages.
@@ -62,6 +63,7 @@ export default function TopHeader({ title, businessName, planBadge, notification
             <span>{planBadge.label}</span>
           </div>
         )}
+        <ThemeToggle />
         <div className="dropdown-container" id="notifContainer">
           <button className="icon-btn notif-btn" id="notifBtn" aria-label="Notifications" onClick={toggle('notif')}>
             {BellIcon}
