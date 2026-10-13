@@ -1,0 +1,83 @@
+body.no-sidebar {
+    display: block;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text-primary);
+}
+
+.header-logo-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.header-logo-img {
+    height: 28px;
+    width: auto;
+    display: block;
+}
+
+.plan-onboarding-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: var(--t);
+}
+
+.plan-onboarding-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.plan-onboarding-card.popular {
+    border-color: var(--accent);
+    background: rgba(220, 53, 69, 0.04);
+    box-shadow: 0 0 28px rgba(220, 53, 69, 0.12);
+}
+
+.plan-onboarding-pill {
+    position: absolute;
+    top: -11px;
+    right: 18px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 3px 10px rgba(220, 53, 69, 0.35);
+}
+
+.toast-popup {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--green);
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.88rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    display: none;
+    z-index: 100;
+    animation: toastFadeIn 0.3s ease;
+}
+
+@keyframes toastFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+    .subscription-plans-grid {
+        grid-template-columns: 1fr !important;
+    }
+}

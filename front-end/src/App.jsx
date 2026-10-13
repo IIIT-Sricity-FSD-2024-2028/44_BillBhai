@@ -2,6 +2,8 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import LandingPage from './pages/LandingPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterBusinessPage from './pages/RegisterBusinessPage.jsx';
+import ChoosePlanPage from './pages/ChoosePlanPage.jsx';
+import BusinessWelcomePage from './pages/BusinessWelcomePage.jsx';
 import CashierPage from './pages/CashierPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import OrdersPage from './pages/OrdersPage.jsx';
@@ -16,6 +18,8 @@ import ProfilePage from './pages/ProfilePage.jsx';
 const PAGES = {
   login: LoginPage,
   'register-business': RegisterBusinessPage,
+  'choose-plan': ChoosePlanPage,
+  'business-welcome': BusinessWelcomePage,
   cashier: CashierPage,
   dashboard: DashboardPage,
   orders: OrdersPage,
