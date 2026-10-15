@@ -1,130 +1,187 @@
 # BillBhai — Retail Order Processing & Billing System
 
-BillBhai is a retail POS and operations app with an Express.js backend and a React frontend.
+BillBhai is an enterprise-grade retail POS (Point of Sale) and operations management web application engineered with an Express.js TypeScript backend and a React (Vite) frontend.
 
-## About The Project
+---
 
-Modern retail operations need a reliable system for orders, billing, payments, inventory, deliveries, returns, and reporting. This project is built to support both in-store and delivery-based workflows while keeping data transparent and easy to audit.
+## 1. Project Overview & Architecture
 
-It covers:
+Modern retail environments require seamless, real-time coordination across orders, billing, payments, inventory, dispatches, returns, and operational reporting. BillBhai provides a full end-to-end operational suite supporting in-store POS checkout and delivery-based order lifecycles.
 
-- End-to-end order lifecycle from creation to delivery
-- Billing, discounts, taxes, and invoicing
-- Inventory monitoring, replenishment, and adjustments
-- Returns, refunds, and exchanges
-- Sales tracking and operational reporting
+### Architecture Highlights:
+- **Frontend**: Single-Page Application (SPA) built with React 19, Vite, React Router 7, and Chart.js.
+- **Backend**: RESTful API service built with Express.js 5 and TypeScript, featuring Zod schema validation, Role-Based Access Control (RBAC), and Swagger/OpenAPI documentation.
+- **Data Layer**: In-memory repository pattern pre-seeded with multi-tenant company, catalog, inventory, order, and user data for instant, deterministic testing and runtime evaluation.
 
-## Identified Actors
+### Key Business Domains & Roles:
+- **Customer**: Browses catalog, places self-checkout orders, views receipts.
+- **Cashier**: Processes counter billing, applies promo codes, handles takeaway/delivery checkouts, and prints 80mm receipts.
+- **Inventory Manager**: Tracks stock levels, initiates reorders, performs manual adjustments, and manages supplier records.
+- **Delivery Operations**: Manages driver dispatches, updates route status, tracks fulfillment milestones.
+- **Return Handler**: Validates item conditions, records customer returns, and coordinates restocks/refunds.
+- **Super User / Admin**: Full administrative visibility across businesses, sales trends, revenue metrics, and user provisioning.
 
-- **Customer** — buys products, makes payments, and requests returns/refunds
-- **Cashier** — creates orders, verifies items, and handles billing
-- **Return Handler** — manages returns, exchanges, and refunds
-- **Delivery Operations** — assigns riders and tracks delivery status
-- **Inventory Manager** — monitors stock and stock adjustments
-- **Super User / Admin** — oversees the overall system and reporting
+---
 
-## Core Modules
+## 2. Project Setup & Dependencies
 
-- Order Processing
-- Billing & Invoicing
-- Payment Handling
-- Delivery Management
-- Inventory Monitoring & Replenishment
-- Returns & Refunds
-- Sales & Operational Reporting
+### Prerequisites:
+- **Node.js**: v18.0.0 or higher (v20+ recommended)
+- **npm**: v9.0.0 or higher
+- Supported OS: macOS, Linux, Windows
 
-## Project Structure
+### Project Structure:
+```
+44_BillBhai/
+├── back-end/
+│   ├── express/
+│   │   ├── config/          # Environment configuration
+│   │   ├── data/            # In-memory entities & seed data
+│   │   ├── docs/            # OpenAPI / Swagger definition
+│   │   ├── middleware/      # Auth, RBAC, logging, error handling
+│   │   ├── modules/         # Auth, Companies, Customers, Deliveries,
+│   │   │                    # Inventory, Orders, Payments, Products,
+│   │   │                    # Reports, Returns, Suppliers, Users
+│   │   └── server.ts        # Express entry point
+│   ├── package.json
+│   └── tsconfig.json
+├── front-end/
+│   ├── src/
+│   │   ├── components/      # UI components (Cashier, Inventory, Orders, etc.)
+│   │   ├── hooks/           # Custom React hooks (Theme, PageSetup, etc.)
+│   │   ├── lib/             # API client, store, helpers, POS logic
+│   │   ├── pages/           # Route views (Dashboard, POS, Orders, Inventory, etc.)
+│   │   └── main.jsx         # Vite React bootstrap
+│   ├── package.json
+│   └── vite.config.js
+├── package.json             # Root monorepo dev orchestrator
+└── README.md                # Project documentation & individual contributions
+```
 
-- `back-end/` — Express.js API (`back-end/express/`), seeded demo data, role-based access control
-- `front-end/` — React (Vite) single-page app: landing, login, registration, cashier POS and the admin console
-- Root `package.json` — convenience scripts to run both apps together
-
-## Prerequisites
-
-- Node.js 18+ recommended
-- npm
-
-## Quick Start
-
-### 1) Install dependencies
+### Installation:
+Run the following single command from the project root directory:
 
 ```bash
 npm install
 ```
 
-That is the only install step. The root `postinstall` script also installs
-the `back-end/` and `front-end/` dependencies.
+> **Note**: The root `postinstall` script automatically installs all required dependencies for both `back-end` and `front-end`.
 
-### 2) Start both apps
+---
 
+## 3. Execution Steps
+
+### Option A: Run Both Frontend & Backend Concurrently (Recommended)
+From the project root:
 ```bash
 npm run dev
 ```
+This runs `concurrently` to spin up:
+- **Backend API Server**: `http://localhost:4000`
+- **Swagger Documentation**: `http://localhost:4000/api/docs`
+- **Frontend Web Application**: `http://127.0.0.1:5500`
 
-This starts:
+### Option B: Run Services Individually
+- **Backend only**:
+  ```bash
+  npm run dev:backend
+  ```
+- **Frontend only**:
+  ```bash
+  npm run dev:frontend
+  ```
 
-- Backend API at `http://localhost:4000` (Swagger UI at `http://localhost:4000/api/docs`)
-- Frontend at `http://127.0.0.1:5500`
+### Accessing the Web Application:
+- **Landing Page**: `http://127.0.0.1:5500/`
+- **Login Portal**: `http://127.0.0.1:5500/login`
+- **Cashier POS**: `http://127.0.0.1:5500/cashier`
+- **Operations Dashboard**: `http://127.0.0.1:5500/dashboard`
 
-### 3) Open the UI
+### Demo Login Credentials:
+| Username | Password | Role | Description |
+|---|---|---|---|
+| `admin` | `admin123` | admin | Store Administrator with full dashboard metrics |
+| `cashier` | `cashier123` | cashier | Point of Sale operator & billing |
+| `inventorymanager` | `inventory123` | inventorymanager | Stock monitoring, product catalog & supplier management |
+| `deliveryops` | `delivery123` | deliveryops | Dispatch & delivery tracking |
+| `returnhandler` | `return123` | returnhandler | Returns processing & inspection desk |
+| `chirag` | `chirag1234` | superuser | Super Administrator across organizations |
+| `customer` | `customer123` | customer | Self-service counter checkout |
 
-- Landing page: `http://127.0.0.1:5500/`
-- Login: `http://127.0.0.1:5500/login`
-- Cashier POS: `http://127.0.0.1:5500/cashier`
-- Dashboard: `http://127.0.0.1:5500/dashboard`
+---
 
-## Backend API
+## 4. Testing Instructions
 
-The backend is an Express.js app under `back-end/express/`. See [back-end/express/README.md](back-end/express/README.md).
-
-Common endpoints:
-
-- `/api/auth/login`
-- `/api/products`
-- `/api/customers`
-- `/api/orders`
-- `/api/deliveries`
-- `/api/returns`
-- `/api/inventory`
-- `/api/suppliers`
-- `/api/companies`
-- `/api/users`
-- `/api/reports/*`
-
-Requests use the `x-role` header (or a JWT from login) for role-based access control.
-
-## Frontend Notes
-
-- The frontend is a React app served by Vite from `front-end/`; see [front-end/README.md](front-end/README.md)
-- It talks to the backend at `http://localhost:4000/api`
-- If the backend is not running, the admin pages say so and offer a Retry button
-
-## Demo Login Credentials
-
-| Username | Password | Role |
-|---|---|---|
-| `admin` | `admin123` | admin |
-| `cashier` | `cashier123` | cashier |
-| `inventorymanager` | `inventory123` | inventorymanager |
-| `deliveryops` | `delivery123` | deliveryops |
-| `returnhandler` | `return123` | returnhandler |
-| `chirag` | `chirag1234` | superuser |
-| `customer` | `customer123` | customer |
-
-## Useful Scripts
-
-Root scripts:
-
+### Run Backend Unit & Integration Tests:
 ```bash
-npm run dev            # backend + frontend
-npm run dev:backend    # Express API only
-npm run dev:frontend   # React app only
-npm run build          # production build of the frontend
-npm test               # backend test suite
+npm test
 ```
+- Executes Jest test suites across all backend modules.
+- **Expected Result**: **13 test suites passed, 198 tests passed**.
 
-## Notes
+### Verify TypeScript Types:
+```bash
+npm --prefix back-end run typecheck:express
+```
+- Performs static type verification using the TypeScript compiler (`tsc --noEmit`).
 
-- The backend seeds orders, customers, products, deliveries, returns, inventory, and users in memory on startup.
-- `/api/orders` returns the seeded order records immediately after backend start.
-- `returns` endpoints require the `returnhandler` role for reads.
+### Production Build Verification (Frontend):
+```bash
+npm run build
+```
+- Builds the optimized production bundle with Vite into `front-end/dist`.
+
+---
+
+## 5. Individual Contribution: Chirag Sharma
+
+- **Student Name**: Chirag Sharma
+- **Email**: chirag.k24@iiits.in
+- **Group**: 44 (44_BillBhai)
+- **Role**: Full Stack Development, Core Architecture, Inventory-Order Synchronization, Dashboard Analytics
+
+### Specific Files Developed and Modified:
+
+1. **`back-end/express/modules/inventory/inventory.service.ts`**
+   - Implemented `consumeStock(productId: string, quantity: number): InventoryItem | null`.
+   - Ensures sold item quantities are deducted from available stock upon checkout while guaranteeing stock never drops below zero (preventing POS counter deadlocks when stock counts lag physical inventory).
+   - Dynamically recomputes inventory status (`In Stock`, `Low Stock`, `Out of Stock`) based on reorder thresholds.
+
+2. **`back-end/express/modules/inventory/inventory.test.ts`**
+   - Developed unit tests verifying `consumeStock`:
+     - Test that stock drops accurately by sold quantity.
+     - Test that stock floors at 0 and transitions status to `Out of Stock` rather than throwing errors.
+     - Test that sales of items with no inventory row gracefully return `null` without throwing exceptions.
+
+3. **`back-end/express/modules/orders/orders.service.ts`**
+   - Integrated dependency injection of `InventoryService` into `OrdersService`.
+   - Wired `inventory.consumeStock(item.productId, item.quantity)` directly into the order creation pipeline so every completed counter sale or online order automatically deducts the corresponding inventory items in real time.
+
+4. **`back-end/express/modules/orders/orders.test.ts`**
+   - Added test suite coverage verifying that `OrdersService.createOrder` successfully triggers stock reduction in the inventory service for all line items.
+
+5. **`back-end/express/data/seed-data.ts`**
+   - Fixed `USR-005` (`returnhandler` - Hemant Rawat) `companyId` mapping from `BIZ-102` to `BIZ-101`.
+   - Resolved multi-tenant isolation bug where the returns desk operator was unable to view or process return requests belonging to the primary store (`BIZ-101`).
+
+6. **`front-end/src/lib/apiClient.js`**
+   - Synchronized demo user profile for `returnhandler` to `BIZ-101` in the client-side session context, ensuring returns desk operators see store returns (`RET-220`, `RET-221`).
+
+7. **`front-end/src/pages/DashboardPage.jsx`**
+   - Added dynamic "Today's Sales" analytics to the Revenue `StatCard`.
+   - Computed current day's revenue total and bill volume (`Today: ₹X · N bills`) using timeline entry aggregation and `startOfDay` time boundaries.
+
+8. **`front-end/src/lib/dashboard/helpers.js`**
+   - Enhanced `parseOrderDate()` to handle year-less date strings (e.g. `"15 Oct 20:06"`).
+   - Inferred current calendar year dynamically, fixing a bug where browser native Date parsing assumed the year 2001, which skewed dashboard revenue trend charts and timeline sorting.
+
+9. **`front-end/src/components/inventory/AddProductModal.jsx`**
+   - Implemented `resolveSupplierId()` logic during product creation and editing.
+   - Prevents supplier information from inadvertently resetting to the default supplier ("Agarwal Traders") when editing products.
+   - Supports resolving suppliers by name, auto-creating new suppliers when valid contact details are supplied, and preserving existing supplier associations.
+
+10. **`front-end/src/lib/dashboard/api.js`**
+    - Preserved `supplierId` field on operational inventory records in `fetchOperationalData()`, allowing seamless round-trip supplier persistence.
+
+11. **Initial Project Foundations & Architecture** (from earlier project phases):
+    - Authored original UI layouts, responsive CSS styling tokens, SRS requirements documentation, and landing/admin design specifications.
