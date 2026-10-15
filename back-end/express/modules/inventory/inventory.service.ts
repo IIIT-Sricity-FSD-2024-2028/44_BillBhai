@@ -136,6 +136,28 @@ export class InventoryService {
     return this.clone(adjusted);
   }
 
+  /**
+   * Takes sold units off a product's stock. Stops at zero instead of failing,
+   * so a stock count that is out of date never blocks a sale at the counter.
+   * Products without a stock row are ignored.
+   */
+  public consumeStock(productId: string, quantity: number): InventoryItem | null {
+    const index = this.inventory.findIndex((item) => item.productId === productId);
+    if (index === -1) return null;
+
+    const current = this.inventory[index];
+    const newStock = Math.max(0, current.stockAvailable - Math.max(0, quantity));
+    const updated: InventoryItem = {
+      ...current,
+      stockAvailable: newStock,
+      status: this.computeStatus(newStock, current.reorderLevel),
+      lastUpdated: new Date().toISOString(),
+    };
+
+    this.inventory[index] = updated;
+    return this.clone(updated);
+  }
+
   public remove(id: string): DeleteInventoryResult {
     const index = this.inventory.findIndex((item) => item.id === id);
     if (index === -1) {

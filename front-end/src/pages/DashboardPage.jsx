@@ -12,6 +12,8 @@ import {
   buildRevenueTrendDays,
   getDashboardStatusMetrics,
   getInventoryMetrics,
+  getOrderTimelineEntries,
+  startOfDay,
 } from '../lib/dashboard/helpers.js';
 
 const ICONS = {
@@ -72,11 +74,17 @@ const ICONS = {
 };
 
 const CHART_BODY_STYLE = { position: 'relative', height: '240px' };
+const TODAY_STYLE = { fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' };
 
 function AdminDashboard() {
   const { orders, returns, inventory, scopedBusinessName } = useDashboard();
   const inventoryMetrics = getInventoryMetrics(inventory);
   const totalSales = orders.reduce((a, o) => a + o.total, 0);
+  const todayStart = startOfDay(new Date()).getTime();
+  const todaysBills = getOrderTimelineEntries(orders).filter(
+    (entry) => startOfDay(entry.date).getTime() === todayStart,
+  );
+  const todaySales = todaysBills.reduce((sum, entry) => sum + entry.total, 0);
 
   const salesData = () => {
     const c = getColors();
@@ -129,7 +137,12 @@ function AdminDashboard() {
           label="Revenue"
           value={`₹${totalSales.toLocaleString()}`}
           color="green"
-        />
+        >
+          <span style={TODAY_STYLE}>
+            Today: ₹{todaySales.toLocaleString()} · {todaysBills.length}{' '}
+            {todaysBills.length === 1 ? 'bill' : 'bills'}
+          </span>
+        </StatCard>
         <StatCard icon={ICONS.orders} label="Orders" value={orders.length} color="blue" />
         <StatCard icon={ICONS.returns} label="Returns" value={returns.length} color="red" />
         <StatCard

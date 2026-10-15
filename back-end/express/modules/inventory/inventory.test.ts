@@ -78,6 +78,18 @@ describe('InventoryService', () => {
     });
   });
 
+  it('takes sold units off stock but never below zero', () => {
+    const before = service.findByProduct('P001').stockAvailable;
+    expect(service.consumeStock('P001', 5)?.stockAvailable).toBe(before - 5);
+    const emptied = service.consumeStock('P001', 100000);
+    expect(emptied?.stockAvailable).toBe(0);
+    expect(emptied?.status).toBe('Out of Stock');
+  });
+
+  it('ignores sales of products that have no stock row', () => {
+    expect(service.consumeStock('P999', 1)).toBeNull();
+  });
+
   it('adjusts stock by product id, not by inventory id', () => {
     const before = service.findByProduct('P001').stockAvailable;
     const adjusted = service.adjustStock({ productId: 'P001', adjustment: -5 });

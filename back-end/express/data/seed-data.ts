@@ -111,7 +111,7 @@ export const seedUsers: User[] = [
   },
   {
     id: 'USR-005',
-    companyId: 'BIZ-102',
+    companyId: 'BIZ-101',
     name: 'Hemant Rawat',
     role: 'returnhandler',
     email: 'returnhandler@billbhai.com',

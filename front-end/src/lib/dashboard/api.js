@@ -364,6 +364,7 @@ export async function fetchOperationalData({
       sku: String(inv.id || fallbackSku).replace('INV-', 'SKU-'),
       inventoryId: inv.id,
       productId: inv.productId,
+      supplierId: product.supplierId,
       name: String(product.name || inv.productId || 'Unknown Product').trim(),
       cat: String(product.category || 'Uncategorized').trim(),
       supplier: String(supplier.name || product.supplierId || 'Unknown Supplier').trim(),

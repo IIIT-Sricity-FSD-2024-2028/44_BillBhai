@@ -140,11 +140,12 @@ export function parseOrderDate(dateText) {
   const raw = String(dateText || '').trim();
   if (!raw) return null;
 
-  const nativeParsed = new Date(raw);
-  if (!Number.isNaN(nativeParsed.getTime())) return nativeParsed;
-
+  // "15 Oct 20:06" has no year; the browser would assume 2001, so infer it here.
   const match = raw.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
+  if (!match) {
+    const nativeParsed = new Date(raw);
+    return Number.isNaN(nativeParsed.getTime()) ? null : nativeParsed;
+  }
 
   const day = Number(match[1]);
   const monthLabel = match[2].slice(0, 3).toLowerCase();

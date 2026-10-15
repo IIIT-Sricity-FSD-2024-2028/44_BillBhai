@@ -7,6 +7,7 @@ import { OrdersController } from './orders.controller';
 import { createOrdersRouter } from './orders.routes';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './orders.schema';
+import { InventoryService } from '../inventory/inventory.service';
 
 /**
  * Each app gets its own service instance, so a test that creates an order, a
@@ -84,6 +85,16 @@ describe('OrdersService', () => {
     expect(created.itemsCount).toBe(3);
     expect(created.items.map((item) => item.id)).toEqual(['OI-008', 'OI-009']);
     expect(service.findAllOrders()[0].id).toBe('ORD-4830');
+  });
+
+  it('takes the sold quantities off stock', () => {
+    const inventory = new InventoryService();
+    const orders = new OrdersService(inventory);
+    const before = inventory.findByProduct('P001').stockAvailable;
+
+    orders.createOrder(sampleOrder);
+
+    expect(inventory.findByProduct('P001').stockAvailable).toBe(before - 2);
   });
 
   it('applies the promo discount to the order total', () => {

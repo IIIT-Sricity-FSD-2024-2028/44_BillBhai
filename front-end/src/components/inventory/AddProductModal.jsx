@@ -171,26 +171,40 @@ export default function AddProductModal({ open, request, onClose }) {
       description: String(base?.description || `${pData.name} (${pData.cat})`).trim(),
     });
 
-    const createProductInBackend = async () => {
+    // Supplier typed in the form: an existing one by name, a new one if a phone was given,
+    // otherwise the product keeps the supplier it already had.
+    const resolveSupplierId = async () => {
       const supplierRows = await apiRequest('/suppliers', { role: 'inventorymanager' });
-      const normalizedSupplier = String(pData.supplier || '')
-        .trim()
-        .toLowerCase();
+      const normalizedSupplier = supplierName.toLowerCase();
       const matchedSupplier = (Array.isArray(supplierRows) ? supplierRows : []).find(
         (row) =>
           String((row && row.name) || '')
             .trim()
             .toLowerCase() === normalizedSupplier,
       );
+      if (matchedSupplier) return matchedSupplier.id;
+      const phone = normalizePhoneDigits(supplierPhoneRaw);
+      if (supplierName && /^\d{10}$/.test(phone)) {
+        const created = await apiRequest('/suppliers', {
+          method: 'POST',
+          role: 'inventorymanager',
+          body: {
+            name: supplierName,
+            mobileNo: phone,
+            ...(supplierEmailRaw ? { email: supplierEmailRaw } : {}),
+          },
+        });
+        if (created && created.id) return created.id;
+      }
+      return existingRecord?.supplierId || 'SUP-001';
+    };
 
+    const createProductInBackend = async () => {
       const createdProduct = await apiRequest('/products', {
         method: 'POST',
         role: 'inventorymanager',
         body: {
-          supplierId:
-            String(
-              (matchedSupplier && matchedSupplier.id) || existingRecord?.supplierId || 'SUP-001',
-            ).trim() || 'SUP-001',
+          supplierId: await resolveSupplierId(),
           ...productBody(existingRecord),
         },
       });
@@ -235,7 +249,7 @@ export default function AddProductModal({ open, request, onClose }) {
             method: 'PUT',
             role: 'inventorymanager',
             body: {
-              supplierId: String(existingRecord.supplierId || 'SUP-001').trim() || 'SUP-001',
+              supplierId: await resolveSupplierId(),
               ...productBody(existingRecord),
             },
           });

@@ -96,7 +96,7 @@ class APIClient {
           name: 'Inventory Manager',
         },
         deliveryops: { role: 'deliveryops', companyId: 'BIZ-101', name: 'Delivery Ops' },
-        returnhandler: { role: 'returnhandler', companyId: 'BIZ-102', name: 'Return Handler' },
+        returnhandler: { role: 'returnhandler', companyId: 'BIZ-101', name: 'Return Handler' },
         superuser: { role: 'superuser', companyId: null, name: 'Superuser' },
       };
 

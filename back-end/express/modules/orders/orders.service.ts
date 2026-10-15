@@ -19,6 +19,7 @@ import {
   PromotionResult,
   UpdateOrderDto,
 } from './orders.schema';
+import { inventoryService, InventoryService } from '../inventory/inventory.service';
 
 /** The single promotion the POS honours, and the rate it is worth. */
 const PROMO_CODE = 'WELCOME10';
@@ -65,7 +66,7 @@ export class OrdersService {
   private paymentCounter: number;
   private orderItemCounter: number;
 
-  constructor() {
+  constructor(private readonly inventory: InventoryService = inventoryService) {
     this.orders = seedOrders.map((order) => ({ ...order }));
     this.orderItems = seedOrderItems.map((item) => ({ ...item }));
     this.bills = seedBills.map((bill) => ({ ...bill }));
@@ -200,6 +201,7 @@ export class OrdersService {
         quantity: item.quantity,
         itemPrice: item.itemPrice,
       });
+      this.inventory.consumeStock(item.productId, item.quantity);
     });
 
     return this.buildSnapshot(created);
