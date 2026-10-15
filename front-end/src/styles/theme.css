@@ -174,3 +174,83 @@ html.theme-switching *::after {
     .theme-toggle-icon { transition: opacity 0.2s ease; transform: none; }
     html.theme-switching * { transition: none !important; }
 }
+
+/* Printed bill (POS and Orders): hidden on screen, the only thing on paper (fits 80 mm receipt printers). */
+.receipt {
+    display: none;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .receipt,
+    .receipt * {
+        visibility: visible;
+    }
+    .receipt {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 80mm;
+        padding: 4mm;
+        color: #000;
+        background: #fff;
+        font: 12px/1.45 'Courier New', monospace;
+    }
+    .receipt h2 {
+        text-align: center;
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+    .receipt table {
+        width: 100%;
+        margin: 6px 0;
+        border-collapse: collapse;
+        border-top: 1px dashed #000;
+        border-bottom: 1px dashed #000;
+    }
+    .receipt th,
+    .receipt td {
+        padding: 2px 0;
+        text-align: left;
+    }
+    .receipt th:last-child,
+    .receipt td:last-child {
+        text-align: right;
+    }
+    .receipt-row {
+        display: flex;
+        justify-content: space-between;
+    }
+    .receipt-total {
+        font-weight: 700;
+        border-top: 1px dashed #000;
+        margin-top: 2px;
+        padding-top: 2px;
+    }
+    .receipt-foot {
+        text-align: center;
+        margin-top: 6px;
+    }
+}
+
+/* The same bill shown on screen (Orders → Bill) looks like a paper receipt. */
+.receipt-preview .receipt {
+    display: block;
+    max-width: 80mm;
+    margin: 0 auto;
+    padding: 12px;
+    color: #000;
+    background: #fff;
+    border-radius: 6px;
+    font: 12px/1.45 'Courier New', monospace;
+}
+.receipt-preview .receipt h2 { text-align: center; font-size: 15px; margin-bottom: 4px; }
+.receipt-preview .receipt table { width: 100%; margin: 6px 0; border-collapse: collapse; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
+.receipt-preview .receipt th, .receipt-preview .receipt td { padding: 2px 0; text-align: left; }
+.receipt-preview .receipt th:last-child, .receipt-preview .receipt td:last-child { text-align: right; }
+.receipt-preview .receipt-row { display: flex; justify-content: space-between; }
+.receipt-preview .receipt-total { font-weight: 700; border-top: 1px dashed #000; margin-top: 2px; padding-top: 2px; }
+.receipt-preview .receipt-foot { text-align: center; margin-top: 6px; }

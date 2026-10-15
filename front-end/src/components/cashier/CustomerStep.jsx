@@ -10,6 +10,7 @@ export default function CustomerStep({
   onPhoneChange,
   onPhoneBlur,
   onSubmit,
+  onWalkIn,
 }) {
   return (
     <div id="step-1-customer" className={`step-container${active ? ' active' : ''}`}>
@@ -106,6 +107,17 @@ export default function CustomerStep({
           >
             {copy.submitLabel}
           </button>
+          {onWalkIn && (
+            <button
+              type="button"
+              className="btn btn-outline"
+              id="walkInBtn"
+              style={{ width: '100%', justifyContent: 'center', marginTop: '10px' }}
+              onClick={onWalkIn}
+            >
+              Walk-in customer (skip details)
+            </button>
+          )}
         </form>
       </div>
     </div>

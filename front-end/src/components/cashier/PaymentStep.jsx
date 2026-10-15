@@ -1,4 +1,14 @@
-export default function PaymentStep({ active, title, subtitle, summary, resetLabel, onReset }) {
+import Receipt from './Receipt.jsx';
+
+export default function PaymentStep({
+  active,
+  title,
+  subtitle,
+  summary,
+  receipt,
+  resetLabel,
+  onReset,
+}) {
   return (
     <div id="step-4-payment" className={`step-container${active ? ' active' : ''}`}>
       <div className="wizard-centered success-block">
@@ -37,15 +47,28 @@ export default function PaymentStep({ active, title, subtitle, summary, resetLab
               </div>
             ))}
         </div>
-        <button
-          className="btn btn-primary"
-          id="btnResetFlow"
-          style={{ justifyContent: 'center' }}
-          onClick={onReset}
-        >
-          {resetLabel}
-        </button>
+        <div className="fulfillment-actions">
+          {receipt && (
+            <button
+              className="btn btn-outline"
+              id="btnPrintBill"
+              style={{ justifyContent: 'center' }}
+              onClick={() => window.print()}
+            >
+              Print Bill
+            </button>
+          )}
+          <button
+            className="btn btn-primary"
+            id="btnResetFlow"
+            style={{ justifyContent: 'center' }}
+            onClick={onReset}
+          >
+            {resetLabel}
+          </button>
+        </div>
       </div>
+      <Receipt receipt={active ? receipt : null} />
     </div>
   );
 }

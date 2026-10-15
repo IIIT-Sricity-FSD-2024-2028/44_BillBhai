@@ -208,6 +208,7 @@ export default function CashierPage() {
       deliveryPartner: String(customer.deliveryPartner || '').trim(),
       deliveryPartnerPhone: sanitizePhone(customer.deliveryPartnerPhone || ''),
       isExistingCustomer: Boolean(currentCustomerProfile.current),
+      walkIn: Boolean(customer.walkIn),
     };
   }
 
@@ -283,6 +284,15 @@ export default function CashierPage() {
   function handlePhoneChange(value) {
     clearError('phone');
     void runCustomerLookup(value);
+  }
+
+  function handleWalkIn() {
+    currentCustomerProfile.current = null;
+    setCustomer({ ...EMPTY_CUSTOMER, name: 'Walk-in Customer', walkIn: true });
+    setErrors(EMPTY_ERRORS);
+    setCatalogShown(true);
+    setCatClassesNormalized(false);
+    setStep(2);
   }
 
   function handleCustomerSubmit(e) {
@@ -440,6 +450,19 @@ export default function CashierPage() {
           },
           { label: 'Destination', value: detailAddress },
         ],
+        receipt: {
+          shopName: session.businessName || 'BillBhai Store',
+          orderId: createdOrder.id,
+          date: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+          customer: createdOrder.customer || customerPayload.name,
+          items: cart.map((item) => ({
+            name: item.name,
+            qty: item.qty,
+            amount: item.price * item.qty,
+          })),
+          totals,
+          payment: createdOrder.paymentMethod || customerPayload.paymentMethod,
+        },
       });
     }
     setStep(4);
@@ -481,6 +504,7 @@ export default function CashierPage() {
             onPhoneChange={handlePhoneChange}
             onPhoneBlur={() => void runCustomerLookup(customer.phone)}
             onSubmit={handleCustomerSubmit}
+            onWalkIn={ct ? null : handleWalkIn}
           />
 
           <div id="step-2-pos" className={`step-container${step === 2 ? ' active' : ''}`}>
@@ -553,6 +577,7 @@ export default function CashierPage() {
             title={outcome ? outcome.title : defaultPaymentTitle}
             subtitle={outcome ? outcome.subtitle : defaultPaymentSubtitle}
             summary={outcome ? outcome.rows : null}
+            receipt={outcome ? outcome.receipt : null}
             resetLabel={ct ? 'Start Another Checkout' : 'Next Customer (Reset POS)'}
             onReset={resetPOS}
           />

@@ -19,7 +19,7 @@ export function validateCustomerStep(input, phoneArg) {
   }
 
   if (!phone) {
-    errors.phone = 'Phone number is required.';
+    if (!customer.walkIn) errors.phone = 'Phone number is required.';
   } else if (!/^[6-9]\d{9}$/.test(phoneDigits)) {
     errors.phone = 'Phone must be exactly 10 digits.';
   }
