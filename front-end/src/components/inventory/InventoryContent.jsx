@@ -43,6 +43,7 @@ export default function InventoryContent({ onOpenProductModal }) {
   const [category, setCategory] = useState('all');
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState('stock_low');
+  const [query, setQuery] = useState('');
   const canManage = hasActionAccess('inventory');
 
   const categoryOptions = Array.from(
@@ -52,6 +53,7 @@ export default function InventoryContent({ onOpenProductModal }) {
       ),
     ),
   ).sort();
+  const search = query.trim().toLowerCase();
   const visibleRows = inventory
     .map((item) => ({
       ...item,
@@ -62,6 +64,8 @@ export default function InventoryContent({ onOpenProductModal }) {
       if (category !== 'all' && String(item.cat || 'Uncategorized').trim() !== category)
         return false;
       if (status !== 'all' && item.normalizedStatus !== status) return false;
+      if (search && !`${item.sku} ${item.name} ${item.supplier}`.toLowerCase().includes(search))
+        return false;
       return true;
     })
     .sort(SORTERS[sort] || SORTERS.stock_low);
@@ -179,7 +183,21 @@ export default function InventoryContent({ onOpenProductModal }) {
               options: SORT_OPTIONS,
             },
           ]}
-        />
+        >
+          <div className="toolbar-group">
+            <label className="toolbar-label" htmlFor="inventorySearch">
+              Search
+            </label>
+            <input
+              id="inventorySearch"
+              type="search"
+              className="toolbar-select"
+              placeholder="Product, SKU or supplier"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        </FilterToolbar>
       </section>
       <section className="grid-2">
         <DistributionCard inventory={inventory} />

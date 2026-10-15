@@ -2,8 +2,10 @@ import { useLayoutEffect, useState } from 'react';
 import PageHeader from '../common/PageHeader.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
 import OrdersTable, { ORDERS_EMPTY_MESSAGE } from './OrdersTable.jsx';
+import OrderBillModal from './OrderBillModal.jsx';
 import { useDashboard, useOrders } from '../../lib/dashboard/hooks.js';
 import { getState } from '../../lib/dashboard/store.js';
+import { downloadCsv } from '../../lib/dashboard/csv.js';
 import {
   getNextOrderId,
   normalizeOrderStatus,
@@ -15,6 +17,16 @@ const SORT_OPTIONS = [
   { value: 'oldest', label: 'Oldest first' },
   { value: 'total_high', label: 'Total high-low' },
   { value: 'total_low', label: 'Total low-high' },
+];
+
+const CSV_COLUMNS = [
+  { label: 'Order ID', value: (o) => o.id },
+  { label: 'Customer', value: (o) => o.customer },
+  { label: 'Items', value: (o) => o.items },
+  { label: 'Total', value: (o) => o.total },
+  { label: 'Payment', value: (o) => o.normalizedPayment },
+  { label: 'Status', value: (o) => o.normalizedStatus },
+  { label: 'Date', value: (o) => o.date },
 ];
 
 function buildOrderRows(orders) {
@@ -60,6 +72,8 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
   const [status, setStatus] = useState('all');
   const [payment, setPayment] = useState('all');
   const [sortKey, setSortKey] = useState('newest');
+  const [query, setQuery] = useState('');
+  const [billOrderId, setBillOrderId] = useState(null);
 
   useLayoutEffect(() => {
     onResetPatches();
@@ -75,10 +89,12 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
     new Set(orderRows.map((item) => item.normalizedPayment)),
   ).sort();
 
+  const search = query.trim().toLowerCase();
   const filtered = orderRows
     .filter((item) => {
       if (status !== 'all' && item.normalizedStatus !== status) return false;
       if (payment !== 'all' && item.normalizedPayment !== payment) return false;
+      if (search && !`${item.id} ${item.customer}`.toLowerCase().includes(search)) return false;
       return true;
     })
     .sort(sortRows(sortKey));
@@ -152,11 +168,19 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
       <PageHeader
         title="Orders"
         actions={
-          canEdit ? (
-            <button className="btn btn-primary" id="newOrderBtnDyn" onClick={openNewOrder}>
-              + New Order
+          <>
+            <button
+              className="btn btn-outline"
+              onClick={() => downloadCsv('orders.csv', CSV_COLUMNS, filtered)}
+            >
+              Export CSV
             </button>
-          ) : null
+            {canEdit && (
+              <button className="btn btn-primary" id="newOrderBtnDyn" onClick={openNewOrder}>
+                + New Order
+              </button>
+            )}
+          </>
         }
       />
       <section className="card" style={{ marginBottom: '14px' }}>
@@ -184,7 +208,21 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
               options: SORT_OPTIONS,
             },
           ]}
-        />
+        >
+          <div className="toolbar-group">
+            <label className="toolbar-label" htmlFor="ordersSearch">
+              Search
+            </label>
+            <input
+              id="ordersSearch"
+              type="search"
+              className="toolbar-select"
+              placeholder="Order ID or customer"
+              value={query}
+              onChange={(e) => withReset(setQuery)(e.target.value)}
+            />
+          </div>
+        </FilterToolbar>
       </section>
       <OrdersTable
         rows={entries}
@@ -192,7 +230,9 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
         canDelete={canDelete}
         onEdit={editOrder}
         onDelete={deleteOrder}
+        onViewBill={setBillOrderId}
       />
+      <OrderBillModal orderId={billOrderId} onClose={() => setBillOrderId(null)} />
     </>
   );
 }

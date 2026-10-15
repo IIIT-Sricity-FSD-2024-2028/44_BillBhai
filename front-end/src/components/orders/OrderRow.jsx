@@ -9,7 +9,15 @@ const DELETE_STYLE = {
   borderColor: 'var(--red)',
 };
 
-export default function OrderRow({ order, saved = false, canEdit, canDelete, onEdit, onDelete }) {
+export default function OrderRow({
+  order,
+  saved = false,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDelete,
+  onViewBill,
+}) {
   if (saved) {
     const statusClass =
       order.status === 'Delivered'
@@ -68,6 +76,15 @@ export default function OrderRow({ order, saved = false, canEdit, canDelete, onE
       </td>
       <td>{order.date}</td>
       <td>
+        {onViewBill && (
+          <button
+            className="btn btn-outline"
+            style={EDIT_STYLE}
+            onClick={() => onViewBill(order.id)}
+          >
+            Bill
+          </button>
+        )}
         {canEdit && (
           <button className="btn btn-outline" style={EDIT_STYLE} onClick={() => onEdit(order.id)}>
             Edit

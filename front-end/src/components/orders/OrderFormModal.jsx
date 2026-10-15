@@ -6,7 +6,14 @@ import { useDashboard, useOrders, useSession } from '../../lib/dashboard/hooks.j
 import { loadObject } from '../../lib/dashboard/storage.js';
 import { formatBackendDate, formatDate, getNextOrderId } from '../../lib/dashboard/helpers.js';
 
-const PAYMENT_OPTIONS = [{ value: '', label: 'Select method' }, 'UPI', 'Cash', 'Card'];
+const PAYMENT_OPTIONS = [
+  { value: '', label: 'Select method' },
+  'Cash',
+  'UPI',
+  'Card',
+  'Paid Upfront',
+  'COD',
+];
 const STATUS_OPTIONS = ['Pending', 'Processing', 'Delivered', 'Cancelled'];
 
 const CHECKS = {
@@ -280,7 +287,7 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
             Cancel
           </button>
           <button type="submit" className="btn btn-primary">
-            Create Order
+            {title === 'Edit Order' ? 'Save Changes' : 'Create Order'}
           </button>
         </div>
       </form>

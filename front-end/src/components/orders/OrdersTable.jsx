@@ -13,7 +13,7 @@ export const ORDER_COLUMNS = [
 ];
 export const ORDERS_EMPTY_MESSAGE = 'No orders match the selected filters.';
 
-export default function OrdersTable({ rows, canEdit, canDelete, onEdit, onDelete }) {
+export default function OrdersTable({ rows, canEdit, canDelete, onEdit, onDelete, onViewBill }) {
   return (
     <section className="card">
       <div className="card-bd">
@@ -37,6 +37,7 @@ export default function OrdersTable({ rows, canEdit, canDelete, onEdit, onDelete
                 canDelete={canDelete}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onViewBill={onViewBill}
               />
             )
           }
