@@ -136,6 +136,12 @@ export class InventoryService {
     return this.clone(adjusted);
   }
 
+  /** Units on hand for a product, or null when the product has no stock row. */
+  public stockFor(productId: string): number | null {
+    const row = this.inventory.find((item) => item.productId === productId);
+    return row ? row.stockAvailable : null;
+  }
+
   /**
    * Takes sold units off a product's stock. Stops at zero instead of failing,
    * so a stock count that is out of date never blocks a sale at the counter.

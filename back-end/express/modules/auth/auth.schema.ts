@@ -18,6 +18,8 @@ export interface AuthenticatedUser {
 }
 
 export interface LoginResult extends AuthenticatedUser {
+  /** Shop name for the header and printed bills; empty for platform users. */
+  businessName: string;
   accessToken: string;
   tokenType: 'Bearer';
   expiresIn: string;

@@ -80,7 +80,8 @@ export function computeBootContext(page) {
   const roleKey = roleFromStorage(storedRole);
   if (!roleKey || !ROLE_ALLOWED_PAGES[roleKey]) return { ...invalid, writes: [] };
 
-  let lsBusinessId = localStorage.getItem('activeBusinessId') || '';
+  const storedBusinessId = localStorage.getItem('activeBusinessId') || '';
+  let lsBusinessId = storedBusinessId;
   if (roleKey !== 'superuser' && sessionCompanyId) {
     writes.push(['set', 'activeBusinessId', sessionCompanyId]);
     lsBusinessId = sessionCompanyId;
@@ -131,9 +132,10 @@ export function computeBootContext(page) {
   if (BUSINESS_SCOPED_ROLES.includes(roleKey)) {
     const preferredBusinessId = sessionCompanyId || activeBusinessId;
     if (preferredBusinessId) {
+      // The saved shop name only goes stale when the shop itself changes.
+      if (preferredBusinessId !== storedBusinessId) writes.push(['remove', 'activeBusinessName']);
       activeBusinessId = preferredBusinessId;
       writes.push(['set', 'activeBusinessId', activeBusinessId]);
-      writes.push(['remove', 'activeBusinessName']);
     }
   }
 

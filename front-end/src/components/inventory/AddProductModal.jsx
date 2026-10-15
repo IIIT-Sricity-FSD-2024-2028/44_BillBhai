@@ -15,10 +15,11 @@ import {
 
 export const CATEGORY_OPTIONS = [
   { value: '', label: 'Select category' },
-  'Grocery',
+  'Groceries',
   'Dairy',
   'Beverages',
   'Snacks',
+  'Home Care',
   'Personal Care',
   'Other',
 ];
@@ -86,8 +87,14 @@ export default function AddProductModal({ open, request, onClose }) {
       { key: 'name', ok: values.name.trim() !== '' },
       { key: 'category', ok: category !== '' },
       { key: 'supplier', ok: values.supplier.trim() !== '' },
-      { key: 'price', ok: values.price !== '' && parseFloat(values.price) >= 0 },
-      { key: 'stock', ok: values.stock !== '' && parseInt(values.stock, 10) >= 0 },
+      {
+        key: 'price',
+        ok: values.price !== '' && parseFloat(values.price) >= 0,
+      },
+      {
+        key: 'stock',
+        ok: values.stock !== '' && parseInt(values.stock, 10) >= 0,
+      },
     ];
     checks.forEach(({ key, ok }) => {
       nextErrors[key] = !ok;
@@ -100,20 +107,32 @@ export default function AddProductModal({ open, request, onClose }) {
 
     if (supplierEmailRaw && !isValidEmailAddress(supplierEmailRaw)) {
       nextErrors.supplierEmail = true;
-      nextUi.supplierEmail = { display: 'block', message: 'Enter a valid email address.' };
+      nextUi.supplierEmail = {
+        display: 'block',
+        message: 'Enter a valid email address.',
+      };
       valid = false;
     } else {
       nextErrors.supplierEmail = false;
-      nextUi.supplierEmail = { ...(nextUi.supplierEmail || {}), display: 'none' };
+      nextUi.supplierEmail = {
+        ...(nextUi.supplierEmail || {}),
+        display: 'none',
+      };
     }
 
     if (supplierPhoneRaw && !isValidPhoneNumber(supplierPhoneRaw)) {
       nextErrors.supplierPhone = true;
-      nextUi.supplierPhone = { display: 'block', message: 'Enter a valid 10-digit phone number.' };
+      nextUi.supplierPhone = {
+        display: 'block',
+        message: 'Enter a valid 10-digit phone number.',
+      };
       valid = false;
     } else {
       nextErrors.supplierPhone = false;
-      nextUi.supplierPhone = { ...(nextUi.supplierPhone || {}), display: 'none' };
+      nextUi.supplierPhone = {
+        ...(nextUi.supplierPhone || {}),
+        display: 'none',
+      };
     }
 
     if (supplierLeadTimeRaw) {
@@ -174,7 +193,9 @@ export default function AddProductModal({ open, request, onClose }) {
     // Supplier typed in the form: an existing one by name, a new one if a phone was given,
     // otherwise the product keeps the supplier it already had.
     const resolveSupplierId = async () => {
-      const supplierRows = await apiRequest('/suppliers', { role: 'inventorymanager' });
+      const supplierRows = await apiRequest('/suppliers', {
+        role: 'inventorymanager',
+      });
       const normalizedSupplier = supplierName.toLowerCase();
       const matchedSupplier = (Array.isArray(supplierRows) ? supplierRows : []).find(
         (row) =>
@@ -195,6 +216,14 @@ export default function AddProductModal({ open, request, onClose }) {
           },
         });
         if (created && created.id) return created.id;
+      }
+      const keepsOldSupplier =
+        existingRecord &&
+        String(existingRecord.supplier || '')
+          .trim()
+          .toLowerCase() === normalizedSupplier;
+      if (supplierName && !keepsOldSupplier) {
+        throw new Error(`Add a 10-digit phone number to save new supplier "${supplierName}".`);
       }
       return existingRecord?.supplierId || 'SUP-001';
     };
@@ -269,15 +298,20 @@ export default function AddProductModal({ open, request, onClose }) {
 
     if (existingRecord && pData.inventoryId) {
       try {
-        await apiRequest(`/inventory/${encodeURIComponent(String(pData.inventoryId))}`, {
-          method: 'PUT',
-          role: 'inventorymanager',
-          body: {
-            stockAvailable: pData.stock,
-            reorderLevel: Number(pData.reorderLevel || 10),
-            location: String(pData.location || 'Shelf').trim(),
+        const savedStock = await apiRequest(
+          `/inventory/${encodeURIComponent(String(pData.inventoryId))}`,
+          {
+            method: 'PUT',
+            role: 'inventorymanager',
+            body: {
+              stockAvailable: pData.stock,
+              reorderLevel: Number(pData.reorderLevel || 10),
+              location: String(pData.location || 'Shelf').trim(),
+            },
           },
-        });
+        );
+        // The server works out the stock status from the new count.
+        if (savedStock && savedStock.status) pData.status = savedStock.status;
       } catch (error) {
         if (isNotFoundError(error)) {
           pData.inventoryId = undefined;

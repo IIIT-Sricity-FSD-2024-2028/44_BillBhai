@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import usePageSetup from '../hooks/usePageSetup.js';
+import { ROLE_ALLOWED_PAGES } from '../lib/dashboard/constants.js';
 import { CSS, FONTS } from '../lib/pageAssets.js';
 import {
   applyPromo,
@@ -90,7 +92,17 @@ function cartReducer(state, action) {
   return { cart, discount: recomputeDiscount(discount, getCartSubtotal(cart)) };
 }
 
+// Logged-out visitors go to login; roles without the POS go to their dashboard.
+function posRedirect() {
+  const role = String(localStorage.getItem('userRole') || '')
+    .toLowerCase()
+    .replace(/\s+/g, '');
+  if (!role || !localStorage.getItem('userName')) return '/login';
+  return (ROLE_ALLOWED_PAGES[role] || []).includes('cashier') ? null : '/dashboard';
+}
+
 export default function CashierPage() {
+  const [redirectTo] = useState(posRedirect);
   const [store] = useState(() => createDataStore());
   const [session] = useState(() => getSessionContext());
   const [booted, setBooted] = useState(false);
@@ -106,6 +118,7 @@ export default function CashierPage() {
   );
   const currentCustomerProfile = useRef(null);
   const customerLookupRequestId = useRef(0);
+  const autofilledFromLookup = useRef(false);
 
   const [checkoutMode, setCheckoutModeState] = useState('takeaway_now');
   const [modeError, setModeError] = useState('');
@@ -148,6 +161,7 @@ export default function CashierPage() {
     setCustomer(EMPTY_CUSTOMER);
     setErrors(EMPTY_ERRORS);
     currentCustomerProfile.current = null;
+    autofilledFromLookup.current = false;
     setCheckoutMode('takeaway_now');
     setLookupHint(hintFor('info', getTerminalCopy(isCustomerTerminal).lookupInfo));
     dispatchCart({ type: 'reset' });
@@ -234,8 +248,9 @@ export default function CashierPage() {
     // Ignore stale async responses from older lookups.
     if (requestId !== customerLookupRequestId.current) return;
 
-    const hadExistingProfile = Boolean(currentCustomerProfile.current);
+    const hadExistingProfile = autofilledFromLookup.current;
     currentCustomerProfile.current = profile;
+    autofilledFromLookup.current = Boolean(profile);
 
     if (profile) {
       setCustomer((c) => ({
@@ -253,6 +268,7 @@ export default function CashierPage() {
       if (hadExistingProfile) {
         setCustomer((c) => ({
           ...c,
+          name: '',
           email: '',
           address: '',
           notes: '',
@@ -420,7 +436,12 @@ export default function CashierPage() {
         (await runCheckout(store, { customer: customerPayload, cart, discount })) || null;
     } catch (error) {
       console.error('Checkout failed:', error);
-      setModeError('Could not save this order right now. Please try again.');
+      const reason = error && error.message;
+      setModeError(
+        reason && reason !== 'Order was not saved on the server'
+          ? reason
+          : 'Could not save this order right now. Please try again.',
+      );
       return;
     } finally {
       setCheckoutBusy(false);
@@ -487,6 +508,8 @@ export default function CashierPage() {
   const defaultPaymentSubtitle = ct
     ? 'Your order is prepared. Complete payment to confirm the self-checkout.'
     : 'The payload has been sent successfully. The user chooses Card, UPI, etc., on their device/interface. Webhook triggers upon completion.';
+
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
 
   return (
     <>

@@ -50,3 +50,7 @@ export function setTheme(theme) {
 export function toggleTheme() {
   setTheme(current === 'dark' ? 'light' : 'dark');
 }
+
+// Paper is white: print in the light theme, then switch back.
+window.addEventListener('beforeprint', () => apply('light'));
+window.addEventListener('afterprint', () => apply(current));

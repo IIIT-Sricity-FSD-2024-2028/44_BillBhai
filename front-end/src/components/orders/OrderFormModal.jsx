@@ -165,6 +165,7 @@ export default function OrderFormModal({ open, request, title, onClose, onSaved 
             paymentMethod: oData.payment,
             discountAmount: 0,
             items: [{ productId: fallbackProductId, quantity: totalItems, itemPrice: unitPrice }],
+            recordOnly: true,
           },
         });
         if (createdOrder && createdOrder.id) oData.id = createdOrder.id;

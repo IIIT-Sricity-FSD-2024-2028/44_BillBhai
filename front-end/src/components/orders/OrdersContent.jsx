@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import PageHeader from '../common/PageHeader.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
 import OrdersTable, { ORDERS_EMPTY_MESSAGE } from './OrdersTable.jsx';
@@ -68,7 +68,7 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
     useDashboard();
   const { remove } = useOrders();
 
-  const [orderRows] = useState(() => buildOrderRows(orders));
+  const orderRows = useMemo(() => buildOrderRows(orders), [orders]);
   const [status, setStatus] = useState('all');
   const [payment, setPayment] = useState('all');
   const [sortKey, setSortKey] = useState('newest');

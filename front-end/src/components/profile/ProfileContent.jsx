@@ -6,6 +6,7 @@ import SubscriptionPlanCard from './SubscriptionPlanCard.jsx';
 import RecentActivityCard from './RecentActivityCard.jsx';
 import AccountPreferencesForm from './AccountPreferencesForm.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
+import { loadObject } from '../../lib/dashboard/storage.js';
 import { ROLE_LABELS } from '../../lib/dashboard/constants.js';
 import {
   getRecentProfileActivity,
@@ -56,6 +57,7 @@ export default function ProfileContent({ onSaved }) {
     showToast,
     openPlanUpgrade,
     cancelSubscription,
+    apiRequest,
   } = useDashboard();
 
   const [profile] = useState(() => loadProfileSettingsRecord());
@@ -123,7 +125,7 @@ export default function ProfileContent({ onSaved }) {
     onSaved();
   };
 
-  const updatePassword = () => {
+  const updatePassword = async () => {
     const nextPassword = String(newPassword || '').trim();
     const confirm = String(confirmPassword || '').trim();
     if (!nextPassword || nextPassword.length < 6) {
@@ -134,13 +136,24 @@ export default function ProfileContent({ onSaved }) {
       showToast('Password confirmation does not match.');
       return;
     }
-    if (!updatePasswordOverrideForCurrentUser(state, nextPassword)) {
+    const userId = loadObject('currentUser', {}).id;
+    if (!userId || !updatePasswordOverrideForCurrentUser(state, nextPassword)) {
       showToast('Could not map current account for password update.');
+      return;
+    }
+    try {
+      await apiRequest(`/users/${encodeURIComponent(userId)}`, {
+        method: 'PUT',
+        role: 'admin',
+        body: { password: nextPassword },
+      });
+    } catch (error) {
+      showToast(`Password update failed: ${(error && error.message) || 'server unavailable'}`);
       return;
     }
     setNewPassword('');
     setConfirmPassword('');
-    showToast('Password updated for next login.');
+    showToast('Password updated. Use it next time you log in.');
   };
 
   return (

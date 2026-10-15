@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Modal from '../common/Modal.jsx';
 import Receipt from '../cashier/Receipt.jsx';
+import printReceipt from '../../lib/printReceipt.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { apiRequest } from '../../lib/dashboard/api.js';
 
@@ -28,7 +29,8 @@ export default function OrderBillModal({ orderId, onClose }) {
         }));
         const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
         setReceipt({
-          shopName: scopedBusinessName || 'BillBhai Store',
+          shopName:
+            scopedBusinessName || localStorage.getItem('activeBusinessName') || 'BillBhai Store',
           orderId: order.id,
           date: new Date(order.orderDate).toLocaleString('en-IN', {
             dateStyle: 'medium',
@@ -76,7 +78,7 @@ export default function OrderBillModal({ orderId, onClose }) {
           Close
         </button>
         {receipt && !noItems && (
-          <button type="button" className="btn btn-primary" onClick={() => window.print()}>
+          <button type="button" className="btn btn-primary" onClick={printReceipt}>
             Print Bill
           </button>
         )}

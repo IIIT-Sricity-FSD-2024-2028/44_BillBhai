@@ -186,7 +186,7 @@ function ReturnsContent() {
 
 export default function ReturnsPage() {
   return (
-    <DashboardLayout page="returns">
+    <DashboardLayout page="returns" toast="">
       <ReturnsContent />
     </DashboardLayout>
   );

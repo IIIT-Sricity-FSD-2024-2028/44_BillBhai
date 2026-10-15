@@ -1,4 +1,5 @@
 import Receipt from './Receipt.jsx';
+import printReceipt from '../../lib/printReceipt.js';
 
 export default function PaymentStep({
   active,
@@ -53,7 +54,7 @@ export default function PaymentStep({
               className="btn btn-outline"
               id="btnPrintBill"
               style={{ justifyContent: 'center' }}
-              onClick={() => window.print()}
+              onClick={printReceipt}
             >
               Print Bill
             </button>

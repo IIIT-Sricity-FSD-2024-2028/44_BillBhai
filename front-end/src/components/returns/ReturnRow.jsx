@@ -13,7 +13,7 @@ function ActionButton({ style, onClick, children }) {
   );
 }
 
-export default function ReturnRow({ item, canManage, onEdit, onRefund, onReject }) {
+export default function ReturnRow({ item, canManage, onRefund, onReject }) {
   const kind = classifyReturnStatus(item.status);
   let actions = null;
   if (canManage) {
@@ -28,9 +28,8 @@ export default function ReturnRow({ item, canManage, onEdit, onRefund, onReject 
           </ActionButton>
         </>
       ) : (
-        <ActionButton style={BTN_BASE} onClick={() => onEdit(item.id)}>
-          Edit
-        </ActionButton>
+        // Refunded and rejected returns are final.
+        <span className="text-muted">—</span>
       );
   }
   return (

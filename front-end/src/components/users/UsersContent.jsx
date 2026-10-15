@@ -58,6 +58,7 @@ export default function UsersContent({ onOpenModal }) {
       'edit',
       {
         ...EMPTY_USER_FORM,
+        id: u.id,
         name: u.name,
         email: u.email || '',
         role: u.role,

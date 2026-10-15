@@ -3,6 +3,7 @@ import { config } from '../../config/index';
 import { UnauthorizedError } from '../../errors/http-error';
 import { signAccessToken } from '../../middleware/rbac.middleware';
 import { usersService, UsersService } from '../users/users.service';
+import { companiesService } from '../companies/companies.service';
 import { AuthenticatedUser, LoginDto, LoginResult } from './auth.schema';
 
 /**
@@ -56,8 +57,16 @@ export class AuthService {
       companyId: user.companyId,
     });
 
+    let businessName = '';
+    try {
+      businessName = user.companyId ? companiesService.findOne(user.companyId).name : '';
+    } catch {
+      businessName = '';
+    }
+
     return {
       ...user,
+      businessName,
       accessToken,
       tokenType: 'Bearer',
       expiresIn: config.auth.jwtExpiresIn,

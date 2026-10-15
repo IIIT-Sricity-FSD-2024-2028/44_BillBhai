@@ -23,7 +23,6 @@ const ROLE_VALUES = [
   'Inventory Manager',
   'Delivery Ops',
   'Customer',
-  'Super User',
 ];
 const STATUS_OPTIONS = ['Active', 'Offline', 'Suspended'];
 const PHONE_ERROR = 'Enter a valid 10-digit phone number.';
@@ -140,7 +139,15 @@ export default function UserFormModal({ open, request, onClose }) {
     if (!valid) return;
 
     const uname = values.name.trim();
-    const existingIdx = users.findIndex((u) => u.name === uname);
+    const existingIdx =
+      request && request.mode === 'edit' ? users.findIndex((u) => u.id === values.id) : -1;
+    if (
+      existingIdx === -1 &&
+      users.some((u) => String(u.name || '').toLowerCase() === uname.toLowerCase())
+    ) {
+      showToast(`A user named "${uname}" already exists.`);
+      return;
+    }
     const existingUser = existingIdx !== -1 ? users[existingIdx] : null;
 
     const uData = {
@@ -205,7 +212,7 @@ export default function UserFormModal({ open, request, onClose }) {
     }
 
     setRows((rows) => {
-      const idx = rows.findIndex((u) => u.name === uname);
+      const idx = rows.findIndex((u) => u.id === uData.id);
       if (existingIdx !== -1 && idx !== -1) return rows.map((u, i) => (i === idx ? uData : u));
       return [...rows, uData];
     });

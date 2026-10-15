@@ -49,6 +49,8 @@ export const createOrderSchema = z.object({
   promoCode: z.string().optional(),
   paymentMethod: z.string().optional(),
   items: z.array(orderItemSchema).min(1, 'items must contain at least one entry'),
+  /** Order typed in by hand on the Orders page: recorded without touching stock. */
+  recordOnly: z.boolean().optional(),
 });
 
 export const updateOrderSchema = z

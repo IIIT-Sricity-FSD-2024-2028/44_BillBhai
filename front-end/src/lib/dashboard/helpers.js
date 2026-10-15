@@ -53,7 +53,12 @@ export function normalizeOrderStatus(status) {
     .toLowerCase();
   if (!raw) return 'Pending';
   if (raw.includes('deliver')) return 'Delivered';
-  if (raw.includes('process') || raw.includes('transit') || raw.includes('dispatch'))
+  if (
+    raw.includes('process') ||
+    raw.includes('transit') ||
+    raw.includes('dispatch') ||
+    raw.includes('ship')
+  )
     return 'Processing';
   if (raw.includes('cancel') || raw.includes('fail')) return 'Cancelled';
   if (raw.includes('pending')) return 'Pending';
@@ -190,8 +195,14 @@ export function startOfWeek(date) {
   return week;
 }
 
+// Cancelled orders never brought in money, so revenue figures leave them out.
+export function isCancelledOrder(order) {
+  return normalizeOrderStatus(order && order.status) === 'Cancelled';
+}
+
 export function getOrderTimelineEntries(orders) {
   return (orders || [])
+    .filter((order) => !isCancelledOrder(order))
     .map((order) => {
       const parsed = parseOrderDate(order && order.date);
       if (!parsed) return null;
@@ -735,7 +746,7 @@ export function buildBusinessSeedData(business, idx) {
     {
       sku: `SKU-${seedNum + 1}`,
       name: 'Basmati Rice',
-      cat: 'Grocery',
+      cat: 'Groceries',
       supplier: 'Agarwal Traders',
       supplierPhone: '+91 98115 44101',
       supplierEmail: 'sanjay@agarwaltraders.in',
@@ -747,7 +758,7 @@ export function buildBusinessSeedData(business, idx) {
     {
       sku: `SKU-${seedNum + 2}`,
       name: 'Toor Dal',
-      cat: 'Grocery',
+      cat: 'Groceries',
       supplier: 'Sharma Wholesale',
       supplierPhone: '+91 98917 22055',
       supplierEmail: 'orders@sharmawholesale.in',
@@ -759,7 +770,7 @@ export function buildBusinessSeedData(business, idx) {
     {
       sku: `SKU-${seedNum + 3}`,
       name: 'Refined Oil',
-      cat: 'Grocery',
+      cat: 'Groceries',
       supplier: 'Fortune Dist.',
       supplierPhone: '+91 99004 11233',
       supplierEmail: 'north@fortunedist.in',
@@ -771,7 +782,7 @@ export function buildBusinessSeedData(business, idx) {
     {
       sku: `SKU-${seedNum + 4}`,
       name: 'Atta Flour',
-      cat: 'Grocery',
+      cat: 'Groceries',
       supplier: 'Agarwal Traders',
       supplierPhone: '+91 98115 44101',
       supplierEmail: 'sanjay@agarwaltraders.in',
@@ -783,7 +794,7 @@ export function buildBusinessSeedData(business, idx) {
     {
       sku: `SKU-${seedNum + 5}`,
       name: 'Sugar',
-      cat: 'Grocery',
+      cat: 'Groceries',
       supplier: 'Sharma Wholesale',
       supplierPhone: '+91 98917 22055',
       supplierEmail: 'orders@sharmawholesale.in',

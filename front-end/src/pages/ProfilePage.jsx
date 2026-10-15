@@ -6,7 +6,7 @@ export default function ProfilePage() {
   const [version, setVersion] = useState(0);
 
   return (
-    <DashboardLayout page="profile">
+    <DashboardLayout page="profile" toast="">
       <ProfileContent key={version} onSaved={() => setVersion((v) => v + 1)} />
     </DashboardLayout>
   );

@@ -8,6 +8,7 @@ export default function useReturnActions() {
     returns,
     hasActionAccess,
     denyAction,
+    openConfirm,
     openQuickForm,
     showToast,
     showMutationError,
@@ -147,7 +148,7 @@ export default function useReturnActions() {
           label: 'Status',
           type: 'select',
           required: true,
-          options: ['Pending', 'Under Review', 'Refunded', 'Rejected'],
+          options: ['Pending', 'Refunded', 'Rejected'],
         },
         {
           name: 'reason',
@@ -203,17 +204,23 @@ export default function useReturnActions() {
     }
     const item = returns.find((r) => r.id === id);
     if (!item) return;
-    try {
-      const copy = await runBackendUpdate(item, {
-        status: 'Refunded',
-        refundAmount: Math.max(0, Number(item.amount) || 0),
-      });
-      commit(item.id, copy, { status: 'Refunded', updatedAt: formatDate() });
-      renderPage();
-      showToast(`Return ${id} refunded.`);
-    } catch (error) {
-      showMutationError('Return refund', error);
-    }
+    const amount = Math.max(0, Number(item.amount) || 0);
+    openConfirm({
+      title: 'Refund Return',
+      message: `Refund ₹${amount.toLocaleString()} for ${id}? This cannot be undone.`,
+      confirmLabel: 'Refund',
+      onConfirm: async () => {
+        try {
+          const copy = await runBackendUpdate(item, { status: 'Refunded', refundAmount: amount });
+          commit(item.id, copy, { status: 'Refunded', updatedAt: formatDate() });
+          renderPage();
+          showToast(`Return ${id} refunded.`);
+        } catch (error) {
+          showMutationError('Return refund', error);
+        }
+        return true;
+      },
+    });
   };
 
   const rejectReturn = async (id) => {

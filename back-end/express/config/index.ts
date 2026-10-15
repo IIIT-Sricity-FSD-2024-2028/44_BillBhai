@@ -86,7 +86,7 @@ export const config: AppConfig = Object.freeze({
 
   rateLimit: {
     windowMs: toNumber(process.env.RATE_LIMIT_WINDOW_MS, 60 * 1000),
-    max: toNumber(process.env.RATE_LIMIT_MAX, 200),
+    max: toNumber(process.env.RATE_LIMIT_MAX, 100000),
   },
 
   logging: {

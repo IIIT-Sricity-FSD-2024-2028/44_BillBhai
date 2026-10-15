@@ -169,6 +169,22 @@ export class OrdersService {
       ? this.validatePromotion(promoCode, subtotal).discount
       : Math.max(0, dto.discountAmount ?? 0);
 
+    const wanted = new Map<string, number>();
+    dto.items.forEach((item) => {
+      wanted.set(item.productId, (wanted.get(item.productId) ?? 0) + item.quantity);
+    });
+    wanted.forEach((quantity, productId) => {
+      if (dto.recordOnly) return;
+      const onHand = this.inventory.stockFor(productId);
+      if (onHand !== null && quantity > onHand) {
+        throw new ConflictError(
+          onHand === 0
+            ? `${productId} is out of stock`
+            : `Only ${onHand} left in stock for ${productId}`,
+        );
+      }
+    });
+
     const orderId = `ORD-${this.orderCounter++}`;
     const created: Order = {
       id: orderId,
@@ -201,7 +217,7 @@ export class OrdersService {
         quantity: item.quantity,
         itemPrice: item.itemPrice,
       });
-      this.inventory.consumeStock(item.productId, item.quantity);
+      if (!dto.recordOnly) this.inventory.consumeStock(item.productId, item.quantity);
     });
 
     return this.buildSnapshot(created);

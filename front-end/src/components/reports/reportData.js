@@ -1,4 +1,5 @@
 import {
+  isCancelledOrder,
   getSupplierDetails,
   normalizeInventoryStatus,
   normalizeOrderStatus,
@@ -175,11 +176,16 @@ export function buildReportView({
   );
 
   const totalRevenue = filteredOrders.reduce(
-    (sum, order) => sum + Math.max(0, Number(order && order.total) || 0),
+    (sum, order) =>
+      isCancelledOrder(order) ? sum : sum + Math.max(0, Number(order && order.total) || 0),
     0,
   );
+  // Only money actually paid back lowers revenue.
   const totalReturnsValue = filteredReturns.reduce(
-    (sum, item) => sum + Math.max(0, Number(item && item.amount) || 0),
+    (sum, item) =>
+      /refund/i.test(String((item && item.status) || ''))
+        ? sum + Math.max(0, Number(item && item.amount) || 0)
+        : sum,
     0,
   );
   const netRevenue = Math.max(0, totalRevenue - totalReturnsValue);

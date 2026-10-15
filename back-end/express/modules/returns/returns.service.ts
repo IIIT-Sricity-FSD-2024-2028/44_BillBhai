@@ -1,6 +1,7 @@
 import { seedReturns } from '../../data/seed-data';
 import { ReturnRecord } from '../../data/entities';
-import { NotFoundError } from '../../errors/http-error';
+import { BadRequestError, NotFoundError } from '../../errors/http-error';
+import { ordersService, OrdersService } from '../orders/orders.service';
 import {
   CreateReturnDto,
   DeleteReturnResult,
@@ -19,7 +20,7 @@ export class ReturnsService {
   private returns: ReturnRecord[];
   private counter: number;
 
-  constructor() {
+  constructor(private readonly orders: OrdersService = ordersService) {
     this.returns = seedReturns.map((entry) => ({ ...entry }));
     this.counter = 222;
   }
@@ -31,6 +32,21 @@ export class ReturnsService {
   /** Today as YYYY-MM-DD - the default return date. */
   private today(): string {
     return new Date().toISOString().split('T')[0];
+  }
+
+  /** A return must point at a real order and can never refund more than was paid. */
+  private checkAgainstOrder(orderId: string, refundAmount: number): void {
+    let total: number;
+    try {
+      total = this.orders.findOneOrder(orderId).total;
+    } catch {
+      throw new BadRequestError(`Order ${orderId} does not exist`);
+    }
+    if (refundAmount > total) {
+      throw new BadRequestError(
+        `Refund of ${refundAmount} is more than the order total of ${total}`,
+      );
+    }
   }
 
   public findAll(status?: string): ReturnRecord[] {
@@ -48,6 +64,7 @@ export class ReturnsService {
   }
 
   public create(dto: CreateReturnDto): ReturnRecord {
+    this.checkAgainstOrder(dto.orderId, dto.refundAmount || 0);
     const created: ReturnRecord = {
       id: `RET-${this.counter++}`,
       companyId: dto.companyId,
@@ -73,7 +90,17 @@ export class ReturnsService {
       throw new NotFoundError(`Return ${id} not found`);
     }
 
-    this.returns[index] = { ...this.returns[index], ...dto };
+    const current = this.returns[index];
+    const isFinal = current.status === 'Refunded' || current.status === 'Rejected';
+    if (isFinal && dto.status && dto.status !== current.status) {
+      throw new BadRequestError(`Return ${id} is already ${current.status} and cannot change`);
+    }
+    const next = { ...current, ...dto };
+    if (dto.orderId !== undefined || dto.refundAmount !== undefined) {
+      this.checkAgainstOrder(next.orderId, next.refundAmount || 0);
+    }
+
+    this.returns[index] = next;
     return this.clone(this.returns[index]);
   }
 

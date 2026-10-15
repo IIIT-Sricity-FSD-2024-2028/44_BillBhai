@@ -175,20 +175,63 @@ html.theme-switching *::after {
     html.theme-switching * { transition: none !important; }
 }
 
-/* Printed bill (POS and Orders): hidden on screen, the only thing on paper (fits 80 mm receipt printers). */
+/* POS header link back to the dashboard. */
+.header-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
+    margin-right: 8px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(var(--tint-rgb), 0.1);
+    background: rgba(var(--tint-rgb), 0.04);
+    color: rgba(var(--tint-rgb), 0.8);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.header-nav-btn:hover {
+    color: rgb(var(--tint-rgb));
+    border-color: rgba(var(--tint-rgb), 0.2);
+    background: rgba(var(--tint-rgb), 0.08);
+}
+
+/* Page prints (Print buttons on dashboards) leave out the app chrome. */
+@media print {
+    .sidebar,
+    .top-header,
+    .page-header-actions,
+    .theme-toggle {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+/* Printed bill (POS and Orders): hidden on screen, the only thing on paper while
+   body.printing-receipt is set (fits 80 mm receipt printers). */
 .receipt {
     display: none;
 }
 
 @media print {
-    body * {
+    body.printing-receipt * {
         visibility: hidden;
     }
-    .receipt,
-    .receipt * {
+    body.printing-receipt .receipt,
+    body.printing-receipt .receipt * {
         visibility: visible;
     }
-    .receipt {
+    body.printing-receipt .modal {
+        transform: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+    body.printing-receipt .receipt {
         display: block;
         position: fixed;
         top: 0;

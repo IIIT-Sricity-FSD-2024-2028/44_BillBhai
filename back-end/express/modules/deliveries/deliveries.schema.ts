@@ -6,9 +6,11 @@ import { Delivery } from '../../data/entities';
 /** The delivery status flow, in the order a shipment travels through it. */
 export const DELIVERY_STATUSES = [
   'Pending',
+  'Dispatched',
   'In Transit',
   'Out for Delivery',
   'Delivered',
+  'Failed',
   'Cancelled',
 ] as const;
 

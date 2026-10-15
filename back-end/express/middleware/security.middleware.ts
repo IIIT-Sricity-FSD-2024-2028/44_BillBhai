@@ -66,7 +66,7 @@ export const apiRateLimiter: RequestHandler = rateLimit({
 /** Much tighter limiter for the credential endpoint. */
 export const authRateLimiter: RequestHandler = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 5000,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skip: () => config.isTest,

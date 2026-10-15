@@ -1,6 +1,7 @@
 import { seedDeliveries } from '../../data/seed-data';
 import { Delivery } from '../../data/entities';
 import { NotFoundError } from '../../errors/http-error';
+import { ordersService, OrdersService } from '../orders/orders.service';
 import {
   CreateDeliveryDto,
   DeleteDeliveryResult,
@@ -19,7 +20,7 @@ export class DeliveriesService {
   private deliveries: Delivery[];
   private counter: number;
 
-  constructor() {
+  constructor(private readonly orders: OrdersService = ordersService) {
     this.deliveries = seedDeliveries.map((delivery) => ({ ...delivery }));
     this.counter = 902;
   }
@@ -78,7 +79,25 @@ export class DeliveriesService {
     }
 
     this.deliveries[index] = { ...this.deliveries[index], ...dto };
+    if (dto.status) this.syncOrderStatus(this.deliveries[index].orderId, dto.status);
     return this.clone(this.deliveries[index]);
+  }
+
+  /** Keeps the order's status in step with its delivery (shown on the Orders page). */
+  private syncOrderStatus(orderId: string, status: string): void {
+    const orderStatus =
+      status === 'Delivered'
+        ? 'Delivered'
+        : status === 'Failed' || status === 'Cancelled'
+          ? 'Cancelled'
+          : status === 'Pending'
+            ? 'Processing'
+            : 'Shipped';
+    try {
+      this.orders.updateOrder(orderId, { status: orderStatus });
+    } catch {
+      // Deliveries typed in by hand may point at an order that is not in the store.
+    }
   }
 
   public remove(id: string): DeleteDeliveryResult {

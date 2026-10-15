@@ -56,6 +56,11 @@ export default function Header({ session, planBadge }) {
             <span>{planBadge.planName}</span>
           </div>
         )}
+        {session && ['admin', 'superuser'].includes(session.roleKey) && (
+          <Link to="/dashboard" className="header-nav-btn" id="backToDashboard">
+            ← Dashboard
+          </Link>
+        )}
         <ThemeToggle />
         <div className="dropdown-container" id="userContainer">
           <div

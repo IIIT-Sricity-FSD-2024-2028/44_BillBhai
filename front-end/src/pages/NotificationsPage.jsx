@@ -26,10 +26,7 @@ function NotificationsContent() {
       <NotificationDetail
         notification={detail}
         onBack={() => setDetailId(null)}
-        onToggleRead={() => {
-          setNotificationReadState(detail.id, detail.unread);
-          openDetail(detail.id);
-        }}
+        onToggleRead={() => setNotificationReadState(detail.id, detail.unread)}
       />
     );
   }

@@ -88,7 +88,7 @@ is written in the file header:
  5. morgan -> winston          one access log line per request, to file
  6. slowRequestLogger          escalates requests over 1s to warn
  7. express.static             serves /uploads
- 8. express-rate-limit         200 requests per minute on /api
+ 8. express-rate-limit         100000 requests per minute on /api
  9. Swagger UI                 /api/docs
 10. apiRouter                  all 12 feature modules
 11. notFoundHandler            unmatched route -> NotFoundError

@@ -179,7 +179,19 @@ export async function submitOrderToBackend(dataPayload) {
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       console.error('Order create failed', response.status, text);
-      throw new Error(`Order create failed with status ${response.status}`);
+      const failure = new Error(`Order create failed with status ${response.status}`);
+      try {
+        failure.userMessage = String(JSON.parse(text).message || '');
+      } catch {
+        failure.userMessage = '';
+      }
+      // "Only 9 left in stock for P017" reads better with the product's name.
+      (dataPayload.cart || []).forEach((item) => {
+        if (item && item.id && item.name) {
+          failure.userMessage = failure.userMessage.replace(item.id, item.name);
+        }
+      });
+      throw failure;
     }
 
     const backendOrder = await response.json();
@@ -301,17 +313,14 @@ export async function submitOrderToBackend(dataPayload) {
     return { backendOrder, customerRecord };
   } catch (error) {
     console.error('Error submitting order to backend:', error);
-    return null;
+    return { error: error.userMessage || '' };
   }
 }
 
 export async function runCheckout(dataStore, dataPayload) {
   const backendResult = await submitOrderToBackend(dataPayload);
   if (!backendResult || !backendResult.backendOrder || !backendResult.backendOrder.id) {
-    console.warn(
-      'Backend order missing or incomplete, proceeding with local order creation',
-      backendResult,
-    );
+    throw new Error((backendResult && backendResult.error) || 'Order was not saved on the server');
   }
   const newOrder = dataStore.createOrder(
     dataPayload.customer,

@@ -9,6 +9,7 @@ import DeliveryOpsDashboard from '../components/delivery/DeliveryOpsDashboard.js
 import ReturnHandlerDashboard from '../components/returns/ReturnHandlerDashboard.jsx';
 import { useDashboard } from '../lib/dashboard/hooks.js';
 import {
+  isCancelledOrder,
   buildRevenueTrendDays,
   getDashboardStatusMetrics,
   getInventoryMetrics,
@@ -79,7 +80,7 @@ const TODAY_STYLE = { fontSize: '0.75rem', color: 'var(--text-muted)', marginTop
 function AdminDashboard() {
   const { orders, returns, inventory, scopedBusinessName } = useDashboard();
   const inventoryMetrics = getInventoryMetrics(inventory);
-  const totalSales = orders.reduce((a, o) => a + o.total, 0);
+  const totalSales = orders.reduce((a, o) => (isCancelledOrder(o) ? a : a + o.total), 0);
   const todayStart = startOfDay(new Date()).getTime();
   const todaysBills = getOrderTimelineEntries(orders).filter(
     (entry) => startOfDay(entry.date).getTime() === todayStart,
