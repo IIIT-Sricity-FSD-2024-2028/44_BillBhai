@@ -23,7 +23,7 @@ export default function AccountPreferencesForm({
   onSubmit,
 }) {
   const field = (key) => ({
-    value: values[key],
+    value: values[key] ?? '',
     onChange: (e) => onFieldChange(key, e.target.value),
   });
 
@@ -128,7 +128,7 @@ export default function AccountPreferencesForm({
                     id={`psNotif_${option.key}`}
                     data-notification-key={option.key}
                     type="checkbox"
-                    checked={Boolean(values.notifications[option.key])}
+                    checked={Boolean(values.notifications && values.notifications[option.key])}
                     onChange={(e) => onToggleChange(option.key, e.target.checked)}
                   />
                 </label>

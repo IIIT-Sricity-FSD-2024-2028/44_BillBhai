@@ -1657,6 +1657,16 @@ select.form-control option {
     pointer-events: auto;
 }
 
+.toast.toast-error {
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.toast.toast-error svg {
+    color: var(--red);
+    stroke: var(--red);
+}
+
 /* ── Badge additions ────────────────────────────────────────────────── */
 .b-instock {
     background: var(--green-bg);

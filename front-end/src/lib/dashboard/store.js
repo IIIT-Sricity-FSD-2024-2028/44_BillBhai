@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { LIVE_SYNC_CHANNEL, LIVE_SYNC_KEY, PLAN_DEFINITIONS, ROLE_ACTIONS } from './constants.js';
 import { apiRequest, fetchOperationalData, mutationErrorMessage, setApiActiveRole } from './api.js';
 import {
+  getCurrentUserIdentity,
   writeNotificationReadState,
   writeNotificationsRead,
   writeProfileSettingsRecord,
@@ -90,13 +91,13 @@ export function ui() {
   return uiApi;
 }
 
-export function showToast(message) {
-  uiApi.showToast(message);
+export function showToast(message, type = 'success') {
+  uiApi.showToast(message, type);
 }
 
 export function showMutationError(actionLabel, error) {
   console.warn(`${actionLabel} failed`, error);
-  showToast(mutationErrorMessage(actionLabel, error));
+  showToast(mutationErrorMessage(actionLabel, error), 'error');
 }
 
 export function hasActionAccess(moduleKey) {
@@ -235,11 +236,31 @@ export function saveProfileSettings(record) {
   writeProfileSettingsRecord(state, record);
   const shellPatch = {
     userName: record.fullName,
-    avatar: record.fullName.charAt(0).toUpperCase(),
+    avatar: (record.fullName || 'U').charAt(0).toUpperCase(),
+    email: record.email,
   };
   if (record.location) shellPatch.bcBusinessName = record.location;
+
+  const identity = getCurrentUserIdentity(state);
+  const updatedUsers = (state.users || []).map((u) => {
+    if (
+      (identity.username && u.username === identity.username) ||
+      (identity.email && u.email === identity.email) ||
+      (u.role && u.role === state.roleKey)
+    ) {
+      return {
+        ...u,
+        name: record.fullName,
+        email: record.email,
+        ...(record.phone ? { mobileNo: record.phone } : {}),
+      };
+    }
+    return u;
+  });
+
   state = {
     ...state,
+    users: updatedUsers,
     shell: { ...state.shell, ...shellPatch },
     notificationsVersion: state.notificationsVersion + 1,
   };

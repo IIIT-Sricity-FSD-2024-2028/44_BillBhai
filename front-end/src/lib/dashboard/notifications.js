@@ -127,21 +127,38 @@ export function makeNotificationRecord(record) {
 
 export function getCurrentUserIdentity(s) {
   const currentUser = loadObject('currentUser', {});
-  const username = String(currentUser.username || '').trim();
+  const roleKey = (s && s.roleKey) || localStorage.getItem('userRole') || 'admin';
+  const username = String(
+    currentUser.username ||
+      currentUser.id ||
+      (currentUser.email && currentUser.email.split('@')[0]) ||
+      (roleKey === 'superuser' ? 'chirag' : roleKey) ||
+      'admin',
+  )
+    .trim()
+    .toLowerCase();
   const displayName =
-    String(localStorage.getItem('userName') || currentUser.name || 'User').trim() || 'User';
-  const roleLabel = ROLE_LABELS[s.roleKey] || 'Team Member';
-  const email =
-    username && username.includes('@') ? username : `${username || s.roleKey}@billbhai.com`;
-  const key = (username || displayName.toLowerCase().replace(/\s+/g, '.')).trim();
+    String(currentUser.name || localStorage.getItem('userName') || 'User').trim() || 'User';
+  const roleLabel = ROLE_LABELS[roleKey] || 'Team Member';
+  const email = String(
+    currentUser.email || (username.includes('@') ? username : `${username || roleKey}@billbhai.com`),
+  ).trim();
+  const key = String(currentUser.id || username || roleKey || 'user')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '.');
   return { key, username, displayName, roleLabel, email };
 }
 
 export function loadProfileSettingsRecord(s) {
   const identity = getCurrentUserIdentity(s);
   const store = loadObject(PROFILE_SETTINGS_STORAGE_KEY, {});
+  const legacyNameKey = identity.displayName.toLowerCase().replace(/\s+/g, '.');
   const saved =
-    store[identity.key] && typeof store[identity.key] === 'object' ? store[identity.key] : {};
+    (store[identity.key] && typeof store[identity.key] === 'object' && store[identity.key]) ||
+    (store[identity.username] && typeof store[identity.username] === 'object' && store[identity.username]) ||
+    (store[legacyNameKey] && typeof store[legacyNameKey] === 'object' && store[legacyNameKey]) ||
+    {};
   return {
     key: identity.key,
     fullName: String(saved.fullName || identity.displayName).trim() || identity.displayName,
@@ -153,15 +170,15 @@ export function loadProfileSettingsRecord(s) {
     currency: String(saved.currency || 'INR').trim(),
     timezone: String(saved.timezone || 'Asia/Kolkata').trim(),
     dateFormat: String(saved.dateFormat || 'DD/MM/YYYY').trim(),
-    notifications: normalizeNotificationPreferences(saved.notifications, s.roleKey),
+    notifications: normalizeNotificationPreferences(saved.notifications, (s && s.roleKey) || 'admin'),
   };
 }
 
 export function writeProfileSettingsRecord(s, record) {
   const identity = getCurrentUserIdentity(s);
-  const key = String(record.key || identity.key).trim() || identity.key;
+  const key = String(identity.key || record.key).trim() || 'user';
   const store = loadObject(PROFILE_SETTINGS_STORAGE_KEY, {});
-  store[key] = {
+  const data = {
     fullName: record.fullName,
     email: record.email,
     phone: record.phone,
@@ -173,6 +190,9 @@ export function writeProfileSettingsRecord(s, record) {
     dateFormat: record.dateFormat,
     notifications: { ...record.notifications },
   };
+  store[key] = data;
+  if (identity.username) store[identity.username] = data;
+  if (record.key && record.key !== key) store[record.key] = data;
   saveObject(PROFILE_SETTINGS_STORAGE_KEY, store);
 
   localStorage.setItem('userName', record.fullName);
@@ -184,6 +204,7 @@ export function writeProfileSettingsRecord(s, record) {
   }
   saveObject('currentUser', {
     ...currentUser,
+    username: currentUser.username || identity.username || 'admin',
     name: record.fullName,
     email: record.email,
     businessName: newBusinessName,
@@ -192,12 +213,25 @@ export function writeProfileSettingsRecord(s, record) {
 
 export function updatePasswordOverrideForCurrentUser(s, newPassword) {
   const identity = getCurrentUserIdentity(s);
-  if (!identity.username) return false;
+  const username = identity.username || identity.key || 'admin';
   const overrides = loadObject(AUTH_OVERRIDE_STORAGE_KEY, {});
-  overrides[identity.username] = {
-    ...(overrides[identity.username] || {}),
-    password: String(newPassword).trim(),
+  const trimmedPassword = String(newPassword).trim();
+  overrides[username] = {
+    ...(overrides[username] || {}),
+    username,
+    name: identity.displayName,
+    email: identity.email,
+    password: trimmedPassword,
   };
+  if (username.toLowerCase() !== username) {
+    overrides[username.toLowerCase()] = {
+      ...(overrides[username.toLowerCase()] || {}),
+      username: username.toLowerCase(),
+      name: identity.displayName,
+      email: identity.email,
+      password: trimmedPassword,
+    };
+  }
   saveObject(AUTH_OVERRIDE_STORAGE_KEY, overrides);
   return true;
 }

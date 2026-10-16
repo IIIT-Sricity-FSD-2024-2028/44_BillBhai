@@ -83,11 +83,10 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modals, setModals] = useState([]);
-  const [toastState, setToastState] = useState({ message: toast, show: false });
+  const [toastState, setToastState] = useState({ message: toast || '', show: false, type: 'success' });
   const contentRef = useRef(null);
   const redirectedRef = useRef(false);
   const toastTimers = useRef([]);
-  const hasToast = toast !== undefined;
 
   useLayoutEffect(() => {
     if (boot.roleKey) document.body.setAttribute('data-role', boot.roleKey);
@@ -101,9 +100,9 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
     const open = (kind, config) => setModals((list) => [...list, { id: ++modalSeq, kind, config }]);
     const openConfirm = (config) => open('confirm', config);
     return {
-      showToast: (message) => {
-        if (!hasToast) return;
-        setToastState({ message, show: true });
+      showToast: (message, type = 'success') => {
+        if (!message) return;
+        setToastState({ message, show: true, type });
         toastTimers.current.push(
           setTimeout(() => setToastState((t) => ({ ...t, show: false })), 3000),
         );
@@ -114,7 +113,7 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
       showCredentialsModal: (title, credential) =>
         openCredentialsModal(openConfirm, title, credential),
     };
-  }, [hasToast]);
+  }, []);
 
   useLayoutEffect(() => registerUi(uiApi), [uiApi]);
 
@@ -222,7 +221,7 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
         </div>
       </main>
       {ready && afterMain}
-      {hasToast && <Toast message={toastState.message} show={toastState.show} />}
+      <Toast message={toastState.message} show={toastState.show} type={toastState.type} />
       <div className="sidebar-overlay" id="sidebarOverlay" onClick={() => setMobileOpen(false)} />
       {modals.map((m) => {
         const onClose = () => closeModal(m.id);

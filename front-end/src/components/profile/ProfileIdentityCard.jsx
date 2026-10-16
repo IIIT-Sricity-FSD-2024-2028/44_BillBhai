@@ -13,11 +13,12 @@ const AVATAR_STYLE = {
 };
 
 export default function ProfileIdentityCard({ fullName, roleLabel, email }) {
+  const safeName = String(fullName || 'User').trim() || 'User';
   return (
     <div className="card">
       <div className="card-bd" style={{ textAlign: 'center', paddingTop: '26px' }}>
-        <div style={AVATAR_STYLE}>{fullName.charAt(0).toUpperCase()}</div>
-        <h3 style={{ fontSize: '1.12rem', marginBottom: '4px' }}>{fullName}</h3>
+        <div style={AVATAR_STYLE}>{safeName.charAt(0).toUpperCase()}</div>
+        <h3 style={{ fontSize: '1.12rem', marginBottom: '4px' }}>{safeName}</h3>
         <p className="text-muted" style={{ marginBottom: '4px' }}>
           {roleLabel}
         </p>

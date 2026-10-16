@@ -100,7 +100,10 @@ export function computeBootContext(page) {
   let redirect = null;
   let noSidebarLayout = false;
 
-  if ((roleKey === 'cashier' || roleKey === 'customer') && currentPage !== 'cashier') {
+  if (
+    (roleKey === 'cashier' || roleKey === 'customer') &&
+    !['cashier', 'profile', 'notifications'].includes(currentPage)
+  ) {
     redirect = '/cashier';
   } else {
     noSidebarLayout =

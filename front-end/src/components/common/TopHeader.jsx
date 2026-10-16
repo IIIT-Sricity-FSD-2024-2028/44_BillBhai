@@ -147,7 +147,7 @@ export default function TopHeader({
               <div className="text-sm text-muted">{user.email}</div>
             </div>
             {legacyMenu ? (
-              <Link to="/profile" className="dropdown-item">
+              <Link to="/profile" className="dropdown-item" onClick={() => setOpenMenu(null)}>
                 Profile &amp; Settings
               </Link>
             ) : (
@@ -157,7 +157,10 @@ export default function TopHeader({
                   page === 'profile' ? 'dropdown-item nav-item active' : 'dropdown-item nav-item'
                 }
                 data-page="profile"
-                onClick={onNavClick}
+                onClick={(e) => {
+                  setOpenMenu(null);
+                  if (onNavClick) onNavClick(e);
+                }}
               >
                 {ProfileMenuIcon}
                 {' Profile & Settings'}
@@ -165,11 +168,25 @@ export default function TopHeader({
             )}
             <div className="dropdown-divider" />
             {legacyMenu ? (
-              <Link to="/login" className="dropdown-item text-danger" onClick={onLogout}>
+              <Link
+                to="/login"
+                className="dropdown-item text-danger"
+                onClick={(e) => {
+                  setOpenMenu(null);
+                  if (onLogout) onLogout(e);
+                }}
+              >
                 Logout
               </Link>
             ) : (
-              <Link to="/login" className="dropdown-item text-danger" onClick={onLogout}>
+              <Link
+                to="/login"
+                className="dropdown-item text-danger"
+                onClick={(e) => {
+                  setOpenMenu(null);
+                  if (onLogout) onLogout(e);
+                }}
+              >
                 {LogoutMenuIcon}
                 {' Logout'}
               </Link>

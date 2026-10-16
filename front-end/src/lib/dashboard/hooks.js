@@ -73,7 +73,7 @@ export function useDashboard() {
       checkProductPlanCap,
       getProfileSubscriptionView: () => getProfileSubscriptionView(s),
       openPlanUpgrade: () => ui().openPlanUpgrade(),
-      showToast: (msg) => ui().showToast(msg),
+      showToast: (msg, type) => ui().showToast(msg, type),
       showMutationError,
       openQuickForm: (config) => ui().openQuickForm(config),
       openConfirm: (config) => ui().openConfirm(config),

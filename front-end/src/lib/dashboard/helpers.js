@@ -958,3 +958,20 @@ export function buildBusinessSeedData(business, idx) {
     users: userList.length ? mergeSeedRecords(userList, fallbackUsers, 'name') : fallbackUsers,
   };
 }
+
+export function validatePasswordCriteria(password) {
+  const pwd = String(password || '');
+  if (!pwd) {
+    return 'Please enter a new password.';
+  }
+  if (pwd.length < 6) {
+    return 'Password must be at least 6 characters.';
+  }
+  if (!/[a-zA-Z]/.test(pwd)) {
+    return 'Password must contain at least one letter.';
+  }
+  if (!/[0-9]/.test(pwd)) {
+    return 'Password must contain at least one number.';
+  }
+  return null;
+}
