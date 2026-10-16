@@ -1,4 +1,4 @@
-export default function SearchBar({ searchQuery, onSearchChange }) {
+export default function SearchBar({ searchQuery, onSearchChange, onScan }) {
   return (
     <div className="pos-search">
       <svg
@@ -16,9 +16,16 @@ export default function SearchBar({ searchQuery, onSearchChange }) {
       <input
         type="text"
         id="posSearch"
-        placeholder="Fuzzy Search products... (e.g. 'Dal', 'L')"
+        placeholder="Search products or scan a barcode (Enter adds to cart)"
+        autoComplete="off"
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && onScan) {
+            e.preventDefault();
+            onScan(searchQuery);
+          }
+        }}
       />
     </div>
   );

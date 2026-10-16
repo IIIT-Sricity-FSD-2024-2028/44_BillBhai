@@ -99,7 +99,7 @@ export function getCheckoutModeConfig(mode, isCustomerTerminal) {
     deliveryOption: 'pickup',
     paymentMethod: 'Counter Paid',
     orderStatus: 'Delivered',
-    buttonLabel: 'Proceed to Payment Gateway',
+    buttonLabel: 'Complete Sale',
     successTitle: 'Takeaway Ready',
     successSubtitle: `${titlePrefix} is marked for immediate handover from the counter.`,
     summaryLabel: 'Take away now',

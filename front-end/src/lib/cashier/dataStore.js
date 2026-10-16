@@ -101,10 +101,23 @@ export function searchCatalog(catalog, query, category) {
           .includes(normalizedQuery) ||
         String(product.category || '')
           .toLowerCase()
-          .includes(normalizedQuery),
+          .includes(normalizedQuery) ||
+        String(product.barcode || '').toLowerCase() === normalizedQuery,
     );
   }
   return results;
+}
+
+// A scanned code first matches a barcode exactly; otherwise the one search hit.
+export function findScanMatch(catalog, query, category) {
+  const code = String(query || '')
+    .trim()
+    .toLowerCase();
+  if (!code) return null;
+  const exact = catalog.find((product) => String(product.barcode || '').toLowerCase() === code);
+  if (exact) return exact;
+  const results = searchCatalog(catalog, code, category);
+  return results.length === 1 ? results[0] : null;
 }
 
 export async function applyPromo(code, subtotal) {

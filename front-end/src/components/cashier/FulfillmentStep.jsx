@@ -16,11 +16,15 @@ const MODES = [
   },
 ];
 
+const PAY_MODES = ['Cash', 'UPI', 'Card'];
+
 export default function FulfillmentStep({
   active,
   heading,
   totals,
   checkoutMode,
+  payMode,
+  onPayModeChange,
   isDelivery,
   customer,
   errors,
@@ -87,6 +91,24 @@ export default function FulfillmentStep({
               </label>
             ))}
           </div>
+
+          {checkoutMode === 'takeaway_now' && (
+            <div style={{ marginTop: '12px' }}>
+              <span className="form-label">Paid by</span>
+              <div className="chart-tabs" id="payModeTabs">
+                {PAY_MODES.map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`chart-tab${payMode === mode ? ' active' : ''}`}
+                    onClick={() => onPayModeChange(mode)}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div
             id="deliveryPartnerFields"

@@ -6,6 +6,7 @@ import { CSS, FONTS } from '../lib/pageAssets.js';
 import {
   applyPromo,
   createDataStore,
+  findScanMatch,
   getCategories,
   getSessionContext,
   searchCatalog,
@@ -121,6 +122,7 @@ export default function CashierPage() {
   const autofilledFromLookup = useRef(false);
 
   const [checkoutMode, setCheckoutModeState] = useState('takeaway_now');
+  const [payMode, setPayMode] = useState('Cash');
   const [modeError, setModeError] = useState('');
   const [{ cart, discount }, dispatchCart] = useReducer(cartReducer, INITIAL_CART_STATE);
 
@@ -163,6 +165,7 @@ export default function CashierPage() {
     currentCustomerProfile.current = null;
     autofilledFromLookup.current = false;
     setCheckoutMode('takeaway_now');
+    setPayMode('Cash');
     setLookupHint(hintFor('info', getTerminalCopy(isCustomerTerminal).lookupInfo));
     dispatchCart({ type: 'reset' });
     setCategory('All');
@@ -337,6 +340,13 @@ export default function CashierPage() {
     setCatClassesNormalized(true);
   }
 
+  function handleScan(code) {
+    const product = findScanMatch(catalog, code, category);
+    if (!product || product.stock === 0) return;
+    dispatchCart({ type: 'add', product });
+    setSearchQuery('');
+  }
+
   function showContextMenu(x, y, product) {
     setMenu({ open: true, x, y, product, measure: true });
   }
@@ -387,7 +397,7 @@ export default function CashierPage() {
     const payload = buildCustomerPayload();
     payload.checkoutMode = config.mode;
     payload.deliveryOption = config.deliveryOption;
-    payload.paymentMethod = config.paymentMethod;
+    payload.paymentMethod = config.mode === 'takeaway_now' ? payMode : config.paymentMethod;
     payload.orderStatus = config.orderStatus;
     payload.deliveryCharge = getDeliveryChargeAmount(checkoutMode, checkoutSettings);
 
@@ -534,7 +544,11 @@ export default function CashierPage() {
             <div className="pos-layout">
               <div className="pos-main">
                 <div className="pos-controls">
-                  <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+                  <SearchBar
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    onScan={handleScan}
+                  />
                   <CategoryFilters
                     categories={catalogShown ? getCategories(catalog) : []}
                     selectedCategory={category}
@@ -580,6 +594,8 @@ export default function CashierPage() {
             }
             totals={totals}
             checkoutMode={checkoutMode}
+            payMode={payMode}
+            onPayModeChange={setPayMode}
             isDelivery={modeConfig.deliveryOption === 'delivery'}
             customer={customer}
             errors={errors}

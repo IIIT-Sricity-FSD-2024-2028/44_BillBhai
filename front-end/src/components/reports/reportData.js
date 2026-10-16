@@ -8,6 +8,10 @@ import {
   startOfWeek,
 } from '../../lib/dashboard/helpers.js';
 
+// Only money actually given back counts against revenue (not pending or rejected returns).
+const refundedAmount = (item) =>
+  /refund/i.test(String((item && item.status) || '')) ? Math.max(0, Number(item.amount) || 0) : 0;
+
 export const TIME_RANGE_OPTIONS = [
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
@@ -115,7 +119,7 @@ function buildSummaryBuckets(filteredOrders, filteredReturns, rangeKey, latestDa
   filteredReturns.forEach((item) => {
     const entry = bucketFor(item.parsedDate);
     entry.returns += 1;
-    entry.returnValue += Math.max(0, Number(item.amount || 0));
+    entry.returnValue += refundedAmount(item);
   });
 
   return Array.from(bucketMap.values())
@@ -180,14 +184,7 @@ export function buildReportView({
       isCancelledOrder(order) ? sum : sum + Math.max(0, Number(order && order.total) || 0),
     0,
   );
-  // Only money actually paid back lowers revenue.
-  const totalReturnsValue = filteredReturns.reduce(
-    (sum, item) =>
-      /refund/i.test(String((item && item.status) || ''))
-        ? sum + Math.max(0, Number(item && item.amount) || 0)
-        : sum,
-    0,
-  );
+  const totalReturnsValue = filteredReturns.reduce((sum, item) => sum + refundedAmount(item), 0);
   const netRevenue = Math.max(0, totalRevenue - totalReturnsValue);
   const avgOrderValue = filteredOrders.length
     ? Math.round(totalRevenue / filteredOrders.length)

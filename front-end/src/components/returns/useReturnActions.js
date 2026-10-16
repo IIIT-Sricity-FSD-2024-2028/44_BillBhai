@@ -10,6 +10,7 @@ export default function useReturnActions() {
     denyAction,
     openConfirm,
     openQuickForm,
+
     showToast,
     showMutationError,
     updateCollection,
@@ -206,8 +207,8 @@ export default function useReturnActions() {
     if (!item) return;
     const amount = Math.max(0, Number(item.amount) || 0);
     openConfirm({
-      title: 'Refund Return',
-      message: `Refund ₹${amount.toLocaleString()} for ${id}? This cannot be undone.`,
+      title: 'Confirm Refund',
+      message: `Refund ₹${amount} for ${item.product || 'this item'} (${id})? This cannot be undone.`,
       confirmLabel: 'Refund',
       onConfirm: async () => {
         try {
@@ -230,14 +231,22 @@ export default function useReturnActions() {
     }
     const item = returns.find((r) => r.id === id);
     if (!item) return;
-    try {
-      const copy = await runBackendUpdate(item, { status: 'Rejected' });
-      commit(item.id, copy, { status: 'Rejected', updatedAt: formatDate() });
-      renderPage();
-      showToast(`Return ${id} rejected.`);
-    } catch (error) {
-      showMutationError('Return rejection', error);
-    }
+    openConfirm({
+      title: 'Confirm Rejection',
+      message: `Reject the return of ${item.product || 'this item'} (${id})? The customer gets no refund.`,
+      confirmLabel: 'Reject',
+      onConfirm: async () => {
+        try {
+          const copy = await runBackendUpdate(item, { status: 'Rejected' });
+          commit(item.id, copy, { status: 'Rejected', updatedAt: formatDate() });
+          renderPage();
+          showToast(`Return ${id} rejected.`);
+        } catch (error) {
+          showMutationError('Return rejection', error);
+        }
+        return true;
+      },
+    });
   };
 
   return { raiseReturnRequest, editReturn, approveReturn, refundReturn, rejectReturn };
