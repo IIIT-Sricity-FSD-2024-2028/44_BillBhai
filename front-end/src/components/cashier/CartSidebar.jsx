@@ -10,6 +10,9 @@ export default function CartSidebar({
   goFulfillmentLabel,
   goFulfillmentDisabled,
   onUpdateQty,
+  onSetQty,
+  onRemove,
+  notice,
   onGoFulfillment,
 }) {
   return (
@@ -31,7 +34,12 @@ export default function CartSidebar({
         Active Cart
       </div>
 
-      <CartItemList cart={cart} onUpdateQty={onUpdateQty} />
+      {notice && (
+        <div className="cart-notice" role="status">
+          {notice}
+        </div>
+      )}
+      <CartItemList cart={cart} onUpdateQty={onUpdateQty} onSetQty={onSetQty} onRemove={onRemove} />
 
       <div className="cart-footer">
         <PromoBlock {...promo} />

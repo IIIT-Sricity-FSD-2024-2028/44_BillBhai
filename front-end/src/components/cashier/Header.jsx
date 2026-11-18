@@ -4,7 +4,7 @@ import useTheme from '../../hooks/useTheme.js';
 import ThemeToggle from '../common/ThemeToggle.jsx';
 import { clearStoredSession } from '../../lib/cashier/posHelpers.js';
 
-export default function Header({ session, planBadge }) {
+export default function Header({ session, planBadge, onShowSales }) {
   const { logo } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -22,7 +22,7 @@ export default function Header({ session, planBadge }) {
       ? 'S'
       : safeUserName.charAt(0).toUpperCase()
     : 'C';
-  const roleText = session ? session.businessName : 'Online';
+  const roleText = session ? session.businessName || session.roleLabel : 'Online';
   const appLabel = session && session.businessName ? session.businessName : 'Terminal 1';
   const pageLabel = session && isCustomerTerminal ? 'Self Checkout' : 'Active Customer';
   let dropdownSubtitle = 'Counter Terminal 1';
@@ -55,6 +55,11 @@ export default function Header({ session, planBadge }) {
           >
             <span>{planBadge.planName}</span>
           </div>
+        )}
+        {session && onShowSales && !session.isCustomerTerminal && (
+          <button type="button" className="header-nav-btn" id="mySalesBtn" onClick={onShowSales}>
+            My sales<span className="hide-on-phone">&nbsp;today</span>
+          </button>
         )}
         {session && ['admin', 'superuser'].includes(session.roleKey) && (
           <Link to="/dashboard" className="header-nav-btn" id="backToDashboard">

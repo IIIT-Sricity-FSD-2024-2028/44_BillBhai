@@ -11,9 +11,12 @@ import { logger } from '../utils/logger';
  * Modules attach it at route level (see MIGRATION_RULES.md section 2.1) and
  * never re-implement their own copy.
  *
- * Two credential sources are accepted, in priority order:
- *   1. `Authorization: Bearer <jwt>` - issued by POST /api/auth/login.
- *   2. `x-role: <role>` - the legacy header the existing frontend sends.
+ * Credentials:
+ *   1. `Authorization: Bearer <jwt>` - issued by POST /api/auth/login. This is
+ *      the only credential the running app accepts.
+ *   2. `x-role: <role>` - accepted ONLY when NODE_ENV=test, so the module test
+ *      suites can call routes without logging in. A header any client can set
+ *      is not a credential, so it is refused everywhere else.
  */
 
 export const ROLES = [
@@ -35,6 +38,17 @@ export interface JwtPayload {
   companyId?: string;
 }
 
+/**
+ * Lets the users module confirm a token still belongs to an active account,
+ * so deleting or suspending someone ends their session at once instead of
+ * when the token expires. Registered by users.service to avoid an import cycle.
+ */
+type ActorCheck = (actor: { id?: string; role: string; companyId?: string }) => void;
+let actorCheck: ActorCheck | null = null;
+export function registerActorCheck(check: ActorCheck): void {
+  actorCheck = check;
+}
+
 function normalise(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, '');
 }
@@ -51,20 +65,25 @@ function resolveActor(req: Request): Express.AuthenticatedActor | null {
 
   if (header && header.startsWith('Bearer ')) {
     const token = header.slice('Bearer '.length).trim();
+    let decoded: JwtPayload;
     try {
-      const decoded = jwt.verify(token, config.auth.jwtSecret) as JwtPayload;
-      return {
-        id: decoded.sub,
-        username: decoded.username,
-        role: normalise(decoded.role),
-        companyId: decoded.companyId,
-        source: 'jwt',
-      };
+      decoded = jwt.verify(token, config.auth.jwtSecret) as JwtPayload;
     } catch {
-      throw new UnauthorizedError('Access token is invalid or has expired');
+      throw new UnauthorizedError('Your session has expired. Please sign in again.');
     }
+    const actor: Express.AuthenticatedActor = {
+      id: decoded.sub,
+      username: decoded.username,
+      role: normalise(decoded.role),
+      companyId: decoded.companyId,
+      source: 'jwt',
+    };
+    if (actorCheck) actorCheck(actor);
+    return actor;
   }
 
+  // A header any client can set is not a credential: tests only.
+  if (!config.isTest) return null;
   const roleHeader = req.headers['x-role'];
   const rawRole = Array.isArray(roleHeader) ? roleHeader[0] : roleHeader;
   if (rawRole && String(rawRole).trim()) {
@@ -105,9 +124,7 @@ export function requireRoles(...allowedRoles: string[]): RequestHandler {
         // 403 and this exact wording, so the Express runtime does the same
         // rather than the arguably more correct 401. An invalid or expired
         // bearer token still yields 401, since that path is new.
-        throw new ForbiddenError(
-          'Missing "x-role" header. Please provide your role (e.g., admin, cashier) in the request headers.',
-        );
+        throw new UnauthorizedError('Please sign in to continue.');
       }
 
       req.auth = actor;

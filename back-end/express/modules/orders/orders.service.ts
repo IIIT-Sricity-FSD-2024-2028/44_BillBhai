@@ -5,56 +5,57 @@ import {
   seedPayments,
 } from '../../data/seed-data';
 import { Bill, Order, OrderItem, Payment } from '../../data/entities';
+import { BadRequestError, ConflictError, NotFoundError } from '../../errors/http-error';
+import { inclusiveTax, normalisePhone, round2 } from '../../utils/money';
+import { bumped, checkVersion, nowIso } from '../../utils/versioning';
+import { activityService, ActivityService } from '../activity/activity.service';
+import { couponsService, CouponsService } from '../coupons/coupons.service';
+import { customersService, CustomersService } from '../customers/customers.service';
+import { inventoryService, InventoryService } from '../inventory/inventory.service';
+import { productsService, ProductsService } from '../products/products.service';
 import {
-  BadRequestError,
-  ConflictError,
-  NotFoundError,
-} from '../../errors/http-error';
-import {
-  CreateBillDto,
   CreateOrderDto,
-  CreatePaymentDto,
   DeleteOrderResult,
+  OrderQuote,
   OrderSnapshot,
+  PAYMENT_METHODS,
+  PricedLine,
   PromotionResult,
+  QuoteOrderDto,
   UpdateOrderDto,
 } from './orders.schema';
-import { inventoryService, InventoryService } from '../inventory/inventory.service';
 
-/** The single promotion the POS honours, and the rate it is worth. */
-const PROMO_CODE = 'WELCOME10';
-const PROMO_RATE = 0.1;
-
-/**
- * Lowest counter each generator may start from, mirroring the ids that ship in
- * the seed data. Kept so a trimmed seed array can never hand out an id that a
- * historic record already owns.
- */
+/** Ids already handed out in the seed; counters never go below these. */
 const ORDER_ID_FLOOR = 4829;
-const BILL_ID_FLOOR = 3;
-const PAYMENT_ID_FLOOR = 3;
-const ORDER_ITEM_ID_FLOOR = 7;
 
-/** Pulls the numeric tail out of an id such as ORD-4829 or BILL-001. */
 function extractNumericId(value: string): number {
   const parsed = Number(String(value || '').replace(/\D/g, ''));
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function round2(value: number): number {
-  return Number(value.toFixed(2));
+export interface Actor {
+  username: string;
+  staffId: string;
+  staffName?: string;
 }
 
 /**
  * Orders Module Service
  *
- * Owns the whole checkout domain: orders, their line items, the bill raised
- * against an order and the payment recorded against that bill, plus promo code
- * validation. Framework agnostic: no express imports, no request or response
- * objects, no HTTP status codes.
+ * Owns orders, their lines, bills and payments. The browser says WHAT is
+ * being bought; this service decides what it costs:
+ *   - every product must exist, belong to the business and be active;
+ *   - the price is the one on file (a different price from the screen is
+ *     refused with 409, so a stale till cannot undercharge);
+ *   - the quantity must be on the shelf;
+ *   - a coupon must be valid for this business, bill and customer;
+ *   - the total, GST and change due are worked out here.
+ * Creating an order also takes the stock off the shelf through the stock
+ * ledger and writes the bill and (unless it is cash on delivery) the payment.
  *
- * Bills and payments are one-per-parent, so both creators reject a second
- * attempt with a ConflictError rather than silently duplicating a record.
+ * Money on a saved order never changes. Cancelling puts the stock back and
+ * marks the payment refunded or voided; returns are handled by the returns
+ * module, which calls applyRefund().
  */
 export class OrdersService {
   private orders: Order[];
@@ -66,59 +67,46 @@ export class OrdersService {
   private paymentCounter: number;
   private orderItemCounter: number;
 
-  constructor(private readonly inventory: InventoryService = inventoryService) {
+  constructor(
+    private readonly inventory: InventoryService = inventoryService,
+    private readonly products: ProductsService = productsService,
+    private readonly customers: CustomersService = customersService,
+    private readonly coupons: CouponsService = couponsService,
+    private readonly activity: ActivityService = activityService,
+  ) {
     this.orders = seedOrders.map((order) => ({ ...order }));
     this.orderItems = seedOrderItems.map((item) => ({ ...item }));
     this.bills = seedBills.map((bill) => ({ ...bill }));
     this.payments = seedPayments.map((payment) => ({ ...payment }));
-
-    this.orderCounter =
-      Math.max(
-        ...this.orders.map((order) => extractNumericId(order.id)),
-        ORDER_ID_FLOOR,
-      ) + 1;
-    this.billCounter =
-      Math.max(
-        ...this.bills.map((bill) => extractNumericId(bill.billNo)),
-        BILL_ID_FLOOR,
-      ) + 1;
-    this.paymentCounter =
-      Math.max(
-        ...this.payments.map((payment) => extractNumericId(payment.id)),
-        PAYMENT_ID_FLOOR,
-      ) + 1;
-    this.orderItemCounter =
-      Math.max(
-        ...this.orderItems.map((item) => extractNumericId(item.id)),
-        ORDER_ITEM_ID_FLOOR,
-      ) + 1;
+    this.orderCounter = Math.max(...this.orders.map((o) => extractNumericId(o.id)), ORDER_ID_FLOOR) + 1;
+    this.billCounter = Math.max(0, ...this.bills.map((b) => extractNumericId(b.billNo))) + 1;
+    this.paymentCounter = Math.max(0, ...this.payments.map((p) => extractNumericId(p.id))) + 1;
+    this.orderItemCounter = Math.max(0, ...this.orderItems.map((i) => extractNumericId(i.id))) + 1;
   }
 
-  /**
-   * Every read returns the order joined to its line items. `itemsCount` is the
-   * stored value when the record carries one, and is otherwise derived from the
-   * quantities on the joined items.
-   */
-  private buildSnapshot(order: Order): OrderSnapshot {
-    const items = this.orderItems.filter((item) => item.orderId === order.id);
-    const derivedCount = items.reduce(
-      (sum, item) => sum + Math.max(0, Number(item.quantity) || 0),
-      0,
-    );
+  /* -------------------------------------------------------------- */
+  /* Reads                                                           */
+  /* -------------------------------------------------------------- */
 
+  private buildSnapshot(order: Order): OrderSnapshot {
+    const items = this.orderItems.filter((item) => item.orderId === order.id).map((i) => ({ ...i }));
+    const bill = this.bills.find((b) => b.orderId === order.id);
+    const payments = this.payments.filter((p) => p.orderId === order.id || (bill && p.billNo === bill.billNo));
+    const derivedCount = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0);
     return {
       ...order,
       items,
-      itemsCount: Number.isFinite(Number(order.itemsCount))
-        ? Number(order.itemsCount)
-        : derivedCount,
+      itemsCount: derivedCount || Number(order.itemsCount) || 0,
+      bill: bill ? { ...bill } : undefined,
+      payments: payments.map((p) => ({ ...p })),
     };
   }
 
-  public findAllOrders(companyId?: string, status?: string): OrderSnapshot[] {
+  public findAllOrders(companyId?: string, status?: string, includeDeleted = false): OrderSnapshot[] {
     return this.orders
       .filter((order) => (companyId ? order.companyId === companyId : true))
       .filter((order) => (status ? order.status === status : true))
+      .filter((order) => (includeDeleted ? true : !order.deleted))
       .map((order) => this.buildSnapshot(order));
   }
 
@@ -130,209 +118,551 @@ export class OrdersService {
     return this.buildSnapshot(order);
   }
 
-  /**
-   * Checks a promo code against a subtotal. The comparison is trimmed and
-   * upper cased, so 'welcome10 ' is accepted just like 'WELCOME10'.
-   */
-  public validatePromotion(code: string, subtotal: number): PromotionResult {
-    const normalised = String(code || '').trim().toUpperCase();
-    const safeSubtotal = Math.max(0, Number(subtotal) || 0);
+  public findItems(orderId: string): OrderItem[] {
+    return this.orderItems.filter((i) => i.orderId === orderId).map((i) => ({ ...i }));
+  }
 
-    if (normalised !== PROMO_CODE) {
-      throw new BadRequestError('Invalid promo code');
-    }
-
-    const discount = round2(safeSubtotal * PROMO_RATE);
-
+  /** Times a coupon was used in a business (cancelled bills do not count). */
+  public couponUsage(companyId: string, code: string, customerId?: string): { total: number; byCustomer: number } {
+    const needle = String(code || '').trim().toUpperCase();
+    const used = this.orders.filter(
+      (o) => o.companyId === companyId && o.promoCode === needle && o.status !== 'Cancelled' && !o.deleted,
+    );
     return {
-      valid: true,
-      code: PROMO_CODE,
-      discount,
-      subtotal: safeSubtotal,
-      total: Math.max(0, round2(safeSubtotal - discount)),
+      total: used.length,
+      byCustomer: customerId ? used.filter((o) => o.customerId === customerId).length : 0,
     };
   }
 
+  /* -------------------------------------------------------------- */
+  /* Pricing                                                         */
+  /* -------------------------------------------------------------- */
+
   /**
-   * Places an order at the FRONT of the list, so the newest sale is the first
-   * row the POS grid renders. The required fields and the non empty items array
-   * are guaranteed by createOrderSchema before this runs.
+   * Prices a cart from the catalogue and checks stock. Shared by the
+   * "quote" endpoint (the till calls it before the cashier confirms) and by
+   * createOrder, so the preview and the saved bill cannot disagree.
    */
-  public createOrder(dto: CreateOrderDto): OrderSnapshot {
-    const subtotal = dto.items.reduce(
-      (sum, item) => sum + item.itemPrice * item.quantity,
-      0,
-    );
-
-    const promoCode = (dto.promoCode ?? '').trim().toUpperCase();
-    const discount = promoCode
-      ? this.validatePromotion(promoCode, subtotal).discount
-      : Math.max(0, dto.discountAmount ?? 0);
-
-    const wanted = new Map<string, number>();
-    dto.items.forEach((item) => {
-      wanted.set(item.productId, (wanted.get(item.productId) ?? 0) + item.quantity);
+  public quote(companyId: string, dto: QuoteOrderDto, customerId?: string): OrderQuote {
+    const wanted = new Map<string, { quantity: number; sentPrices: number[] }>();
+    (dto.items ?? []).forEach((item) => {
+      const prev = wanted.get(item.productId);
+      wanted.set(item.productId, {
+        quantity: (prev?.quantity ?? 0) + item.quantity,
+        sentPrices: [...(prev?.sentPrices ?? []), ...(item.itemPrice !== undefined ? [item.itemPrice] : [])],
+      });
     });
-    wanted.forEach((quantity, productId) => {
-      if (dto.recordOnly) return;
-      const onHand = this.inventory.stockFor(productId);
-      if (onHand !== null && quantity > onHand) {
+    if (!wanted.size) throw new BadRequestError('The bill has no items');
+
+    const lines: PricedLine[] = [];
+    wanted.forEach((want, productId) => {
+      let product;
+      try {
+        product = this.products.findOne(productId);
+      } catch {
+        throw new BadRequestError(`Product ${productId} does not exist`);
+      }
+      if (product.companyId !== companyId) {
+        throw new BadRequestError(`Product ${productId} does not belong to this business`);
+      }
+      if (product.active === false) {
+        throw new ConflictError(`${product.name} is no longer sold`);
+      }
+      const wrongPrice = want.sentPrices.find((p) => Math.abs(p - product.price) > 0.001);
+      if (wrongPrice !== undefined) {
         throw new ConflictError(
-          onHand === 0
-            ? `${productId} is out of stock`
-            : `Only ${onHand} left in stock for ${productId}`,
+          `The price of ${product.name} is now ₹${product.price} (the screen showed ₹${wrongPrice}). Refresh and try again.`,
+          { productId, price: product.price },
         );
       }
+      const onHand = this.inventory.stockFor(productId);
+      if (onHand === null) {
+        throw new ConflictError(`${product.name} has no stock record. Ask the inventory manager to add it.`);
+      }
+      if (want.quantity > onHand) {
+        throw new ConflictError(
+          onHand === 0 ? `${product.name} is out of stock` : `Only ${onHand} ${product.name} left in stock`,
+          { productId, stockAvailable: onHand },
+        );
+      }
+      lines.push({
+        productId,
+        productName: product.name,
+        quantity: want.quantity,
+        itemPrice: product.price,
+        gstRate: product.gstRate ?? 0,
+        lineTotal: round2(product.price * want.quantity),
+        stockAvailable: onHand,
+      });
     });
 
+    const subtotal = round2(lines.reduce((sum, l) => sum + l.lineTotal, 0));
+    let discountAmount = 0;
+    let promoCode: string | null = null;
+    let couponDescription: string | undefined;
+    if (dto.promoCode && dto.promoCode.trim()) {
+      const check = this.coupons.validate(
+        companyId,
+        dto.promoCode,
+        subtotal,
+        this.couponUsage(companyId, dto.promoCode, customerId),
+      );
+      discountAmount = check.discount;
+      promoCode = check.code;
+      couponDescription = check.description;
+    }
+    const isDelivery = dto.checkoutMode === 'prepaid_delivery' || dto.checkoutMode === 'cod_delivery';
+    const deliveryCharge = isDelivery ? round2(Math.max(0, dto.deliveryCharge ?? 0)) : 0;
+    const taxAmount = inclusiveTax(lines, discountAmount);
+    return {
+      companyId,
+      lines,
+      subtotal,
+      discountAmount,
+      promoCode,
+      couponDescription,
+      deliveryCharge,
+      taxAmount,
+      total: round2(subtotal - discountAmount + deliveryCharge),
+    };
+  }
+
+  public validatePromotion(
+    companyId: string,
+    code: string,
+    subtotal: number,
+    customerId?: string,
+  ): PromotionResult {
+    const check = this.coupons.validate(companyId, code, subtotal, this.couponUsage(companyId, code, customerId));
+    return {
+      valid: true,
+      code: check.code,
+      discount: check.discount,
+      subtotal: check.subtotal,
+      total: check.total,
+      description: check.description,
+    };
+  }
+
+  /* -------------------------------------------------------------- */
+  /* Create                                                          */
+  /* -------------------------------------------------------------- */
+
+  public createOrder(dto: CreateOrderDto & { companyId: string }, actor: Actor): OrderSnapshot & { changeDue?: number } {
+    const isDelivery = dto.checkoutMode !== 'takeaway_now';
+    const orderType = isDelivery ? 'delivery' : 'pickup';
+    if (dto.orderType && dto.orderType !== orderType) {
+      throw new BadRequestError(`checkoutMode ${dto.checkoutMode} is a ${orderType} order, not ${dto.orderType}`);
+    }
+
+    // Payment method follows the checkout mode.
+    let paymentMethod = String(dto.paymentMethod || '').trim();
+    if (dto.checkoutMode === 'cod_delivery') paymentMethod = 'COD';
+    if (!paymentMethod) paymentMethod = 'Cash';
+    if (!(PAYMENT_METHODS as readonly string[]).includes(paymentMethod)) {
+      throw new BadRequestError(`Payment method must be one of Cash, UPI, Card${isDelivery ? ' or COD' : ''}`);
+    }
+    if (paymentMethod === 'COD' && dto.checkoutMode !== 'cod_delivery') {
+      throw new BadRequestError('Cash on delivery is only for delivery orders');
+    }
+
+    const input = dto.customer ?? {};
+    const name = (input.name ?? dto.customerName ?? '').trim();
+    const rawPhone = (input.phone ?? dto.customerPhone ?? '').trim();
+    const phone = normalisePhone(rawPhone);
+    if (rawPhone && !phone) throw new BadRequestError('Customer phone must be a 10-digit Indian mobile number');
+    const address = (dto.delivery?.address ?? input.address ?? dto.customerAddress ?? '').trim();
+    if (isDelivery) {
+      if (!phone) throw new BadRequestError('A delivery needs the customer\'s 10-digit phone number');
+      if (address.length < 8) throw new BadRequestError('A delivery needs a full address (at least 8 characters)');
+    }
+
+    // Price everything before touching anything (no customer is created for
+    // a sale that is going to be refused).
+    let knownCustomerId = input.id ?? dto.customerId;
+    if (!knownCustomerId && phone) {
+      try {
+        knownCustomerId = this.customers.findByPhone(phone, dto.companyId).id;
+      } catch {
+        knownCustomerId = undefined;
+      }
+    }
+    const priced = this.quote(dto.companyId, dto, knownCustomerId);
+    const customer = this.customers.resolveForSale(
+      dto.companyId,
+      { id: knownCustomerId, name, phone, email: input.email, address: isDelivery ? address : input.address },
+      actor.username,
+    );
+
+    let changeDue: number | undefined;
+    if (paymentMethod === 'Cash' && dto.amountTendered !== undefined) {
+      if (dto.amountTendered < priced.total) {
+        throw new BadRequestError(`Cash received ₹${dto.amountTendered} is less than the bill ₹${priced.total}`);
+      }
+      changeDue = round2(dto.amountTendered - priced.total);
+    }
+
+    const at = nowIso();
     const orderId = `ORD-${this.orderCounter++}`;
-    const created: Order = {
+    const order: Order = {
       id: orderId,
-      customerId: dto.customerId,
-      customerName: (dto.customerName ?? '').trim() || undefined,
-      customerAddress: (dto.customerAddress ?? '').trim() || undefined,
-      staffId: dto.staffId,
+      customerId: customer.id,
+      customerName: name || customer.name,
+      customerPhone: phone || customer.mobileNo || undefined,
+      customerAddress: isDelivery ? address : undefined,
+      staffId: actor.staffId,
+      staffName: actor.staffName,
       companyId: dto.companyId,
-      orderDate: new Date().toISOString(),
-      orderType: dto.orderType,
+      orderDate: at,
+      orderType,
       checkoutMode: dto.checkoutMode,
-      status: 'Processing',
-      discountAmount: discount,
-      paymentMethod: dto.paymentMethod ?? 'Pending',
-      total: Math.max(0, subtotal - discount),
-      promoCode: promoCode || null,
-      itemsCount: dto.items.reduce(
-        (sum, item) => sum + Math.max(0, item.quantity),
-        0,
-      ),
+      // A counter sale is handed over on the spot.
+      status: isDelivery ? 'Processing' : 'Delivered',
+      subtotal: priced.subtotal,
+      discountAmount: priced.discountAmount,
+      deliveryCharge: priced.deliveryCharge,
+      taxAmount: priced.taxAmount,
+      paymentMethod,
+      paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Paid',
+      total: priced.total,
+      refundedAmount: 0,
+      promoCode: priced.promoCode,
+      itemsCount: priced.lines.reduce((sum, l) => sum + l.quantity, 0),
+      notes: dto.notes,
+      version: 1,
+      createdAt: at,
+      updatedAt: at,
+      updatedBy: actor.username,
     };
 
-    this.orders.unshift(created);
-
-    dto.items.forEach((item) => {
-      this.orderItems.push({
-        id: `OI-${String(this.orderItemCounter++).padStart(3, '0')}`,
-        orderId,
-        productId: item.productId,
-        quantity: item.quantity,
-        itemPrice: item.itemPrice,
+    // Take the stock. quote() already checked it, so this cannot fail part way
+    // unless two tills sell the last unit at once; undo what was taken if so.
+    const taken: Array<{ productId: string; quantity: number }> = [];
+    try {
+      priced.lines.forEach((line) => {
+        this.inventory.consumeStock(line.productId, line.quantity, { by: actor.username, refId: orderId });
+        taken.push({ productId: line.productId, quantity: line.quantity });
       });
-      if (!dto.recordOnly) this.inventory.consumeStock(item.productId, item.quantity);
+    } catch (error) {
+      taken.forEach((t) =>
+        this.inventory.move(t.productId, t.quantity, {
+          type: 'cancel',
+          reason: `Sale ${orderId} could not complete`,
+          refType: 'order',
+          refId: orderId,
+          by: actor.username,
+        }),
+      );
+      throw error;
+    }
+
+    this.orders.unshift(order);
+    priced.lines.forEach((line) => {
+      this.orderItems.push({
+        id: `OI-${String(this.orderItemCounter++).padStart(4, '0')}`,
+        orderId,
+        productId: line.productId,
+        productName: line.productName,
+        quantity: line.quantity,
+        itemPrice: line.itemPrice,
+        gstRate: line.gstRate,
+      });
     });
 
-    return this.buildSnapshot(created);
+    const bill: Bill = {
+      billNo: `BILL-${String(this.billCounter++).padStart(4, '0')}`,
+      orderId,
+      companyId: dto.companyId,
+      billDate: at,
+      subtotal: priced.subtotal,
+      taxAmount: priced.taxAmount,
+      discountAmount: priced.discountAmount,
+      deliveryCharge: priced.deliveryCharge,
+      total: priced.total,
+    };
+    this.bills.push(bill);
+
+    if (paymentMethod !== 'COD') {
+      this.payments.push({
+        id: `PAY-${String(this.paymentCounter++).padStart(4, '0')}`,
+        billNo: bill.billNo,
+        orderId,
+        companyId: dto.companyId,
+        paymentDate: at,
+        paymentMethod,
+        paymentStatus: 'Paid',
+        amountPaid: priced.total,
+        collectedBy: actor.username,
+      });
+    }
+
+    this.activity.log({
+      companyId: dto.companyId,
+      entity: 'order',
+      entityId: orderId,
+      action: 'create',
+      summary: `${orderType === 'delivery' ? 'Delivery' : 'Counter'} sale of ₹${priced.total} (${order.itemsCount} items, ${paymentMethod})${priced.promoCode ? ` with ${priced.promoCode}` : ''}`,
+      by: actor.username,
+    });
+
+    const snapshot = this.buildSnapshot(order);
+    return changeDue === undefined ? snapshot : { ...snapshot, changeDue };
   }
 
-  public updateOrder(id: string, dto: UpdateOrderDto): OrderSnapshot {
+  /* -------------------------------------------------------------- */
+  /* Changes                                                         */
+  /* -------------------------------------------------------------- */
+
+  private indexOf(id: string): number {
     const index = this.orders.findIndex((order) => order.id === id);
-    if (index === -1) {
-      throw new NotFoundError(`Order ${id} not found`);
-    }
-
-    const updates: Partial<Order> = { ...dto };
-    if (dto.customerName !== undefined) {
-      updates.customerName = dto.customerName.trim();
-    }
-    if (dto.customerAddress !== undefined) {
-      updates.customerAddress = dto.customerAddress.trim();
-    }
-    if (dto.itemsCount !== undefined) {
-      updates.itemsCount = Math.max(0, dto.itemsCount);
-    }
-    if (dto.total !== undefined) {
-      updates.total = Math.max(0, dto.total);
-    }
-
-    this.orders[index] = { ...this.orders[index], ...updates };
-    return this.findOneOrder(id);
+    if (index === -1) throw new NotFoundError(`Order ${id} not found`);
+    return index;
   }
 
-  /** Deleting an order also drops the line items that belong to it. */
-  public removeOrder(id: string): DeleteOrderResult {
-    const index = this.orders.findIndex((order) => order.id === id);
-    if (index === -1) {
-      throw new NotFoundError(`Order ${id} not found`);
-    }
-
-    const [removed] = this.orders.splice(index, 1);
-    this.orderItems = this.orderItems.filter((item) => item.orderId !== id);
-
-    return { message: `Order ${id} deleted`, order: removed };
+  private save(index: number, next: Order, summary: string, by: string, action = 'update'): OrderSnapshot {
+    this.orders[index] = bumped(next, by);
+    this.activity.log({
+      companyId: next.companyId,
+      entity: 'order',
+      entityId: next.id,
+      action,
+      summary,
+      by,
+    });
+    return this.buildSnapshot(this.orders[index]);
   }
 
-  public findAllBills(): Bill[] {
-    return [...this.bills];
+  /**
+   * Edits contact details and notes, and moves a counter order to Delivered or
+   * Cancelled. Totals, lines and payment never change here. Delivery orders
+   * change status through their delivery.
+   */
+  public updateOrder(id: string, dto: UpdateOrderDto, by = 'system'): OrderSnapshot {
+    const index = this.indexOf(id);
+    const current = this.orders[index];
+    checkVersion(current, dto.version, `Order ${id}`);
+
+    if (dto.status && dto.status !== current.status) {
+      if (dto.status === 'Cancelled') {
+        return this.cancelOrder(id, dto.cancelReason || 'Cancelled from the Orders page', by);
+      }
+      if (dto.status === 'Delivered' && current.orderType === 'pickup' && current.status === 'Processing') {
+        return this.save(index, { ...current, status: 'Delivered' }, 'Handed over at the counter', by, 'status');
+      }
+      if (current.orderType === 'delivery') {
+        throw new ConflictError(
+          `Order ${id} is a delivery order. Change its status from the Delivery page (it is ${current.status}).`,
+        );
+      }
+      throw new ConflictError(`Order ${id} cannot go from ${current.status} to ${dto.status}`);
+    }
+
+    const next: Order = { ...current };
+    const changed: string[] = [];
+    if (dto.customerName !== undefined && dto.customerName !== current.customerName) {
+      next.customerName = dto.customerName;
+      changed.push('customer name');
+    }
+    if (dto.customerPhone !== undefined) {
+      const phone = normalisePhone(dto.customerPhone);
+      if (dto.customerPhone && !phone) throw new BadRequestError('Customer phone must be a 10-digit Indian mobile number');
+      if (phone !== (current.customerPhone ?? '')) {
+        next.customerPhone = phone || undefined;
+        changed.push('phone');
+      }
+    }
+    if (dto.customerAddress !== undefined && dto.customerAddress !== (current.customerAddress ?? '')) {
+      if (['Shipped', 'Delivered'].includes(current.status)) {
+        throw new ConflictError('The address cannot change after the order has left the store');
+      }
+      next.customerAddress = dto.customerAddress;
+      changed.push('address');
+    }
+    if (dto.notes !== undefined && dto.notes !== (current.notes ?? '')) {
+      next.notes = dto.notes;
+      changed.push('notes');
+    }
+    if (!changed.length) return this.buildSnapshot(current);
+    return this.save(index, next, `Updated ${changed.join(', ')}`, by);
+  }
+
+  /**
+   * Cancels an order that has not been (partly) returned: puts every unit
+   * back on the shelf and marks the money refunded (paid) or voided (COD not
+   * yet collected). The caller cancels the delivery, if there is one.
+   */
+  public cancelOrder(id: string, reason: string, by = 'system', options: { fromDelivery?: boolean } = {}): OrderSnapshot {
+    const index = this.indexOf(id);
+    const current = this.orders[index];
+    if (current.status === 'Cancelled') throw new ConflictError(`Order ${id} is already cancelled`);
+    if (current.status === 'Partially Returned' || current.status === 'Returned') {
+      throw new ConflictError(`Order ${id} already has refunded returns, so it cannot be cancelled`);
+    }
+    if (current.orderType === 'delivery' && !options.fromDelivery) {
+      if (current.status === 'Shipped') {
+        throw new ConflictError(`Order ${id} is already out with the delivery partner. Mark the delivery as returned to store instead.`);
+      }
+      if (current.status === 'Delivered') {
+        throw new ConflictError(`Order ${id} was delivered. Use a return instead of cancelling.`);
+      }
+    }
+    if (!reason || reason.trim().length < 3) throw new BadRequestError('Say why the order is being cancelled');
+
+    this.findItems(id).forEach((item) => {
+      this.inventory.move(item.productId, item.quantity, {
+        type: 'cancel',
+        reason: `Order ${id} cancelled: ${reason}`,
+        refType: 'order',
+        refId: id,
+        by,
+      });
+    });
+    const paid = current.paymentStatus === 'Paid';
+    const bill = this.bills.find((b) => b.orderId === id);
+    this.payments = this.payments.map((p) =>
+      p.orderId === id || (bill && p.billNo === bill.billNo) ? { ...p, paymentStatus: 'Refunded' } : p,
+    );
+    return this.save(
+      index,
+      {
+        ...current,
+        status: 'Cancelled',
+        cancelReason: reason,
+        paymentStatus: paid ? 'Refunded' : 'Voided',
+        refundedAmount: paid ? current.total : 0,
+      },
+      `Cancelled (${reason}); stock put back${paid ? `, ₹${current.total} to refund` : ''}`,
+      by,
+      'cancel',
+    );
+  }
+
+  /** Called by the delivery flow so the Orders page shows where a parcel is. */
+  public setDeliveryStatus(id: string, status: 'Processing' | 'Shipped' | 'Delivered', by = 'system'): OrderSnapshot {
+    const index = this.indexOf(id);
+    const current = this.orders[index];
+    if (current.status === status || current.status === 'Cancelled') return this.buildSnapshot(current);
+    return this.save(index, { ...current, status }, `Delivery status: ${status}`, by, 'status');
+  }
+
+  /** Cash collected at the door for a COD order. */
+  public recordCodPayment(id: string, amount: number, by = 'system'): OrderSnapshot {
+    const index = this.indexOf(id);
+    const current = this.orders[index];
+    if (current.paymentMethod !== 'COD') return this.buildSnapshot(current);
+    if (current.paymentStatus === 'Paid') return this.buildSnapshot(current);
+    if (Math.abs(amount - current.total) > 0.009) {
+      throw new BadRequestError(`Collect exactly ₹${current.total} for order ${id} (entered ₹${amount})`);
+    }
+    const bill = this.bills.find((b) => b.orderId === id);
+    this.payments.push({
+      id: `PAY-${String(this.paymentCounter++).padStart(4, '0')}`,
+      billNo: bill ? bill.billNo : '',
+      orderId: id,
+      companyId: current.companyId,
+      paymentDate: nowIso(),
+      paymentMethod: 'Cash',
+      paymentStatus: 'Paid',
+      amountPaid: amount,
+      collectedBy: by,
+    });
+    return this.save(index, { ...current, paymentStatus: 'Paid' }, `₹${amount} cash collected on delivery`, by, 'payment');
+  }
+
+  /** Called by the returns module once a refund is paid out. */
+  public applyRefund(id: string, amount: number, by = 'system'): OrderSnapshot {
+    const index = this.indexOf(id);
+    const current = this.orders[index];
+    const refunded = round2((current.refundedAmount ?? 0) + amount);
+    if (refunded - current.total > 0.009) {
+      throw new ConflictError(`Refunds on ${id} would come to ₹${refunded}, more than the bill of ₹${current.total}`);
+    }
+    return this.save(
+      index,
+      { ...current, refundedAmount: refunded },
+      `₹${amount} refunded (total refunded ₹${refunded})`,
+      by,
+      'refund',
+    );
+  }
+
+  /** Called by the returns module after the returned quantities change. */
+  public setReturnState(id: string, fullyReturned: boolean, by = 'system'): OrderSnapshot {
+    const index = this.indexOf(id);
+    const current = this.orders[index];
+    const status = fullyReturned ? 'Returned' : 'Partially Returned';
+    const refunded = (current.refundedAmount ?? 0) > 0;
+    const paymentStatus = refunded
+      ? Math.abs((current.refundedAmount ?? 0) - current.total) < 0.01
+        ? 'Refunded'
+        : 'Partially Refunded'
+      : current.paymentStatus;
+    if (current.status === status && current.paymentStatus === paymentStatus) return this.buildSnapshot(current);
+    return this.save(index, { ...current, status, paymentStatus }, `Order is now ${status}`, by, 'status');
+  }
+
+  /**
+   * Only a cancelled order can be removed, and only from view: it is marked
+   * deleted and kept for the books and the stock ledger.
+   */
+  public removeOrder(id: string, by = 'system'): DeleteOrderResult {
+    const index = this.indexOf(id);
+    const current = this.orders[index];
+    if (current.status !== 'Cancelled') {
+      throw new ConflictError(`Order ${id} is ${current.status}. Cancel it first; only cancelled orders can be deleted.`);
+    }
+    const snapshot = this.save(index, { ...current, deleted: true }, 'Hidden from the order list', by, 'delete');
+    return { message: `Order ${id} deleted`, order: snapshot };
+  }
+
+  /* -------------------------------------------------------------- */
+  /* Bills and payments                                              */
+  /* -------------------------------------------------------------- */
+
+  public findAllBills(companyId?: string): Bill[] {
+    return this.bills.filter((b) => (companyId ? b.companyId === companyId : true)).map((b) => ({ ...b }));
   }
 
   public findOneBill(billNo: string): Bill {
     const bill = this.bills.find((entry) => entry.billNo === billNo);
-    if (!bill) {
-      throw new NotFoundError(`Bill ${billNo} not found`);
-    }
-    return bill;
+    if (!bill) throw new NotFoundError(`Bill ${billNo} not found`);
+    return { ...bill };
   }
 
-  /** One bill per order: a second attempt for the same order is a conflict. */
-  public createBill(dto: CreateBillDto): Bill {
-    const order = this.orders.find((entry) => entry.id === dto.orderId);
-    if (!order) {
-      throw new NotFoundError(`Order ${dto.orderId} not found`);
-    }
-
-    const existing = this.bills.find((bill) => bill.orderId === dto.orderId);
-    if (existing) {
-      throw new ConflictError(`Bill already exists for order ${dto.orderId}`);
-    }
-
-    const created: Bill = {
-      billNo: `BILL-${String(this.billCounter++).padStart(3, '0')}`,
-      orderId: dto.orderId,
-      billDate: new Date().toISOString(),
-      taxAmount: dto.taxAmount ?? 0,
-      discountAmount: dto.discountAmount ?? 0,
-    };
-
-    this.bills.push(created);
-    return created;
-  }
-
-  public findAllPayments(): Payment[] {
-    return [...this.payments];
+  public findAllPayments(companyId?: string): Payment[] {
+    return this.payments.filter((p) => (companyId ? p.companyId === companyId : true)).map((p) => ({ ...p }));
   }
 
   public findOnePayment(billNo: string): Payment {
     const payment = this.payments.find((entry) => entry.billNo === billNo);
-    if (!payment) {
-      throw new NotFoundError(`Payment for bill ${billNo} not found`);
-    }
-    return payment;
+    if (!payment) throw new NotFoundError(`Payment for bill ${billNo} not found`);
+    return { ...payment };
   }
 
-  /** One payment per bill: a second attempt for the same bill is a conflict. */
-  public createPayment(dto: CreatePaymentDto): Payment {
-    const bill = this.bills.find((entry) => entry.billNo === dto.billNo);
-    if (!bill) {
-      throw new NotFoundError(`Bill ${dto.billNo} not found`);
-    }
-
-    const existing = this.payments.find(
-      (payment) => payment.billNo === dto.billNo,
-    );
-    if (existing) {
-      throw new ConflictError(`Payment already recorded for bill ${dto.billNo}`);
-    }
-
-    const created: Payment = {
-      id: `PAY-${String(this.paymentCounter++).padStart(3, '0')}`,
-      billNo: dto.billNo,
-      paymentDate: new Date().toISOString(),
-      paymentMethod: dto.paymentMethod,
-      paymentStatus: 'Paid',
-      amountPaid: dto.amountPaid,
+  public dump(): Record<string, unknown> {
+    return {
+      orders: this.orders,
+      orderItems: this.orderItems,
+      bills: this.bills,
+      payments: this.payments,
+      counters: [this.orderCounter, this.billCounter, this.paymentCounter, this.orderItemCounter],
     };
+  }
 
-    this.payments.push(created);
-    return created;
+  public load(state: {
+    orders?: Order[];
+    orderItems?: OrderItem[];
+    bills?: Bill[];
+    payments?: Payment[];
+    counters?: number[];
+  }): void {
+    if (Array.isArray(state.orders)) this.orders = state.orders;
+    if (Array.isArray(state.orderItems)) this.orderItems = state.orderItems;
+    if (Array.isArray(state.bills)) this.bills = state.bills;
+    if (Array.isArray(state.payments)) this.payments = state.payments;
+    if (Array.isArray(state.counters) && state.counters.length === 4) {
+      [this.orderCounter, this.billCounter, this.paymentCounter, this.orderItemCounter] = state.counters;
+    }
   }
 }
 

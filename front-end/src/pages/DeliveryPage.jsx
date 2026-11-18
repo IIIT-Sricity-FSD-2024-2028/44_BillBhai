@@ -3,7 +3,7 @@ import DeliveryContent from '../components/delivery/DeliveryContent.jsx';
 
 export default function DeliveryPage() {
   return (
-    <DashboardLayout page="delivery" toast="">
+    <DashboardLayout page="delivery" toast="Saved">
       <DeliveryContent />
     </DashboardLayout>
   );

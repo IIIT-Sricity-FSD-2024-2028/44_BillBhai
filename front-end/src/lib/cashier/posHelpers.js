@@ -62,21 +62,18 @@ export function getTerminalCopy(isCustomerTerminal) {
 }
 
 export function getCheckoutModeConfig(mode, isCustomerTerminal) {
-  const safeMode = String(mode || 'takeaway_now')
-    .trim()
-    .toLowerCase();
+  const safeMode = String(mode || 'takeaway_now').trim().toLowerCase();
   const isCustomer = Boolean(isCustomerTerminal);
-  const titlePrefix = isCustomer ? 'Self-checkout' : 'Order';
+  const titlePrefix = isCustomer ? 'Your order' : 'Order';
 
   if (safeMode === 'prepaid_delivery') {
     return {
       mode: 'prepaid_delivery',
       deliveryOption: 'delivery',
-      paymentMethod: 'Paid Upfront',
-      orderStatus: 'Processing',
-      buttonLabel: 'Proceed to Payment Gateway',
-      successTitle: 'Payment Gateway Ready',
-      successSubtitle: `${titlePrefix} logged for home delivery. Collect payment now and dispatch once confirmed.`,
+      paymentMethods: isCustomer ? ['UPI', 'Card'] : ['UPI', 'Card', 'Cash'],
+      buttonLabel: 'Take payment & book delivery',
+      successTitle: 'Paid. Delivery booked',
+      successSubtitle: `${titlePrefix} is paid and is now in the delivery queue.`,
       summaryLabel: 'Prepaid delivery',
     };
   }
@@ -85,11 +82,10 @@ export function getCheckoutModeConfig(mode, isCustomerTerminal) {
     return {
       mode: 'cod_delivery',
       deliveryOption: 'delivery',
-      paymentMethod: 'COD',
-      orderStatus: 'Processing',
-      buttonLabel: isCustomer ? 'Place COD Order' : 'Confirm COD Dispatch',
-      successTitle: 'COD Delivery Booked',
-      successSubtitle: `${titlePrefix} will be sent for delivery and payment will be collected at the doorstep.`,
+      paymentMethods: ['COD'],
+      buttonLabel: isCustomer ? 'Place COD order' : 'Book COD delivery',
+      successTitle: 'COD delivery booked',
+      successSubtitle: `${titlePrefix} is in the delivery queue. The partner collects the cash at the door.`,
       summaryLabel: 'Cash on delivery',
     };
   }
@@ -97,11 +93,10 @@ export function getCheckoutModeConfig(mode, isCustomerTerminal) {
   return {
     mode: 'takeaway_now',
     deliveryOption: 'pickup',
-    paymentMethod: 'Counter Paid',
-    orderStatus: 'Delivered',
-    buttonLabel: 'Complete Sale',
-    successTitle: 'Takeaway Ready',
-    successSubtitle: `${titlePrefix} is marked for immediate handover from the counter.`,
+    paymentMethods: isCustomer ? ['UPI', 'Card'] : ['Cash', 'UPI', 'Card'],
+    buttonLabel: 'Take payment & finish',
+    successTitle: 'Paid. Hand over the items',
+    successSubtitle: `${titlePrefix} is paid and the stock has been updated.`,
     summaryLabel: 'Take away now',
   };
 }
@@ -110,13 +105,10 @@ export function getCartSubtotal(cart) {
   return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 }
 
+/** Coupon discounts come from the server; this only keeps them within the bill. */
 export function recomputeDiscount(discount, subtotal) {
   if (!discount.active) return discount;
-  const computedDiscount =
-    discount.code === 'WELCOME10'
-      ? Number((subtotal * 0.1).toFixed(2))
-      : Math.max(0, Number(discount.discount || 0));
-  return { ...discount, discount: Math.min(subtotal, computedDiscount) };
+  return { ...discount, discount: Math.min(subtotal, Math.max(0, Number(discount.discount || 0))) };
 }
 
 export function getCartTotals(cart, discount, deliveryChargeAmount) {
@@ -128,26 +120,11 @@ export function getCartTotals(cart, discount, deliveryChargeAmount) {
   return { subtotal, discount: discountValue, itemTotal, deliveryCharge, payableTotal };
 }
 
-export function getDeliveryChargeAmount(mode, checkoutSettings) {
-  const isDelivery = getCheckoutModeConfig(mode).deliveryOption === 'delivery';
-  if (!isDelivery) return 0;
-  const configured = Number(checkoutSettings && checkoutSettings.deliveryCharge);
-  return Number.isFinite(configured) && configured > 0 ? configured : 0;
-}
-
 export function formatRupees(value) {
-  return `${RUPEE}${value.toFixed(2)}`;
+  return `${RUPEE}${(Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function clearStoredSession() {
-  localStorage.removeItem('userRole');
-  localStorage.removeItem('userName');
-  localStorage.removeItem('currentUser');
-  localStorage.removeItem('activeBusinessId');
-  localStorage.removeItem('activeBusinessName');
-  sessionStorage.removeItem('bb_customer_session_id');
-  sessionStorage.removeItem('bb_customer_session_notifications');
-}
+export { clearStoredSession } from '../http.js';
 
 export function getPlanBadge() {
   const savedPlan = localStorage.getItem('activeBusinessPlan') || 'pro';

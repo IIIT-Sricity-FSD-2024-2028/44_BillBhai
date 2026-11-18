@@ -19,7 +19,7 @@ export default function PromoBlock({
           type="text"
           id="promoCode"
           className="promo-input"
-          placeholder="Promo Code (e.g. WELCOME10)"
+          placeholder="Coupon code"
           value={promoCode}
           onChange={(e) => onPromoCodeChange(e.target.value)}
         />

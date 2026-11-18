@@ -1,62 +1,85 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request } from 'express';
+import { ReturnRecord } from '../../data/entities';
+import { handle, param, query } from '../../utils/http';
+import { actorId, actorName, assertInScope, listScope } from '../../utils/scope';
+import { assertFeature } from '../../utils/plans';
+import { companiesService } from '../companies/companies.service';
+import { ordersService, OrdersService } from '../orders/orders.service';
 import { returnsService, ReturnsService } from './returns.service';
-import { CreateReturnDto, UpdateReturnDto } from './returns.schema';
+import { CreateReturnDto, TransitionReturnDto, UpdateReturnDto } from './returns.schema';
 
-/**
- * Returns Module Controller
- *
- * Extracts HTTP input, delegates to the service, sets an explicit status code,
- * and forwards every failure to the global error pipeline via next().
- */
+/** Returns Module Controller - scoped to the signed-in user's business. */
 export class ReturnsController {
-  constructor(private readonly service: ReturnsService = returnsService) {}
+  constructor(
+    private readonly service: ReturnsService = returnsService,
+    private readonly orders: OrdersService = ordersService,
+  ) {}
 
-  public findAll = (req: Request, res: Response, next: NextFunction): void => {
+  private withOrder(entry: ReturnRecord) {
+    let order;
     try {
-      const status =
-        typeof req.query.status === 'string' ? req.query.status : undefined;
-      res.status(200).json(this.service.findAll(status));
-    } catch (error) {
-      next(error);
+      order = this.orders.findOneOrder(entry.orderId);
+    } catch {
+      order = undefined;
     }
-  };
+    return {
+      ...entry,
+      customerName: order?.customerName ?? entry.requestedBy,
+      customerPhone: order?.customerPhone,
+      orderTotal: order?.total,
+      orderDate: order?.orderDate,
+      paymentMethod: order?.paymentMethod,
+    };
+  }
 
-  public findOne = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(200).json(this.service.findOne(String(req.params.id)));
-    } catch (error) {
-      next(error);
-    }
-  };
+  private owned(req: Request) {
+    const entry = this.service.findOne(param(req, 'id'));
+    assertInScope(req, entry.companyId, `Return ${entry.id}`);
+    return entry;
+  }
 
-  public create = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const created = this.service.create(req.body as CreateReturnDto);
-      res.status(201).json(created);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findAll = handle((req) =>
+    this.service
+      .findAll(query(req, 'status'), listScope(req, query(req, 'companyId')))
+      .map((r) => this.withOrder(r)),
+  );
 
-  public update = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const updated = this.service.update(
-        String(req.params.id),
-        req.body as UpdateReturnDto,
-      );
-      res.status(200).json(updated);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findOne = handle((req) => this.withOrder(this.owned(req)));
 
-  public remove = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(200).json(this.service.remove(String(req.params.id)));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public returnable = handle((req) => {
+    const state = this.service.returnable(param(req, 'orderId'));
+    assertInScope(req, state.companyId, `Order ${state.orderId}`);
+    return state;
+  });
+
+  public create = handle((req) => {
+    const body = req.body as CreateReturnDto;
+    const order = this.orders.findOneOrder(body.orderId);
+    assertInScope(req, order.companyId, `Order ${body.orderId}`);
+    assertFeature(companiesService.findOne(order.companyId), 'returns');
+    const created = this.service.create(body, {
+      username: actorName(req),
+      staffId: actorId(req) || 'system',
+    });
+    return this.withOrder(created);
+  }, 201);
+
+  public update = handle((req) => {
+    this.owned(req);
+    return this.withOrder(this.service.update(param(req, 'id'), req.body as UpdateReturnDto, actorName(req)));
+  });
+
+  public transition = handle((req) => {
+    this.owned(req);
+    return this.withOrder(
+      this.service.transition(param(req, 'id'), req.body as TransitionReturnDto, actorName(req)),
+    );
+  });
+
+  public remove = handle((req) => {
+    this.owned(req);
+    return this.service.remove(param(req, 'id'), actorName(req));
+  });
 }
 
 export const returnsController = new ReturnsController();

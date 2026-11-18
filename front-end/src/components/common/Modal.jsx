@@ -28,7 +28,7 @@ export default function Modal({
         if (closeOnOverlay && e.target === e.currentTarget && onClose) onClose();
       }}
     >
-      <div className="modal" style={maxWidth ? { maxWidth } : undefined}>
+      <div className="modal" style={maxWidth ? { width: maxWidth, maxWidth: '94vw' } : undefined}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button

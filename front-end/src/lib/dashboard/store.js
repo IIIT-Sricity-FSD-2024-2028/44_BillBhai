@@ -1,15 +1,17 @@
 import { useSyncExternalStore } from 'react';
 import { LIVE_SYNC_CHANNEL, LIVE_SYNC_KEY, PLAN_DEFINITIONS, ROLE_ACTIONS } from './constants.js';
 import { apiRequest, fetchOperationalData, mutationErrorMessage, setApiActiveRole } from './api.js';
+import { API_BASE_URL } from '../http.js';
 import {
-  getCurrentUserIdentity,
   writeNotificationReadState,
   writeNotificationsRead,
   writeProfileSettingsRecord,
 } from './notifications.js';
-import { saveList } from './storage.js';
 
-const COLLECTIONS = ['orders', 'inventory', 'deliveries', 'returns', 'users', 'businesses'];
+const COLLECTIONS = ['orders', 'inventory', 'deliveries', 'returns', 'users', 'businesses', 'suppliers', 'coupons'];
+
+/** How often open pages pull fresh data from the server. */
+const REFRESH_INTERVAL_MS = 20000;
 
 function createInitialState(boot) {
   const b = boot || {};
@@ -26,6 +28,10 @@ function createInitialState(boot) {
     returns: [],
     users: [],
     businesses: [],
+    suppliers: [],
+    coupons: [],
+    lastSyncedAt: 0,
+    syncError: '',
     selectedBusiness: null,
     isBusinessScoped: false,
     businessDataStore: {},
@@ -91,13 +97,13 @@ export function ui() {
   return uiApi;
 }
 
-export function showToast(message, type = 'success') {
-  uiApi.showToast(message, type);
+export function showToast(message) {
+  uiApi.showToast(message);
 }
 
 export function showMutationError(actionLabel, error) {
   console.warn(`${actionLabel} failed`, error);
-  showToast(mutationErrorMessage(actionLabel, error), 'error');
+  showToast(mutationErrorMessage(actionLabel, error));
 }
 
 export function hasActionAccess(moduleKey) {
@@ -149,7 +155,9 @@ function shouldApplyIncomingSync(payload) {
 function handleIncomingSync(payload) {
   if (!shouldApplyIncomingSync(payload)) return;
   if (session.debounceTimer) clearTimeout(session.debounceTimer);
-  session.debounceTimer = setTimeout(() => renderPage(), 120);
+  session.debounceTimer = setTimeout(() => {
+    refreshData();
+  }, 150);
 }
 
 function initRealtimeSync(current) {
@@ -162,6 +170,11 @@ function initRealtimeSync(current) {
     }
   };
   window.addEventListener('storage', onStorage);
+  const onFocus = () => refreshData();
+  window.addEventListener('focus', onFocus);
+  const interval = setInterval(() => {
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') refreshData();
+  }, REFRESH_INTERVAL_MS);
 
   if ('BroadcastChannel' in window) {
     try {
@@ -175,6 +188,8 @@ function initRealtimeSync(current) {
 
   return () => {
     window.removeEventListener('storage', onStorage);
+    window.removeEventListener('focus', onFocus);
+    clearInterval(interval);
     if (current.debounceTimer) clearTimeout(current.debounceTimer);
     if (current.channel) {
       try {
@@ -236,31 +251,10 @@ export function saveProfileSettings(record) {
   writeProfileSettingsRecord(state, record);
   const shellPatch = {
     userName: record.fullName,
-    avatar: (record.fullName || 'U').charAt(0).toUpperCase(),
-    email: record.email,
+    avatar: record.fullName.charAt(0).toUpperCase(),
   };
-  if (record.location) shellPatch.bcBusinessName = record.location;
-
-  const identity = getCurrentUserIdentity(state);
-  const updatedUsers = (state.users || []).map((u) => {
-    if (
-      (identity.username && u.username === identity.username) ||
-      (identity.email && u.email === identity.email) ||
-      (u.role && u.role === state.roleKey)
-    ) {
-      return {
-        ...u,
-        name: record.fullName,
-        email: record.email,
-        ...(record.phone ? { mobileNo: record.phone } : {}),
-      };
-    }
-    return u;
-  });
-
   state = {
     ...state,
-    users: updatedUsers,
     shell: { ...state.shell, ...shellPatch },
     notificationsVersion: state.notificationsVersion + 1,
   };
@@ -277,6 +271,10 @@ export function getActiveCompanyPlan(businesses = state.businesses) {
       if (raw.includes('enterprise')) planKey = 'enterprise';
       else if (raw.includes('starter')) planKey = 'starter';
       else planKey = 'pro';
+    } else {
+      // Staff roles do not load the business record; login saved its plan.
+      const saved = localStorage.getItem('activeBusinessPlan');
+      if (saved && PLAN_DEFINITIONS[saved]) planKey = saved;
     }
   } else {
     const localSaved = localStorage.getItem('activeBusinessPlan');
@@ -314,18 +312,14 @@ export async function switchCompanyPlan(targetPlanKey) {
       subscriptionStatus: 'Active',
     };
     try {
-      await apiRequest(`/companies/${encodeURIComponent(String(biz.id))}`, {
-        method: 'PUT',
-        role: 'superuser',
-        body: {
-          plan: targetPlanKey,
-          productsPlan: targetPlan.name,
-          monthlyPrice: targetPlan.price,
-          subscriptionStatus: 'Active',
-        },
+      const saved = await apiRequest(`/companies/${encodeURIComponent(String(biz.id))}/plan`, {
+        method: 'POST',
+        body: { plan: targetPlanKey },
       });
+      updated = { ...updated, ...saved };
     } catch (err) {
-      console.warn('Could not sync company plan to backend:', err);
+      showMutationError('Plan change', err);
+      return;
     }
   }
 
@@ -356,12 +350,14 @@ export function cancelSubscription() {
       if (biz) {
         const updated = { ...biz, subscriptionStatus: 'Cancelled' };
         try {
-          await apiRequest(`/companies/${encodeURIComponent(String(biz.id))}`, {
-            method: 'PUT',
-            role: 'superuser',
-            body: { subscriptionStatus: 'Cancelled' },
+          await apiRequest(`/companies/${encodeURIComponent(String(biz.id))}/cancel-subscription`, {
+            method: 'POST',
+            body: {},
           });
-        } catch (err) {}
+        } catch (err) {
+          showMutationError('Cancellation', err);
+          return false;
+        }
         replaceBusiness(updated);
       }
       state = { ...state, subscriptionCancelledFlag: true };
@@ -450,7 +446,7 @@ export function getProfileSubscriptionView(s = state) {
     name: activePlan.name,
     price: activePlan.price === 0 ? '₹0' : `₹${activePlan.price.toLocaleString()}`,
     priceSuffix: activePlan.price === 0 ? '/Free Forever' : '/month',
-    renewalText: `Renews on ${(biz && biz.renewalDate) || '30 Sept 2026'}`,
+    renewalText: biz && biz.renewalDate ? `Renews on ${biz.renewalDate}` : 'Renewal date not set',
     cancelled,
     users: {
       count: usersCount,
@@ -497,18 +493,45 @@ async function loadOperationalDataFromBackend(gen) {
       deliveries: result.deliveries,
       returns: result.returns,
       users: result.users,
+      suppliers: result.suppliers,
+      coupons: result.coupons,
+      lastSyncedAt: Date.now(),
+      syncError: '',
     };
-    if (result.businesses) {
-      patch.businesses = result.businesses;
-      saveList('bb_businesses', result.businesses);
-    }
+    if (result.businesses) patch.businesses = result.businesses;
     state = { ...state, ...patch };
     persistOperationalData({ silentSync: true });
     return true;
   } catch (error) {
-    console.warn('Backend sync unavailable, using local fallback.', error);
+    console.warn('Could not load data from the server.', error);
     return false;
   }
+}
+
+let refreshing = null;
+
+/**
+ * Pulls fresh data from the server into the store without re-mounting the
+ * page, so filters and open dialogs stay as they are. Pages call this after
+ * every save; it also runs on a timer, on window focus and when another tab
+ * reports a change.
+ */
+export function refreshData() {
+  if (state.status !== 'ready') return Promise.resolve(false);
+  if (refreshing) return refreshing;
+  const gen = generation;
+  refreshing = loadOperationalDataFromBackend(gen)
+    .then((ok) => {
+      if (ok === false && gen === generation) {
+        state = { ...state, syncError: 'Lost contact with the server. Showing the last data loaded.' };
+        emit();
+      }
+      return ok;
+    })
+    .finally(() => {
+      refreshing = null;
+    });
+  return refreshing;
 }
 
 export function beginPageSession(boot, { onReady } = {}) {
@@ -549,7 +572,7 @@ export function beginPageSession(boot, { onReady } = {}) {
         returns: [],
         users: [],
         loadError:
-          'Could not reach the BillBhai API at http://localhost:4000. Start the backend and retry.',
+          `Could not reach the BillBhai API at ${API_BASE_URL}. Start the backend and retry.`,
       };
       emit();
       showToast('Backend is required. Start the API server to load dashboard data.');

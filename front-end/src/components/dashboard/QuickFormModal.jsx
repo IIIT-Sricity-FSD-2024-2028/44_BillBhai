@@ -3,6 +3,10 @@ import Modal from '../common/Modal.jsx';
 import FormField from '../common/FormField.jsx';
 import { isValidEmailAddress, isValidPhoneNumber } from '../../lib/dashboard/helpers.js';
 
+/** A select option may be a plain string or { value, label }. */
+const optionValue = (opt) => String(opt && typeof opt === 'object' ? opt.value : opt);
+const optionLabel = (opt) => String(opt && typeof opt === 'object' ? opt.label : opt);
+
 export default function QuickFormModal({ config, onClose }) {
   const { title, submitLabel, fields = [], initialValues, onSubmit } = config;
   const [formError, setFormError] = useState(null); // null = hidden
@@ -15,7 +19,7 @@ export default function QuickFormModal({ config, onClose }) {
   const startValue = (f) => {
     const value = String(valueFor(f));
     if (f.type !== 'select') return value;
-    const opts = (f.options || []).map(String);
+    const opts = (f.options || []).map(optionValue);
     return opts.includes(value) ? value : opts[0] || '';
   };
 
@@ -69,11 +73,8 @@ export default function QuickFormModal({ config, onClose }) {
 
   return (
     <Modal title={title} onClose={onClose} maxWidth="540px">
-      <form
-        className="modal-body"
-        style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
-        onSubmit={handleSubmit}
-      >
+      <form onSubmit={handleSubmit}>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {fields.map((f) => {
           if (f.type === 'select') {
             return (
@@ -86,8 +87,8 @@ export default function QuickFormModal({ config, onClose }) {
                   onChange={handleChange}
                 >
                   {(f.options || []).map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
+                    <option key={optionValue(opt)} value={optionValue(opt)}>
+                      {optionLabel(opt)}
                     </option>
                   ))}
                 </select>
@@ -119,7 +120,8 @@ export default function QuickFormModal({ config, onClose }) {
         >
           {formError || ''}
         </div>
-        <div className="modal-footer" style={{ marginTop: '6px' }}>
+        </div>
+        <div className="modal-footer">
           <button className="btn btn-outline" type="button" data-action="cancel" onClick={onClose}>
             Cancel
           </button>

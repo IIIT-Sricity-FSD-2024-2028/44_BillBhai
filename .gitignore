@@ -22,3 +22,6 @@ back-end/logs/
 back-end/uploads/
 back-end/express/logs/
 back-end/express/uploads/
+
+# Saved runtime data (delete to reset to the demo seed)
+back-end/data-store/

@@ -1,52 +1,23 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request } from 'express';
+import { handle, query } from '../../utils/http';
+import { listScope } from '../../utils/scope';
 import { reportsService, ReportsService } from './reports.service';
 
-/**
- * Reports Module Controller
- *
- * Extracts HTTP input, delegates to the service, sets an explicit status code,
- * and forwards every failure to the global error pipeline via next(). The
- * reports endpoints take no input at all, so each method is a straight
- * delegation.
- */
+/** Reports Module Controller - always one business, optional date range. */
 export class ReportsController {
   constructor(private readonly service: ReportsService = reportsService) {}
 
-  public getSalesReport = (
-    _req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void => {
-    try {
-      res.status(200).json(this.service.getSalesReport());
-    } catch (error) {
-      next(error);
-    }
-  };
+  private scope(req: Request) {
+    return {
+      companyId: listScope(req, query(req, 'companyId')),
+      from: query(req, 'from'),
+      to: query(req, 'to'),
+    };
+  }
 
-  public getInventoryReport = (
-    _req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void => {
-    try {
-      res.status(200).json(this.service.getInventoryReport());
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  public getReturnsReport = (
-    _req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void => {
-    try {
-      res.status(200).json(this.service.getReturnsReport());
-    } catch (error) {
-      next(error);
-    }
-  };
+  public getSalesReport = handle((req) => this.service.getSalesReport(this.scope(req)));
+  public getInventoryReport = handle((req) => this.service.getInventoryReport(this.scope(req)));
+  public getReturnsReport = handle((req) => this.service.getReturnsReport(this.scope(req)));
 }
 
 export const reportsController = new ReportsController();

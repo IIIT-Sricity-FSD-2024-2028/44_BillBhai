@@ -2,6 +2,7 @@ import { Server } from 'http';
 import { app } from './app';
 import { config } from './config/index';
 import { logger, logDirectory } from './utils/logger';
+import { initPersistence, saveNow } from './data/persistence';
 
 /**
  * Server Startup and Lifecycle Entry Point
@@ -15,6 +16,7 @@ import { logger, logDirectory } from './utils/logger';
  * No routes and no middleware are defined here; that all lives in app.ts.
  */
 export function startServer(): Server {
+  initPersistence();
   const server = app.listen(config.port, () => {
     const base = `http://localhost:${config.port}`;
     [
@@ -33,6 +35,7 @@ export function startServer(): Server {
 
   const shutdown = (signal: string): void => {
     logger.info(`Received ${signal}. Shutting down gracefully.`);
+    saveNow();
 
     server.close(() => {
       logger.info('HTTP server closed.');

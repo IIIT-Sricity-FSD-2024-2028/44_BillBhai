@@ -29,68 +29,67 @@ export function escapeHtml(text) {
     .replace(/'/g, '&#39;');
 }
 
+/** The delivery statuses the server uses, in the order a parcel moves. */
+export const DELIVERY_STATUS_FLOW = [
+  'Pending',
+  'Assigned',
+  'Dispatched',
+  'Out for Delivery',
+  'Delivered',
+  'Failed Attempt',
+  'Returned to Store',
+  'Cancelled',
+];
+
+/** The server's own status, unchanged (older records may use legacy words). */
 export function normalizeDeliveryStatus(status) {
-  const raw = String(status || '')
-    .trim()
-    .toLowerCase();
+  const raw = String(status || '').trim();
   if (!raw) return 'Pending';
-  if (raw.includes('deliver')) return 'Delivered';
-  if (
-    raw.includes('out for') ||
-    raw.includes('transit') ||
-    raw.includes('dispatch') ||
-    raw.includes('processing')
-  )
-    return 'In Transit';
-  if (raw.includes('fail') || raw.includes('cancel')) return 'Failed';
-  if (raw.includes('pending')) return 'Pending';
-  return 'Pending';
+  const exact = DELIVERY_STATUS_FLOW.find((s) => s.toLowerCase() === raw.toLowerCase());
+  if (exact) return exact;
+  const lower = raw.toLowerCase();
+  if (lower.includes('transit')) return 'Out for Delivery';
+  if (lower.includes('fail')) return 'Failed Attempt';
+  return raw;
 }
 
+export const ORDER_STATUSES = ['Processing', 'Shipped', 'Delivered', 'Partially Returned', 'Returned', 'Cancelled'];
+
+/** The server's own order status, unchanged. */
 export function normalizeOrderStatus(status) {
-  const raw = String(status || '')
-    .trim()
-    .toLowerCase();
-  if (!raw) return 'Pending';
-  if (raw.includes('deliver')) return 'Delivered';
-  if (
-    raw.includes('process') ||
-    raw.includes('transit') ||
-    raw.includes('dispatch') ||
-    raw.includes('ship')
-  )
-    return 'Processing';
-  if (raw.includes('cancel') || raw.includes('fail')) return 'Cancelled';
-  if (raw.includes('pending')) return 'Pending';
-  return 'Pending';
+  const raw = String(status || '').trim();
+  if (!raw) return 'Processing';
+  const exact = ORDER_STATUSES.find((s) => s.toLowerCase() === raw.toLowerCase());
+  return exact || raw;
 }
 
+/**
+ * Stock status as the server worked it out (against each product's own
+ * reorder level). The screen never re-grades it with its own thresholds.
+ */
 export function normalizeInventoryStatus(status, stockValue) {
   const stock = Number.isFinite(Number(stockValue)) ? Number(stockValue) : 0;
-  const raw = String(status || '')
-    .trim()
-    .toLowerCase();
+  const raw = String(status || '').trim().toLowerCase();
   if (raw.includes('out')) return 'Out of Stock';
   if (raw.includes('critical')) return 'Critical';
   if (raw.includes('low')) return 'Low Stock';
-  if (raw.includes('in stock') || raw.includes('available') || raw.includes('active')) {
-    if (stock <= 0) return 'Out of Stock';
-    if (stock <= 10) return 'Critical';
-    if (stock <= 30) return 'Low Stock';
-    return 'In Stock';
-  }
-  if (stock <= 0) return 'Out of Stock';
-  if (stock <= 10) return 'Critical';
-  if (stock <= 30) return 'Low Stock';
-  return 'In Stock';
+  if (raw.includes('in stock')) return 'In Stock';
+  return stock <= 0 ? 'Out of Stock' : 'In Stock';
 }
 
 export function deliveryBadgeProps(status) {
-  const normalized = normalizeDeliveryStatus(status);
-  if (normalized === 'Delivered') return { text: 'Delivered', type: 'delivered' };
-  if (normalized === 'In Transit') return { text: 'In Transit', type: 'processing' };
-  if (normalized === 'Failed') return { text: 'Failed', type: 'cancelled' };
-  return { text: 'Pending', type: 'pending' };
+  const s = normalizeDeliveryStatus(status);
+  const type = {
+    Pending: 'pending',
+    Assigned: 'processing',
+    Dispatched: 'processing',
+    'Out for Delivery': 'processing',
+    Delivered: 'delivered',
+    'Failed Attempt': 'cancelled',
+    'Returned to Store': 'cancelled',
+    Cancelled: 'cancelled',
+  }[s];
+  return { text: s, type: type || 'pending' };
 }
 
 export function getInventoryMetrics(inventory) {
@@ -204,9 +203,11 @@ export function getOrderTimelineEntries(orders) {
   return (orders || [])
     .filter((order) => !isCancelledOrder(order))
     .map((order) => {
-      const parsed = parseOrderDate(order && order.date);
-      if (!parsed) return null;
-      return { date: parsed, total: Math.max(0, Number(order && order.total) || 0) };
+      const parsed = order && order.orderDate ? new Date(order.orderDate) : parseOrderDate(order && order.date);
+      if (!parsed || Number.isNaN(parsed.getTime())) return null;
+      // Net of refunds, the same definition the Reports page uses.
+      const net = Math.max(0, Number(order && order.total) || 0) - Math.max(0, Number(order && order.refunded) || 0);
+      return { date: parsed, total: net };
     })
     .filter(Boolean);
 }
@@ -224,22 +225,8 @@ export function buildRevenueTrendDays(orders, dayCount) {
     totalsByDay.set(key, (totalsByDay.get(key) || 0) + entry.total);
   });
 
-  let anchorDay = new Date(now);
-  if (timelineEntries.length) {
-    const currentWindowStart = new Date(now);
-    currentWindowStart.setDate(now.getDate() - (count - 1));
-    const hasRecentData = timelineEntries.some(
-      (entry) => startOfDay(entry.date).getTime() >= currentWindowStart.getTime(),
-    );
-    if (!hasRecentData) {
-      anchorDay = startOfDay(
-        timelineEntries.reduce(
-          (latest, entry) => (entry.date > latest ? entry.date : latest),
-          timelineEntries[0].date,
-        ),
-      );
-    }
-  }
+  // Always the last `count` days up to today, even when some are empty.
+  const anchorDay = new Date(now);
 
   for (let offset = count - 1; offset >= 0; offset -= 1) {
     const day = new Date(anchorDay);
@@ -261,15 +248,8 @@ export function buildRevenueTrendWeeks(orders, weekCount) {
     totalsByWeek.set(key, (totalsByWeek.get(key) || 0) + entry.total);
   });
 
-  let anchorWeek = startOfWeek(new Date());
-  if (timelineEntries.length) {
-    anchorWeek = startOfWeek(
-      timelineEntries.reduce(
-        (latest, entry) => (entry.date > latest ? entry.date : latest),
-        timelineEntries[0].date,
-      ),
-    );
-  }
+  // Always the weeks up to this one.
+  const anchorWeek = startOfWeek(new Date());
 
   const labels = [];
   const values = [];
@@ -326,7 +306,8 @@ export function formatBackendDate(value) {
   ];
   const hh = String(parsed.getHours()).padStart(2, '0');
   const mm = String(parsed.getMinutes()).padStart(2, '0');
-  return `${parsed.getDate()} ${months[parsed.getMonth()]} ${hh}:${mm}`;
+  const year = parsed.getFullYear() !== new Date().getFullYear() ? ` ${parsed.getFullYear()}` : '';
+  return `${parsed.getDate()} ${months[parsed.getMonth()]}${year} ${hh}:${mm}`;
 }
 
 export function formatRelativeTime(timestamp) {
@@ -565,6 +546,7 @@ export function normalizeBusinessRecord(raw, fallbackId, fallbackName) {
 
   const usersList = Array.isArray(safe.users)
     ? safe.users.map((u, idx) => ({
+        id: String((u && u.id) || '').trim(),
         name: String((u && u.name) || `User ${idx + 1}`).trim(),
         role: String((u && u.role) || 'Staff').trim(),
         status: String((u && u.status) || 'Active').trim(),
@@ -597,6 +579,9 @@ export function normalizeBusinessRecord(raw, fallbackId, fallbackName) {
         .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   return {
+    // Every field the server sent (plan, subscriptionStatus, monthlyPrice,
+    // renewalDate, gstNo, address, version, ...), then the display defaults.
+    ...safe,
     id,
     name,
     owner: String(safe.owner || 'Unknown Owner').trim(),

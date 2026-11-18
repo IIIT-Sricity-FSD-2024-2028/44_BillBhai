@@ -23,7 +23,7 @@ export default function ReturnCharts({ view }) {
       labels: top.length ? top.map(([p]) => p) : ['No data'],
       datasets: [
         {
-          label: 'Returns',
+          label: 'Units returned',
           data: top.length ? top.map(([, n]) => n) : [0],
           backgroundColor: c.purple,
         },
@@ -48,11 +48,11 @@ export default function ReturnCharts({ view }) {
     const c = getColors();
     const counts = summarizeReturns(view);
     return {
-      labels: ['Pending', 'Refunded', 'Rejected'],
+      labels: ['Pending', 'Approved', 'Refunded', 'Exchanged', 'Rejected'],
       datasets: [
         {
-          data: [counts.pending, counts.refunded, counts.rejected],
-          backgroundColor: [c.amber, c.green, c.red],
+          data: [counts.pending, counts.approved, counts.refunded, counts.exchanged, counts.rejected],
+          backgroundColor: [c.amber, c.blue, c.green, c.purple, c.red],
           borderWidth: 0,
         },
       ],

@@ -18,6 +18,7 @@ export const ROLE_ALLOWED_PAGES = {
     'delivery',
     'returns',
     'reports',
+    'coupons',
     'users',
     'profile',
     'notifications',
@@ -30,6 +31,7 @@ export const ROLE_ALLOWED_PAGES = {
     'delivery',
     'returns',
     'reports',
+    'coupons',
     'users',
     'profile',
     'notifications',
@@ -164,7 +166,6 @@ export const FETCH_TIMEOUT_MS = 7000;
 export const NOTIFICATION_STATE_STORAGE_KEY = 'bb_notification_state';
 export const NOTIFICATIONS_STORAGE_KEY = 'bb_notifications';
 export const PROFILE_SETTINGS_STORAGE_KEY = 'bb_profile_settings';
-export const AUTH_OVERRIDE_STORAGE_KEY = 'bb_auth_overrides';
 export const CUSTOMER_SESSION_NOTIFICATION_KEY = 'bb_customer_session_notifications';
 
 export const OPERATIONAL_STORAGE_KEYS = [
@@ -232,12 +233,8 @@ export const ROLE_NOTIFICATION_CONFIG = {
   ],
 };
 
-export const API_BASE_URL = 'http://localhost:4000/api';
-export const API_BASE_CANDIDATES = [
-  'http://localhost:4000/api',
-  'http://127.0.0.1:4000/api',
-  '/api',
-];
+export { API_BASE_URL } from '../http.js';
+export const API_BASE_CANDIDATES = [];
 
 export const DELIVERY_PARTNER_DIRECTORY = {
   'Rajesh K.': {
@@ -337,26 +334,6 @@ export const SUPPLIER_DIRECTORY = {
   },
 };
 
-export const USER_MANAGED_ROLE_OPTIONS = [
-  'Admin',
-  'Cashier',
-  'Return Handler',
-  'Inventory Manager',
-  'Delivery Ops',
-  'Customer',
-  'Super User',
-];
-export const CORE_AUTH_USER_KEYS = new Set([
-  'superuser',
-  'admin',
-  'cashier',
-  'returnhandler',
-  'inventorymanager',
-  'deliveryops',
-  'customer',
-  'chirag',
-]);
-
 export const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 export const PHONE_PATTERN = /^[6-9]\d{9}$/;
 
@@ -367,6 +344,7 @@ export const PAGE_TITLES = {
   delivery: 'BillBhai - Delivery',
   returns: 'BillBhai - Returns & Refunds',
   reports: 'BillBhai - Reports',
+  coupons: 'BillBhai - Coupons',
   users: 'BillBhai - Users',
   profile: 'BillBhai - Profile & Settings',
   notifications: 'BillBhai - Notifications',
@@ -381,6 +359,7 @@ export const PAGE_LABELS = {
   delivery: 'Delivery',
   returns: 'Returns & Refunds',
   reports: 'Reports',
+  coupons: 'Coupons',
   users: 'Users',
   profile: 'Profile & Settings',
   notifications: 'Notifications',

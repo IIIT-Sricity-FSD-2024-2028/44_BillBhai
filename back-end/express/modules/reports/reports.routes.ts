@@ -1,39 +1,30 @@
 import { Router } from 'express';
 import { requireRoles } from '../../middleware/rbac.middleware';
+import { validate } from '../../middleware/validate.middleware';
 import { reportsController, ReportsController } from './reports.controller';
+import { reportQuerySchema } from './reports.schema';
 
-/**
- * Reports Module Router
- *
- * Router-level middleware chain per endpoint:
- *   requireRoles(...)  -> role based access control
- *   controller.method  -> request handling
- *
- * No validate() step: these endpoints accept no params, query string or body.
- */
-export function createReportsRouter(
-  controller: ReportsController = reportsController,
-): Router {
+/** Reports Module Router */
+export function createReportsRouter(controller: ReportsController = reportsController): Router {
   const router = Router();
-
   router.get(
     '/sales',
-    requireRoles('superuser', 'admin'),
+    requireRoles('superuser', 'admin', 'cashier'),
+    validate({ query: reportQuerySchema }),
     controller.getSalesReport,
   );
-
   router.get(
     '/inventory',
     requireRoles('superuser', 'admin', 'inventorymanager'),
+    validate({ query: reportQuerySchema }),
     controller.getInventoryReport,
   );
-
   router.get(
     '/returns',
     requireRoles('superuser', 'admin', 'returnhandler'),
+    validate({ query: reportQuerySchema }),
     controller.getReturnsReport,
   );
-
   return router;
 }
 

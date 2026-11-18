@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import { BadRequestError } from '../../errors/http-error';
 import { logger } from '../../utils/logger';
+import { assertInScope, writeScope } from '../../utils/scope';
+import { productsService } from '../products/products.service';
 import { uploadsService, UploadsService } from './uploads.service';
 import { UploadedFileMeta } from './uploads.schema';
 
@@ -61,6 +63,8 @@ export class UploadsController {
   ): void => {
     try {
       const meta = this.toMeta(req, 'image');
+      const target = productsService.findOne(String(req.params.id));
+      assertInScope(req, target.companyId, `Product ${target.id}`);
       const record = this.service.register(meta, this.actor(req));
       const product = this.service.attachImageToProduct(
         String(req.params.id),
@@ -82,7 +86,7 @@ export class UploadsController {
   public importCsv = (req: Request, res: Response, next: NextFunction): void => {
     try {
       const meta = this.toMeta(req, 'import');
-      const summary = this.service.importProductsFromCsv(meta, this.actor(req));
+      const summary = this.service.importProductsFromCsv(meta, this.actor(req), writeScope(req, req.body?.companyId));
 
       logger.info('Product CSV imported', {
         requestId: req.requestId,

@@ -14,6 +14,7 @@ import {
   markNotificationsRead,
   persistOperationalData,
   publishDataSync,
+  refreshData,
   renderPage,
   saveProfileSettings,
   setCollection,
@@ -59,6 +60,11 @@ export function useDashboard() {
       returns: s.returns,
       users: s.users,
       businesses: s.businesses,
+      suppliers: s.suppliers,
+      coupons: s.coupons,
+      lastSyncedAt: s.lastSyncedAt,
+      syncError: s.syncError,
+      refreshData,
       ready: s.status === 'ready',
       roleKey: s.roleKey,
       page: s.page,
@@ -111,6 +117,7 @@ export function useNotifications() {
     s.returns,
     s.users,
     s.businesses,
+    s.coupons,
     s.notificationsVersion,
     s.shell,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -129,7 +136,10 @@ export function useResource(collection, { basePath, idKey = 'id' } = {}) {
     setSaving(true);
     setError(null);
     try {
-      return await fn();
+      const result = await fn();
+      // Read back what the server now holds, so every page shows the truth.
+      refreshData();
+      return result;
     } catch (err) {
       setError(err);
       throw err;

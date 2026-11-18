@@ -22,10 +22,11 @@ const MAIN_ITEMS = [
 const MANAGEMENT_ITEMS = [
   { page: 'returns', label: 'Returns & Refunds' },
   { page: 'reports', label: 'Reports' },
+  { page: 'coupons', label: 'Coupons' },
   { page: 'users', label: 'Users' },
   { page: 'superuser', label: 'Super User Portal' },
 ];
-const MANAGEMENT_PAGES = ['returns', 'reports', 'users', 'superuser'];
+const MANAGEMENT_PAGES = ['returns', 'reports', 'coupons', 'users', 'superuser'];
 
 export default function Sidebar({
   page,

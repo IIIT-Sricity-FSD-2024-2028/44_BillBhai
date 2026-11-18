@@ -1,163 +1,126 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PageHeader from '../common/PageHeader.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
-import OrdersTable, { ORDERS_EMPTY_MESSAGE } from './OrdersTable.jsx';
+import OrdersTable from './OrdersTable.jsx';
 import OrderBillModal from './OrderBillModal.jsx';
-import { useDashboard, useOrders } from '../../lib/dashboard/hooks.js';
-import { getState } from '../../lib/dashboard/store.js';
+import OrderFormModal from './OrderFormModal.jsx';
+import OrderEditModal from './OrderEditModal.jsx';
+import CancelOrderModal from './CancelOrderModal.jsx';
+import AdvancedFilters from './AdvancedFilters.jsx';
+import { useDashboard } from '../../lib/dashboard/hooks.js';
+import { apiRequest } from '../../lib/dashboard/api.js';
 import { downloadCsv } from '../../lib/dashboard/csv.js';
 import {
-  getNextOrderId,
-  normalizeOrderStatus,
-  parseOrderDate,
-} from '../../lib/dashboard/helpers.js';
-
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'oldest', label: 'Oldest first' },
-  { value: 'total_high', label: 'Total high-low' },
-  { value: 'total_low', label: 'Total low-high' },
-];
+  DEFAULT_FILTERS,
+  ORDER_STATUS_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
+  SORT_OPTIONS,
+  activeAdvancedCount,
+  filterOrders,
+  firstOrderByCustomer,
+  sortOrders,
+  summarise,
+} from './orderFilters.js';
+import { CHECKOUT_MODE_LABELS, dayKey, rupees } from './orderFormat.js';
 
 const CSV_COLUMNS = [
   { label: 'Order ID', value: (o) => o.id },
+  { label: 'Bill No', value: (o) => o.billNo },
+  { label: 'Date', value: (o) => `${dayKey(o.orderDate)} ${new Date(o.orderDate).toTimeString().slice(0, 5)}` },
   { label: 'Customer', value: (o) => o.customer },
+  { label: 'Phone', value: (o) => o.customerPhone },
+  { label: 'Type', value: (o) => (o.orderType === 'delivery' ? 'Delivery' : 'Counter') },
+  { label: 'Checkout', value: (o) => CHECKOUT_MODE_LABELS[o.checkoutMode] || o.checkoutMode },
   { label: 'Items', value: (o) => o.items },
+  { label: 'Subtotal', value: (o) => o.subtotal },
+  { label: 'Coupon', value: (o) => o.promoCode },
+  { label: 'Discount', value: (o) => o.discount },
+  { label: 'Delivery charge', value: (o) => o.deliveryCharge },
+  { label: 'GST included', value: (o) => o.tax },
   { label: 'Total', value: (o) => o.total },
-  { label: 'Payment', value: (o) => o.normalizedPayment },
-  { label: 'Status', value: (o) => o.normalizedStatus },
-  { label: 'Date', value: (o) => o.date },
+  { label: 'Refunded', value: (o) => o.refunded },
+  { label: 'Net', value: (o) => o.net },
+  { label: 'Payment', value: (o) => o.payment },
+  { label: 'Payment status', value: (o) => o.paymentStatus },
+  { label: 'Status', value: (o) => o.status },
+  { label: 'Cashier', value: (o) => o.staffName },
 ];
 
-function buildOrderRows(orders) {
-  return orders.map((order) => ({
-    ...order,
-    normalizedStatus: normalizeOrderStatus(order && order.status),
-    normalizedPayment: String((order && order.payment) || 'Pending').trim() || 'Pending',
-    parsedDate: parseOrderDate(order && order.date),
-  }));
-}
+const SUMMARY_STYLE = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px 18px',
+  alignItems: 'center',
+  fontSize: '0.82rem',
+  marginBottom: '10px',
+};
 
-function sortRows(sortKey) {
-  const time = (row) => (row.parsedDate ? row.parsedDate.getTime() : 0) || 0;
-  const total = (row) => Math.max(0, Number(row.total || 0));
-  return (a, b) => {
-    if (sortKey === 'oldest') return time(a) - time(b);
-    if (sortKey === 'total_high') return total(b) - total(a);
-    if (sortKey === 'total_low') return total(a) - total(b);
-    return time(b) - time(a);
-  };
-}
+export default function OrdersContent() {
+  const {
+    orders,
+    inventory,
+    coupons,
+    hasActionAccess,
+    hasOrderDeleteAccess,
+    openConfirm,
+    showToast,
+    showMutationError,
+    refreshData,
+  } = useDashboard();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-function applyTablePatches(entries, patches) {
-  const firstCell = (entry) =>
-    entry.kind === 'empty' ? ORDERS_EMPTY_MESSAGE : String(entry.order.id);
-  return patches.reduce((rows, patch) => {
-    if (patch.type === 'delete') return rows.filter((entry) => firstCell(entry) !== patch.id);
-    let last = -1;
-    rows.forEach((entry, i) => {
-      if (firstCell(entry) === patch.oid) last = i;
-    });
-    const saved = { kind: 'saved', order: patch.order };
-    return last !== -1 ? rows.map((entry, i) => (i === last ? saved : entry)) : [saved, ...rows];
-  }, entries);
-}
-
-export default function OrdersContent({ patches, onResetPatches, onTablePatch, onOpenModal }) {
-  const { orders, hasActionAccess, hasOrderDeleteAccess, denyAction, openConfirm, showToast } =
-    useDashboard();
-  const { remove } = useOrders();
-
-  const orderRows = useMemo(() => buildOrderRows(orders), [orders]);
-  const [status, setStatus] = useState('all');
-  const [payment, setPayment] = useState('all');
-  const [sortKey, setSortKey] = useState('newest');
-  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState(() => {
+    const coupon = searchParams.get('coupon');
+    return coupon ? { ...DEFAULT_FILTERS, coupon: coupon.toUpperCase() } : DEFAULT_FILTERS;
+  });
+  const [showAdvanced, setShowAdvanced] = useState(() => Boolean(searchParams.get('coupon')));
   const [billOrderId, setBillOrderId] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [cancelling, setCancelling] = useState(null);
 
-  useLayoutEffect(() => {
-    onResetPatches();
-  }, []);
-
-  const withReset = (setter) => (value) => {
-    setter(value);
-    onResetPatches();
-  };
-
-  const statusOptions = Array.from(new Set(orderRows.map((item) => item.normalizedStatus))).sort();
-  const paymentOptions = Array.from(
-    new Set(orderRows.map((item) => item.normalizedPayment)),
-  ).sort();
-
-  const search = query.trim().toLowerCase();
-  const filtered = orderRows
-    .filter((item) => {
-      if (status !== 'all' && item.normalizedStatus !== status) return false;
-      if (payment !== 'all' && item.normalizedPayment !== payment) return false;
-      if (search && !`${item.id} ${item.customer}`.toLowerCase().includes(search)) return false;
-      return true;
-    })
-    .sort(sortRows(sortKey));
-  const baseEntries = filtered.length
-    ? filtered.map((order) => ({ kind: 'row', order }))
-    : [{ kind: 'empty' }];
-  const entries = applyTablePatches(baseEntries, patches);
-
-  const canEdit = hasActionAccess('orders');
-  const canDelete = hasOrderDeleteAccess();
-
-  const openNewOrder = () => {
-    if (!hasActionAccess('orders')) {
-      denyAction('Order create');
-      return;
+  // A link such as /orders?coupon=FLAT50 (from the Coupons page) sets the
+  // coupon filter. The code stays in the address while that filter is on, so
+  // the page can be reloaded or shared; changing the filter updates it.
+  const setFilter = (key, value) => {
+    setFilters((f) => ({ ...f, [key]: value }));
+    if (key === 'coupon') {
+      const next = new URLSearchParams(searchParams);
+      if (value && value !== 'any' && value !== 'none' && value !== 'all') next.set('coupon', value);
+      else next.delete('coupon');
+      setSearchParams(next, { replace: true });
     }
-    onOpenModal({
-      edit: false,
-      values: {
-        orderId: getNextOrderId(orders),
-        customer: '',
-        items: '',
-        total: '',
-        payment: '',
-        status: 'Pending',
-      },
-    });
   };
 
-  const editOrder = (id) => {
-    if (!hasActionAccess('orders')) {
-      denyAction('Order update');
-      return;
-    }
-    const o = orders.find((item) => item.id === id);
-    if (!o) return;
-    onOpenModal({
-      edit: true,
-      values: {
-        orderId: String(o.id),
-        customer: String(o.customer),
-        items: String(o.items),
-        total: String(o.total),
-        payment: String(o.payment),
-        status: String(o.status),
-      },
-    });
-  };
+  const categoryById = useMemo(() => new Map(inventory.map((p) => [p.productId, p.cat])), [inventory]);
+  const firstOrders = useMemo(() => firstOrderByCustomer(orders), [orders]);
+  const filtered = sortOrders(
+    filterOrders(orders, filters, { categoryOf: (id) => categoryById.get(id), firstOrders }),
+    filters.sort,
+  );
+  const totals = summarise(filtered);
+  const advancedCount = activeAdvancedCount(filters);
+
+  const canCreate = hasActionAccess('orders');
+  const isManager = hasOrderDeleteAccess();
+
+  const findOrder = (id) => orders.find((o) => o.id === id);
 
   const deleteOrder = (id) => {
-    if (!hasActionAccess('orders') || !hasOrderDeleteAccess()) {
-      denyAction('Order delete');
-      return;
-    }
     openConfirm({
-      title: 'Delete Order',
-      message: `Delete Order ${id}?`,
+      title: 'Delete cancelled order',
+      message: `Hide cancelled order ${id} from the list? It stays in the books and the stock history.`,
       confirmLabel: 'Delete',
       onConfirm: async () => {
-        if (!getState().orders.some((item) => item.id === id)) return true;
-        await remove(id);
-        onTablePatch({ type: 'delete', id });
-        showToast(`Order "${id}" deleted!`);
+        try {
+          await apiRequest(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        } catch (err) {
+          showMutationError('Delete', err);
+          return false;
+        }
+        await refreshData();
+        showToast(`Order ${id} deleted`);
         return true;
       },
     });
@@ -171,12 +134,12 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
           <>
             <button
               className="btn btn-outline"
-              onClick={() => downloadCsv('orders.csv', CSV_COLUMNS, filtered)}
+              onClick={() => downloadCsv(`orders-${dayKey(new Date())}.csv`, CSV_COLUMNS, filtered)}
             >
-              Export CSV
+              Export CSV ({filtered.length})
             </button>
-            {canEdit && (
-              <button className="btn btn-primary" id="newOrderBtnDyn" onClick={openNewOrder}>
+            {canCreate && (
+              <button className="btn btn-primary" id="newOrderBtnDyn" onClick={() => setCreating(true)}>
                 + New Order
               </button>
             )}
@@ -189,22 +152,22 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
             {
               id: 'ordersStatusFilter',
               label: 'Status',
-              value: status,
-              onChange: withReset(setStatus),
-              options: [{ value: 'all', label: 'All statuses' }, ...statusOptions],
+              value: filters.status,
+              onChange: (v) => setFilter('status', v),
+              options: [{ value: 'all', label: 'All statuses' }, ...ORDER_STATUS_OPTIONS],
             },
             {
               id: 'ordersPaymentFilter',
               label: 'Payment',
-              value: payment,
-              onChange: withReset(setPayment),
-              options: [{ value: 'all', label: 'All payments' }, ...paymentOptions],
+              value: filters.payment,
+              onChange: (v) => setFilter('payment', v),
+              options: [{ value: 'all', label: 'All payments' }, ...PAYMENT_METHOD_OPTIONS],
             },
             {
               id: 'ordersSortSelect',
               label: 'Sort by',
-              value: sortKey,
-              onChange: withReset(setSortKey),
+              value: filters.sort,
+              onChange: (v) => setFilter('sort', v),
               options: SORT_OPTIONS,
             },
           ]}
@@ -217,22 +180,80 @@ export default function OrdersContent({ patches, onResetPatches, onTablePatch, o
               id="ordersSearch"
               type="search"
               className="toolbar-select"
-              placeholder="Order ID or customer"
-              value={query}
-              onChange={(e) => withReset(setQuery)(e.target.value)}
+              placeholder="Order, bill, customer, phone"
+              value={filters.search}
+              onChange={(e) => setFilter('search', e.target.value)}
             />
           </div>
+          <div className="toolbar-group" style={{ alignSelf: 'flex-end' }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              aria-expanded={showAdvanced}
+              onClick={() => setShowAdvanced((v) => !v)}
+            >
+              {showAdvanced ? 'Hide' : 'More'} filters{advancedCount ? ` (${advancedCount} on)` : ''}
+            </button>
+          </div>
         </FilterToolbar>
+        {showAdvanced && (
+          <AdvancedFilters
+            filters={filters}
+            setFilter={setFilter}
+            onClear={() => {
+              setFilters((f) => ({ ...DEFAULT_FILTERS, status: f.status, payment: f.payment, search: f.search, sort: f.sort }));
+              setSearchParams(new URLSearchParams(), { replace: true });
+            }}
+            orders={orders}
+            inventory={inventory}
+            coupons={coupons}
+          />
+        )}
       </section>
+      <div style={SUMMARY_STYLE} aria-live="polite">
+        <strong>
+          {filtered.length} of {orders.length} orders
+        </strong>
+        <span>Billed {rupees(totals.billed)}</span>
+        <span>Refunded {rupees(totals.refunded)}</span>
+        <span>Net {rupees(totals.net)}</span>
+        <span>Discount given {rupees(totals.discount)}</span>
+        {totals.cancelled > 0 && <span className="text-muted">{totals.cancelled} cancelled (not counted)</span>}
+      </div>
       <OrdersTable
-        rows={entries}
-        canEdit={canEdit}
-        canDelete={canDelete}
-        onEdit={editOrder}
-        onDelete={deleteOrder}
+        rows={filtered}
+        canEdit={canCreate}
+        isManager={isManager}
         onViewBill={setBillOrderId}
+        onEdit={(id) => setEditing(findOrder(id) || null)}
+        onCancel={(id) => setCancelling(findOrder(id) || null)}
+        onDelete={deleteOrder}
       />
-      <OrderBillModal orderId={billOrderId} onClose={() => setBillOrderId(null)} />
+      <OrderBillModal
+        orderId={billOrderId}
+        onClose={() => setBillOrderId(null)}
+        canEdit={canCreate}
+        isManager={isManager}
+        onEdit={(id) => {
+          setBillOrderId(null);
+          setEditing(findOrder(id) || null);
+        }}
+        onCancel={(id) => {
+          setBillOrderId(null);
+          setCancelling(findOrder(id) || null);
+        }}
+      />
+      {creating && (
+        <OrderFormModal
+          onClose={() => setCreating(false)}
+          onCreated={(order) => {
+            setCreating(false);
+            setBillOrderId(order.id);
+          }}
+        />
+      )}
+      {editing && <OrderEditModal order={editing} onClose={() => setEditing(null)} />}
+      {cancelling && <CancelOrderModal order={cancelling} onClose={() => setCancelling(null)} />}
     </>
   );
 }

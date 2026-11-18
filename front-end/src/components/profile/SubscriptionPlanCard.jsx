@@ -24,6 +24,7 @@ export default function SubscriptionPlanCard({
   plan,
   usersCount,
   productsCount,
+  renewalText,
   onUpgrade,
   onCancel,
 }) {
@@ -49,13 +50,13 @@ export default function SubscriptionPlanCard({
         >
           <div>
             <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {`₹${plan.price}`}
+              {`₹${Number(plan.price).toLocaleString('en-IN')}`}
               <small style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>
                 /month
               </small>
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-              Renews on 30 Sept 2026
+              {renewalText}
             </div>
           </div>
           <span className="badge b-active">Active</span>

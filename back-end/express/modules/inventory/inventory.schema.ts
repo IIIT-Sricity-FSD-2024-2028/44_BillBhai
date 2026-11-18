@@ -3,24 +3,14 @@ import { InventoryItem } from '../../data/entities';
 
 /** Inventory Module Schemas - DTOs and zod validation only. No business logic. */
 
-/**
- * The four stock states. NOTE: status is DERIVED from stockAvailable and
- * reorderLevel by the service, so it is deliberately absent from every write
- * schema below - a client may never set it.
- */
-export const INVENTORY_STATUSES = [
-  'In Stock',
-  'Low Stock',
-  'Critical',
-  'Out of Stock',
-] as const;
+export const INVENTORY_STATUSES = ['In Stock', 'Low Stock', 'Critical', 'Out of Stock'] as const;
 
-/** The subset of statuses that findLowStock() reports on. */
-export const LOW_STOCK_STATUSES = [
-  'Low Stock',
-  'Critical',
-  'Out of Stock',
-] as const;
+/** Statuses the low-stock report and the reorder list pick up. */
+export const LOW_STOCK_STATUSES = ['Low Stock', 'Critical', 'Out of Stock'] as const;
+
+export const MOVEMENT_TYPES = ['opening', 'sale', 'return', 'cancel', 'receive', 'adjust', 'exchange'] as const;
+
+const wholeNumber = (label: string) => z.number().int(`${label} must be a whole number`);
 
 export const inventoryIdParamsSchema = z.object({
   id: z.string().regex(/^INV-\d+$/i, 'Inventory id must look like INV-001'),
@@ -30,54 +20,66 @@ export const productIdParamsSchema = z.object({
   productId: z.string().min(1, 'productId is required'),
 });
 
+export const listInventoryQuerySchema = z.object({
+  companyId: z.string().optional(),
+});
+
+export const listMovementsQuerySchema = z.object({
+  companyId: z.string().optional(),
+  productId: z.string().optional(),
+  type: z.enum(MOVEMENT_TYPES).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
+});
+
+/**
+ * Shelf settings only. `stockAvailable` is deliberately not accepted: stock
+ * changes go through POST /inventory/adjust or /inventory/receive so every
+ * change has a reason and a ledger entry.
+ */
 export const updateInventorySchema = z
   .object({
-    stockAvailable: z
-      .number()
-      .int('stockAvailable must be a whole number')
-      .min(0, 'stockAvailable must not be negative')
-      .optional(),
-    reorderLevel: z
-      .number()
-      .int('reorderLevel must be a whole number')
-      .min(0, 'reorderLevel must not be negative')
-      .optional(),
-    location: z.string().min(1, 'location must not be empty').optional(),
+    reorderLevel: wholeNumber('reorderLevel').min(0, 'reorderLevel must not be negative').max(100000).optional(),
+    location: z.string().trim().min(1, 'location must not be empty').max(60).optional(),
+    version: z.number().int().optional(),
+    stockAvailable: z.unknown().optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, {
+  .refine((value) => value.stockAvailable === undefined, {
+    message: 'Stock count cannot be set directly. Use Adjust stock or Receive stock.',
+    path: ['stockAvailable'],
+  })
+  .transform(({ stockAvailable: _ignored, ...rest }) => rest)
+  .refine((value) => value.reorderLevel !== undefined || value.location !== undefined, {
     message: 'At least one field must be supplied',
   });
 
-/** Opens a stock row for a product that has none yet (e.g. a newly added product). */
 export const createInventorySchema = z.object({
   productId: z.string().min(1, 'productId is required'),
-  stockAvailable: z
-    .number()
-    .int('stockAvailable must be a whole number')
-    .min(0, 'stockAvailable must not be negative')
-    .default(0),
-  reorderLevel: z
-    .number()
-    .int('reorderLevel must be a whole number')
-    .min(0, 'reorderLevel must not be negative')
-    .default(10),
-  location: z.string().min(1, 'location must not be empty').default('Shelf'),
+  stockAvailable: wholeNumber('stockAvailable').min(0, 'stockAvailable must not be negative').max(1000000).default(0),
+  reorderLevel: wholeNumber('reorderLevel').min(0, 'reorderLevel must not be negative').default(10),
+  location: z.string().trim().min(1, 'location must not be empty').default('Shelf'),
 });
 
 export const adjustStockSchema = z.object({
   productId: z.string().min(1, 'productId is required'),
-  adjustment: z
-    .number()
-    .int('adjustment must be a whole number')
-    .refine((value) => value !== 0, {
-      message: 'adjustment must not be zero',
-    }),
+  adjustment: wholeNumber('adjustment')
+    .min(-100000)
+    .max(100000)
+    .refine((value) => value !== 0, { message: 'adjustment must not be zero' }),
+  reason: z.string().trim().min(3, 'Say why the stock is changing (at least 3 characters)').max(200),
+});
+
+export const receiveStockSchema = z.object({
+  productId: z.string().min(1, 'productId is required'),
+  quantity: wholeNumber('quantity').min(1, 'quantity must be at least 1').max(100000),
+  supplierId: z.string().optional(),
+  note: z.string().max(200).optional(),
 });
 
 export type InventoryStatus = (typeof INVENTORY_STATUSES)[number];
 export type CreateInventoryDto = z.infer<typeof createInventorySchema>;
 export type UpdateInventoryDto = z.infer<typeof updateInventorySchema>;
 export type AdjustStockDto = z.infer<typeof adjustStockSchema>;
+export type ReceiveStockDto = z.infer<typeof receiveStockSchema>;
 export type { InventoryItem };
 
 export interface DeleteInventoryResult {

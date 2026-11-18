@@ -11,7 +11,8 @@ Modern retail environments require seamless, real-time coordination across order
 ### Architecture Highlights:
 - **Frontend**: Single-Page Application (SPA) built with React 19, Vite, React Router 7, and Chart.js.
 - **Backend**: RESTful API service built with Express.js 5 and TypeScript, featuring Zod schema validation, Role-Based Access Control (RBAC), and Swagger/OpenAPI documentation.
-- **Data Layer**: In-memory repository pattern pre-seeded with multi-tenant company, catalog, inventory, order, and user data for instant, deterministic testing and runtime evaluation.
+- **Data Layer**: Services keep records in memory and save them to `back-end/data-store/billbhai-data.json` after every change, so a restart keeps all data. The seed builds about 45 days of consistent sales history for two businesses. Delete the file (or call `POST /api/admin/reset-demo` as the super user) to start over.
+- **Source of truth**: The server prices every bill from the catalogue, checks stock, coupons and plan limits, keeps a stock ledger and a per-record version and activity log. See [CHANGELOG.md](CHANGELOG.md).
 
 ### Key Business Domains & Roles:
 - **Customer**: Browses catalog, places self-checkout orders, views receipts.
@@ -91,6 +92,13 @@ This runs `concurrently` to spin up:
   npm run dev:frontend
   ```
 
+### Pointing the front-end at the API:
+The front-end calls `http://localhost:4000/api` by default. To use another address (for example when port 4000 is taken), start it with `VITE_API_URL`, or copy `front-end/.env.example` to `front-end/.env`:
+```bash
+VITE_API_URL=http://localhost:4100/api npm run dev:frontend
+```
+Start the backend on the matching port with `PORT=4100 npm run dev:backend`.
+
 ### Accessing the Web Application:
 - **Landing Page**: `http://127.0.0.1:5500/`
 - **Login Portal**: `http://127.0.0.1:5500/login`
@@ -107,6 +115,8 @@ This runs `concurrently` to spin up:
 | `returnhandler` | `return123` | returnhandler | Returns processing & inspection desk |
 | `chirag` | `chirag1234` | superuser | Super Administrator across organizations |
 | `customer` | `customer123` | customer | Self-service counter checkout |
+| `metroadmin` | `metro123` | admin | Admin of a second business (Metro Mart East), to see that businesses are kept apart |
+| `metrocashier` | `metro123` | cashier | Cashier of Metro Mart East |
 
 ---
 
@@ -117,7 +127,7 @@ This runs `concurrently` to spin up:
 npm test
 ```
 - Executes Jest test suites across all backend modules.
-- **Expected Result**: **13 test suites passed, 198 tests passed**.
+- **Expected Result**: **15 test suites passed, 589 tests passed**.
 
 ### Verify TypeScript Types:
 ```bash

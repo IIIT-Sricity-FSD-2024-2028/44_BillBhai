@@ -4,130 +4,79 @@ import StatCard from '../common/StatCard.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
 import DataTable from '../common/DataTable.jsx';
 import Badge from '../common/Badge.jsx';
-
-const ICONS = {
-  mrr: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M12 1v22" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  ),
-  businesses: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M3 21h18" />
-      <rect x="4" y="3" width="7" height="14" rx="1" />
-      <rect x="13" y="7" width="7" height="10" rx="1" />
-    </svg>
-  ),
-  active: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  ),
-  pending: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="15" y1="9" x2="9" y2="15" />
-      <line x1="9" y1="9" x2="15" y2="15" />
-    </svg>
-  ),
-};
+import { ICONS } from './businessIcons.jsx';
 
 const SORT_OPTIONS = [
+  { value: 'name', label: 'Name A-Z' },
   { value: 'payment_due', label: 'Payment due' },
   { value: 'profit', label: 'Profit' },
-  { value: 'stores', label: 'Stores' },
-  { value: 'tenure', label: 'Tenure' },
+  { value: 'renewal', label: 'Renewal date' },
+  { value: 'staff', label: 'Staff accounts' },
 ];
 
-const COLUMNS = [
-  'Business ID',
-  'Business Name',
-  'Plan Tier',
-  'Stores',
-  'Profit',
-  'Payment Due',
-  'Status',
-  'Actions',
-];
+const COLUMNS = ['Business', 'Plan', 'Subscription', 'Staff', 'Stores', 'Profit', 'Payment due', 'Status', 'Actions'];
 
-const NAME_BTN_STYLE = { padding: '2px 8px', fontSize: '0.75rem' };
-const ROW_BTN_STYLE = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px' };
-const ROW_DELETE_STYLE = {
-  padding: '4px 8px',
-  fontSize: '0.75rem',
-  color: 'var(--red)',
-  borderColor: 'var(--red)',
+const ROW_BTN_STYLE = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px', marginBottom: '2px' };
+const ROW_DELETE_STYLE = { ...ROW_BTN_STYLE, color: 'var(--red)', borderColor: 'var(--red)' };
+export const PLAN_LABEL = { starter: 'Starter', pro: 'Growth / Pro', enterprise: 'Enterprise' };
+
+const num = (v) => Number(v || 0);
+export const rupees = (v) => {
+  const n = num(v);
+  const whole = Number.isInteger(Number(n.toFixed(2)));
+  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
 };
 
-const planLabelOf = (item) =>
-  String((item && (item.productsPlan || item.type)) || 'Unknown').trim() || 'Unknown';
-const statusLabelOf = (item) => String((item && item.status) || 'Unknown').trim() || 'Unknown';
-const num = (v) => Math.max(0, Number(v || 0));
-
-const SORTERS = {
-  profit: (a, b) => num(b.profit) - num(a.profit),
-  stores: (a, b) => num(b.storesCount) - num(a.storesCount),
-  tenure: (a, b) => num(b.tenureMonths) - num(a.tenureMonths),
-  payment_due: (a, b) => num(b.paymentDue) - num(a.paymentDue),
+/** 2026-12-08 becomes 8 Dec 2026. */
+const renewalLabel = (value) => {
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime())
+    ? value
+    : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 };
+export const planOf = (c) => {
+  const raw = String(c.plan || c.productsPlan || '').toLowerCase();
+  if (raw.includes('enterprise')) return 'enterprise';
+  if (raw.includes('starter') || raw.includes('free')) return 'starter';
+  return 'pro';
+};
+const billable = (c) => c.status === 'Active' && String(c.subscriptionStatus || 'Active') === 'Active';
+export const statusType = (s) => (s === 'Active' ? 'active' : s === 'Paused' ? 'pending' : 'cancelled');
 
-export default function BusinessesList({ businesses, canManage, actions }) {
+/** All client businesses with their subscription and money position. */
+export default function BusinessesList({ companies, users, loading, canManage, actions }) {
   const [status, setStatus] = useState('all');
   const [plan, setPlan] = useState('all');
-  const [sortKey, setSortKey] = useState('payment_due');
+  const [subscription, setSubscription] = useState('all');
+  const [sortKey, setSortKey] = useState('name');
+  const [search, setSearch] = useState('');
 
-  const paymentDueTotal = businesses.reduce((sum, b) => sum + Number(b.paymentDue || 0), 0);
-  const activeCount = businesses.filter((b) => b.status === 'Active').length;
-  const totalMrr = businesses.reduce((sum, b) => {
-    const rawPlan = String(b.plan || b.productsPlan || '').toLowerCase();
-    const price = rawPlan.includes('enterprise') ? 4999 : rawPlan.includes('starter') ? 799 : 1999;
-    return sum + (b.status === 'Active' ? price : 0);
-  }, 0);
-  const statusOptions = Array.from(new Set(businesses.map(statusLabelOf))).sort();
-  const planOptions = Array.from(new Set(businesses.map(planLabelOf))).sort();
+  const staffCount = (id) =>
+    users.filter((u) => u.companyId === id && u.roleKey !== 'customer' && u.roleKey !== 'superuser').length;
+  // Starter is free, so it adds ₹0; cancelled or paused businesses add nothing.
+  const mrr = companies.filter(billable).reduce((sum, c) => sum + num(c.monthlyPrice), 0);
+  const dueTotal = companies.reduce((sum, c) => sum + num(c.paymentDue), 0);
+  const activeCount = companies.filter((c) => c.status === 'Active').length;
+  const staffTotal = companies.reduce((sum, c) => sum + staffCount(c.id), 0);
 
-  const visibleRows = businesses
-    .filter((item) => {
-      if (status !== 'all' && String(item.status || '').trim() !== status) return false;
-      if (plan !== 'all' && planLabelOf(item) !== plan) return false;
-      return true;
-    })
-    .slice()
-    .sort(SORTERS[sortKey] || SORTERS.payment_due);
+  const sorters = {
+    name: (a, b) => a.name.localeCompare(b.name),
+    payment_due: (a, b) => num(b.paymentDue) - num(a.paymentDue),
+    profit: (a, b) => num(b.profit) - num(a.profit),
+    renewal: (a, b) => String(a.renewalDate || '9999').localeCompare(String(b.renewalDate || '9999')),
+    staff: (a, b) => staffCount(b.id) - staffCount(a.id),
+  };
+  const needle = search.trim().toLowerCase();
+  const rows = companies
+    .filter((c) => status === 'all' || c.status === status)
+    .filter((c) => plan === 'all' || planOf(c) === plan)
+    .filter((c) => subscription === 'all' || String(c.subscriptionStatus || 'Active') === subscription)
+    .filter(
+      (c) =>
+        !needle ||
+        [c.id, c.name, c.owner, c.email, c.phone, c.gstNo].some((v) => String(v || '').toLowerCase().includes(needle)),
+    )
+    .sort(sorters[sortKey] || sorters.name);
 
   return (
     <>
@@ -135,36 +84,17 @@ export default function BusinessesList({ businesses, canManage, actions }) {
         title="Businesses & SaaS Revenue"
         actions={
           canManage ? (
-            <button
-              className="btn btn-primary"
-              data-action="businesses"
-              onClick={actions.addBusiness}
-            >
+            <button className="btn btn-primary" data-action="businesses" onClick={actions.addBusiness}>
               + Add Business
             </button>
           ) : null
         }
       />
       <section className="stats-grid">
-        <StatCard
-          icon={ICONS.mrr}
-          label="SaaS MRR (Active Plans)"
-          value={`₹${totalMrr.toLocaleString()}`}
-          color="green"
-        />
-        <StatCard
-          icon={ICONS.businesses}
-          label="Total Businesses"
-          value={businesses.length}
-          color="blue"
-        />
-        <StatCard icon={ICONS.active} label="Active Stores" value={activeCount} color="amber" />
-        <StatCard
-          icon={ICONS.pending}
-          label="Pending Payments"
-          value={`₹${paymentDueTotal.toLocaleString()}`}
-          color="red"
-        />
+        <StatCard icon={ICONS.mrr} label="Monthly recurring revenue" value={rupees(mrr)} color="green" />
+        <StatCard icon={ICONS.businesses} label="Active businesses" value={`${activeCount} of ${companies.length}`} color="blue" />
+        <StatCard icon={ICONS.active} label="Staff accounts" value={staffTotal} color="amber" />
+        <StatCard icon={ICONS.pending} label="Payments due" value={rupees(dueTotal)} color="red" />
       </section>
       <section className="card" style={{ marginBottom: '14px' }}>
         <FilterToolbar
@@ -174,74 +104,93 @@ export default function BusinessesList({ businesses, canManage, actions }) {
               label: 'Status',
               value: status,
               onChange: setStatus,
-              options: [{ value: 'all', label: 'All statuses' }, ...statusOptions],
+              options: [{ value: 'all', label: 'All statuses' }, 'Active', 'Paused', 'Suspended'],
             },
             {
               id: 'businessPlanFilter',
-              label: 'Plan / Tier',
+              label: 'Plan',
               value: plan,
               onChange: setPlan,
-              options: [{ value: 'all', label: 'All plans' }, ...planOptions],
+              options: [
+                { value: 'all', label: 'All plans' },
+                { value: 'starter', label: 'Starter' },
+                { value: 'pro', label: 'Growth / Pro' },
+                { value: 'enterprise', label: 'Enterprise' },
+              ],
             },
             {
-              id: 'businessSortSelect',
-              label: 'Sort by',
-              value: sortKey,
-              onChange: setSortKey,
-              options: SORT_OPTIONS,
+              id: 'businessSubFilter',
+              label: 'Subscription',
+              value: subscription,
+              onChange: setSubscription,
+              options: [{ value: 'all', label: 'Any' }, 'Active', 'Cancelled', 'Past Due'],
             },
+            { id: 'businessSortSelect', label: 'Sort by', value: sortKey, onChange: setSortKey, options: SORT_OPTIONS },
           ]}
-        />
+        >
+          <div className="toolbar-group">
+            <label className="toolbar-label" htmlFor="businessSearch">
+              Search
+            </label>
+            <input
+              id="businessSearch"
+              className="form-control"
+              placeholder="Name, owner, email, GSTIN"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </FilterToolbar>
       </section>
       <section className="card">
         <div className="card-hd">
-          <h3>All Client Businesses & Subscriptions</h3>
+          <h3>Client businesses and subscriptions</h3>
         </div>
         <div className="card-bd">
           <DataTable
             columns={COLUMNS}
-            rows={visibleRows}
+            rows={rows}
             tbodyId="businessesTableBodyDyn"
-            emptyMessage="No businesses match the selected filters."
-            renderRow={(item) => (
-              <tr key={item.id}>
-                <td className="cell-main">{item.id}</td>
-                <td>
-                  {canManage && (
-                    <button
-                      className="btn btn-outline"
-                      data-action="businesses"
-                      style={NAME_BTN_STYLE}
-                      onClick={() => actions.openBusinessDetails(item.id)}
-                    >
-                      {item.name}
-                    </button>
-                  )}
+            emptyMessage={loading ? 'Loading businesses…' : 'No businesses match the selected filters.'}
+            renderRow={(c) => (
+              <tr key={c.id}>
+                <td className="cell-main">
+                  {c.name}
+                  <div className="text-sm text-muted">
+                    {c.id} · {c.owner || '—'}
+                  </div>
                 </td>
-                <td>{item.tenureMonths} months</td>
-                <td>{item.storesCount}</td>
-                <td>Rs {Number(item.profit || 0).toLocaleString()}</td>
-                <td>Rs {Number(item.paymentDue || 0).toLocaleString()}</td>
+                <td>{PLAN_LABEL[planOf(c)]}</td>
                 <td>
-                  <Badge status={item.status} />
+                  <Badge
+                    status={c.subscriptionStatus || 'Active'}
+                    type={(c.subscriptionStatus || 'Active') === 'Active' ? 'active' : 'cancelled'}
+                  />
+                  <div className="text-sm text-muted">
+                    {rupees(c.monthlyPrice)}/mo{c.renewalDate ? ` · renews ${renewalLabel(c.renewalDate)}` : ''}
+                  </div>
+                </td>
+                <td>{staffCount(c.id)}</td>
+                <td>{num(c.storesCount)}</td>
+                <td>{rupees(c.profit)}</td>
+                <td>{rupees(c.paymentDue)}</td>
+                <td>
+                  <Badge status={c.status} type={statusType(c.status)} />
                 </td>
                 <td>
+                  <div className="row-actions">
+                  <button className="btn btn-outline" style={ROW_BTN_STYLE} onClick={() => actions.openBusinessDetails(c.id)}>
+                    Details
+                  </button>
+                  <button className="btn btn-outline" style={ROW_BTN_STYLE} onClick={() => actions.openBusiness(c.id)}>
+                    Open dashboard
+                  </button>
                   {canManage && (
                     <button
                       className="btn btn-outline"
                       data-action="businesses"
                       style={ROW_BTN_STYLE}
-                      onClick={() => actions.openBusinessAdminDashboard(item.id)}
-                    >
-                      View
-                    </button>
-                  )}
-                  {canManage && (
-                    <button
-                      className="btn btn-outline"
-                      data-action="businesses"
-                      style={ROW_BTN_STYLE}
-                      onClick={() => actions.editBusiness(item.id)}
+                      onClick={() => actions.editBusiness(c.id)}
                     >
                       Edit
                     </button>
@@ -251,11 +200,12 @@ export default function BusinessesList({ businesses, canManage, actions }) {
                       className="btn btn-outline"
                       data-action="businesses"
                       style={ROW_DELETE_STYLE}
-                      onClick={() => actions.deleteBusiness(item.id)}
+                      onClick={() => actions.deleteBusiness(c.id)}
                     >
                       Delete
                     </button>
                   )}
+                  </div>
                 </td>
               </tr>
             )}

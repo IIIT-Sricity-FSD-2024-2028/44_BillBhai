@@ -60,18 +60,22 @@ export const DELIVERY_ICONS = {
   ),
 };
 
-export function ActiveDeliveriesCard({ counts }) {
+/** The headline numbers of the delivery desk, all from live deliveries. */
+export function DeliveryStatCards({ counts, money }) {
   return (
-    <StatCard
-      icon={DELIVERY_ICONS.truck}
-      label="Active Deliveries"
-      value={counts.pending + counts.inTransit}
-      color="blue"
-    >
-      <div
-        className="text-sm text-muted"
-        style={{ marginTop: '6px' }}
-      >{`Pending ${counts.pending} • In Transit ${counts.inTransit}`}</div>
-    </StatCard>
+    <section className="stats-grid">
+      <StatCard icon={DELIVERY_ICONS.clock} label="Needs partner" value={counts.pending} color="amber">
+        <span className="text-sm text-muted">{counts.ready} assigned, waiting to dispatch</span>
+      </StatCard>
+      <StatCard icon={DELIVERY_ICONS.truck} label="On the road" value={counts.road} color="blue">
+        <span className="text-sm" style={counts.overdue ? { color: 'var(--red)' } : undefined}>
+          {counts.overdue ? `${counts.overdue} running late` : 'None running late'}
+        </span>
+      </StatCard>
+      <StatCard icon={DELIVERY_ICONS.check} label="Delivered today" value={counts.deliveredToday} color="green" />
+      <StatCard icon={DELIVERY_ICONS.alert} label="COD cash still out" value={money(counts.codPending)} color="red">
+        <span className="text-sm text-muted">{counts.failed} failed attempt(s) to handle</span>
+      </StatCard>
+    </section>
   );
 }

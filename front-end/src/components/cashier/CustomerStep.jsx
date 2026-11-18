@@ -77,7 +77,7 @@ export default function CustomerStep({
                 type="email"
                 className="form-control"
                 id="cEmail"
-                placeholder="customer@email.com"
+                placeholder="Optional"
                 value={customer.email}
                 onChange={(e) => onFieldChange('email', e.target.value)}
               />

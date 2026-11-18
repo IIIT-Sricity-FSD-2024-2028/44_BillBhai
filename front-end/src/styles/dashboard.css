@@ -58,8 +58,7 @@ body {
     background: var(--bg);
     color: var(--text-primary);
     display: flex;
-    min-height: 100vh;
-    transition: background var(--t), color var(--t)
+    min-height: 100vh
 }
 
 body::-webkit-scrollbar,
@@ -1048,6 +1047,7 @@ table.dt .cell-amount {
 
 .chart-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 3px
 }
 
@@ -1392,7 +1392,7 @@ input:checked+.slider:before {
     }
 }
 
-@media(max-width:768px) {
+@media(max-width:1279px) {
     .sidebar {
         transform: translateX(-100%);
         width: var(--sidebar-w)
@@ -1415,7 +1415,9 @@ input:checked+.slider:before {
     .menu-toggle {
         display: flex
     }
+}
 
+@media(max-width:768px) {
     .table-toolbar {
         align-items: stretch
     }
@@ -1953,4 +1955,221 @@ select.form-control option {
 
 .plan-tier-features li.disabled svg {
     color: var(--text-muted);
+}
+
+
+/* ── Tables fit their card ────────────────────────────────────
+   Text wraps so every column stays on screen. Amounts, badges and
+   buttons stay on one line, and the actions column stays in view. */
+table.dt th {
+    white-space: normal;
+    vertical-align: bottom
+}
+
+table.dt td {
+    white-space: normal;
+    overflow-wrap: break-word
+}
+
+table.dt .badge,
+table.dt .btn,
+table.dt .cell-amount,
+table.dt td:first-child:not([colspan]),
+table.dt td.nowrap,
+.nowrap {
+    white-space: nowrap
+}
+
+/* Several actions on a row sit in two tidy lines instead of one long one. */
+table.dt td:last-child:has(.row-actions) {
+    white-space: normal
+}
+
+.row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 232px
+}
+
+.row-actions .btn {
+    margin: 0 !important
+}
+
+table.dt td:last-child:has(.btn),
+table.dt:has(td:last-child .btn) th:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    white-space: nowrap;
+    background-color: var(--bg-card-solid);
+    box-shadow: -1px 0 0 var(--border)
+}
+
+table.dt tbody tr:hover td:last-child:has(.btn) {
+    background-image: linear-gradient(var(--bg-hover), var(--bg-hover))
+}
+
+.dt-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 12px;
+    margin-top: 4px;
+    border-top: 1px solid var(--border)
+}
+
+.dt-pager-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px
+}
+
+.dt-pager-buttons .btn {
+    padding: 5px 12px;
+    font-size: 0.78rem
+}
+
+.dt-pager-buttons .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed
+}
+
+/* Search boxes take the spare room so their hint text is readable. */
+.toolbar-group:has(input[type="search"]),
+.toolbar-group:has(#usersSearch) {
+    flex: 1 1 280px
+}
+
+.toolbar-group input[type="search"],
+.toolbar-group #usersSearch {
+    width: 100%
+}
+
+/* Native date pickers and dropdowns follow the theme. */
+[data-theme="light"] .toolbar-select,
+[data-theme="light"] .form-control {
+    color-scheme: light
+}
+
+/* Charts and tables in a two-column row never push past the page edge. */
+.grid-2 > *,
+.grid-3 > * {
+    min-width: 0
+}
+
+/* Sections stacked on a page keep the same gap. */
+.content-area > * + .card,
+.content-area > * + .grid-2,
+.content-area > * + .grid-3 {
+    margin-top: 14px
+}
+
+/* Filters sit side by side from the left; the search box fills the rest. */
+.table-toolbar {
+    justify-content: flex-start
+}
+
+.toolbar-group:has(input[type="search"]),
+.toolbar-group:has(#usersSearch),
+.toolbar-group:has(#businessSearch) {
+    flex: 1 1 270px
+}
+
+.toolbar-group #businessSearch {
+    width: 100%
+}
+
+/* Long dialogs scroll inside; the title and the Save button stay in view. */
+.modal:has(.modal-footer) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden
+}
+
+.modal:has(.modal-footer) > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0
+}
+
+.modal:has(.modal-footer) .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto
+}
+
+.modal:has(.modal-footer) .modal-header,
+.modal:has(.modal-footer) .modal-footer {
+    flex: 0 0 auto
+}
+
+/* The page behind an open dialog stays still. */
+html:has(.modal-overlay.active) {
+    overflow: hidden
+}
+
+/* Laptops: slightly tighter tables so every column fits. */
+@media(max-width:1400px) {
+    table.dt {
+        font-size: 0.78rem
+    }
+
+    table.dt th,
+    table.dt td {
+        padding-left: 6px;
+        padding-right: 6px
+    }
+}
+
+/* Tablets and phones scroll the table sideways instead of pinning actions. */
+@media(max-width:1100px) {
+    table.dt td:last-child:has(.btn),
+    table.dt:has(td:last-child .btn) th:last-child {
+        position: static;
+        box-shadow: none
+    }
+
+    table.dt th,
+    table.dt td {
+        padding-left: 6px;
+        padding-right: 6px
+    }
+
+    .row-actions {
+        width: 150px
+    }
+}
+
+/* Phones: one clean line per table row (the table scrolls sideways), and a
+   header that fits. */
+@media(max-width:768px) {
+    .bc-app,
+    .bc-sep {
+        display: none
+    }
+
+    table.dt td,
+    table.dt td:last-child:has(.row-actions) {
+        white-space: nowrap
+    }
+
+    .row-actions {
+        width: auto;
+        flex-wrap: nowrap
+    }
+
+    .card-hd,
+    .card-hd > div {
+        flex-wrap: wrap;
+        gap: 8px
+    }
+
+    .page-header {
+        flex-wrap: wrap;
+        gap: 8px
+    }
 }

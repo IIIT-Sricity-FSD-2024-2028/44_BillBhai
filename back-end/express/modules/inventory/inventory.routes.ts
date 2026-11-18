@@ -4,82 +4,46 @@ import { validate } from '../../middleware/validate.middleware';
 import { inventoryController, InventoryController } from './inventory.controller';
 import {
   adjustStockSchema,
-  createInventorySchema,
   inventoryIdParamsSchema,
+  listInventoryQuerySchema,
+  listMovementsQuerySchema,
   productIdParamsSchema,
+  receiveStockSchema,
   updateInventorySchema,
 } from './inventory.schema';
+
+/** The till needs to read stock too, so cashiers can see what is on the shelf. */
+const READERS = ['superuser', 'admin', 'inventorymanager', 'cashier', 'returnhandler', 'customer'];
+const MANAGERS = ['superuser', 'admin', 'inventorymanager'];
 
 /**
  * Inventory Module Router
  *
- * Router-level middleware chain per endpoint:
- *   requireRoles(...)  -> role based access control
- *   validate({...})    -> zod schema validation
- *   controller.method  -> request handling
- *
- * ORDERING MATTERS: every literal path - /low-stock, /product/:productId,
- * /adjust - is registered BEFORE the generic /:id routes, otherwise the
- * parameterised handler swallows them.
+ * Literal paths ('/low-stock', '/movements', '/adjust', '/receive',
+ * '/product/:productId') are registered before '/:id'.
  */
-export function createInventoryRouter(
-  controller: InventoryController = inventoryController,
-): Router {
+export function createInventoryRouter(controller: InventoryController = inventoryController): Router {
   const router = Router();
 
-  router.get(
-    '/low-stock',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
-    controller.findLowStock,
-  );
-
+  router.get('/low-stock', requireRoles(...MANAGERS), validate({ query: listInventoryQuerySchema }), controller.findLowStock);
+  router.get('/movements', requireRoles(...MANAGERS), validate({ query: listMovementsQuerySchema }), controller.findMovements);
   router.get(
     '/product/:productId',
-    requireRoles('superuser', 'admin', 'inventorymanager', 'cashier'),
+    requireRoles(...READERS),
     validate({ params: productIdParamsSchema }),
     controller.findByProduct,
   );
-
-  router.post(
-    '/adjust',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
-    validate({ body: adjustStockSchema }),
-    controller.adjustStock,
-  );
-
-  router.get(
-    '/',
-    requireRoles('superuser', 'admin', 'inventorymanager', 'cashier'),
-    controller.findAll,
-  );
-
-  router.post(
-    '/',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
-    validate({ body: createInventorySchema }),
-    controller.create,
-  );
-
-  router.get(
-    '/:id',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
-    validate({ params: inventoryIdParamsSchema }),
-    controller.findOne,
-  );
-
+  router.post('/adjust', requireRoles(...MANAGERS), validate({ body: adjustStockSchema }), controller.adjustStock);
+  router.post('/receive', requireRoles(...MANAGERS), validate({ body: receiveStockSchema }), controller.receiveStock);
+  router.get('/', requireRoles(...READERS), validate({ query: listInventoryQuerySchema }), controller.findAll);
+  router.get('/:id', requireRoles(...MANAGERS), validate({ params: inventoryIdParamsSchema }), controller.findOne);
   router.put(
     '/:id',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
+    requireRoles(...MANAGERS),
     validate({ params: inventoryIdParamsSchema, body: updateInventorySchema }),
     controller.update,
   );
-
-  router.delete(
-    '/:id',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
-    validate({ params: inventoryIdParamsSchema }),
-    controller.remove,
-  );
+  router.delete('/:id', requireRoles('superuser', 'admin'), validate({ params: inventoryIdParamsSchema }), controller.remove);
 
   return router;
 }

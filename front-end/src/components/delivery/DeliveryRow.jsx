@@ -1,70 +1,76 @@
 import Badge from '../common/Badge.jsx';
-import { deliveryBadgeProps, normalizeDeliveryStatus } from '../../lib/dashboard/helpers.js';
+import { deliveryBadgeProps } from '../../lib/dashboard/helpers.js';
+import { actionsFor } from './useDeliveryActions.jsx';
+import { formatMobile, isOverdue, itemsSummary, minutesLate, money, when } from './deliveryView.js';
 
-const SMALL_BTN = { padding: '4px 8px', fontSize: '0.75rem' };
-const ASSIGN_BTN = { ...SMALL_BTN, marginRight: '4px' };
-const PHONE_LINK = { color: 'var(--accent)', textDecoration: 'none' };
+const BTN = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px', marginBottom: '3px' };
 
-export default function DeliveryRow({ d, canManage, onAssign, onEdit }) {
-  const updated = d.updatedAt === '-' ? '—' : d.updatedAt;
-  const eta = d.etaMin === null ? '—' : `${Math.max(0, Math.round(d.etaMin))} min`;
-  const partnerPhone = d.partnerPhoneHref ? (
-    <a href={d.partnerPhoneHref} style={PHONE_LINK}>
-      {d.partnerPhone}
-    </a>
-  ) : (
-    d.partnerPhone
-  );
+/** One delivery in the queue: parcel, money, people, status and the next step. */
+export default function DeliveryRow({ d, canManage, onAction, onOpen }) {
   const badge = deliveryBadgeProps(d.status);
-
+  const actions = canManage ? actionsFor(d) : [];
+  const primary = actions.filter((a) => a.primary);
+  const late = isOverdue(d);
   return (
-    <tr>
-      <td className="cell-main">{d.id}</td>
-      <td>{d.oid}</td>
-      <td>{d.customer}</td>
-      <td>{d.address}</td>
+    <tr style={late ? { background: 'rgba(220,53,69,0.06)' } : undefined}>
+      <td className="cell-main">
+        <button type="button" className="btn btn-outline" style={{ ...BTN, marginRight: 0 }} onClick={() => onOpen(d)}>
+          {d.id}
+        </button>
+        <div className="text-sm text-muted">{d.orderId}</div>
+      </td>
       <td>
-        {d.partner}
-        <div className="text-sm text-muted">
-          {`${d.partnerAgency} • `}
-          {partnerPhone}
+        {d.customer || '—'}
+        <div className="text-sm text-muted">{formatMobile(d.customerPhone)}</div>
+        <div className="text-sm text-muted" style={{ maxWidth: '220px' }}>
+          {d.address}
         </div>
       </td>
-      <td>{eta}</td>
-      <td>
-        <Badge label={badge.text} type={badge.type} />
+      <td style={{ minWidth: '120px', maxWidth: '220px' }}>
+        <span className="text-sm">{itemsSummary(d.items) || '—'}</span>
       </td>
-      <td>{updated}</td>
+      <td className="nowrap">
+        {money(d.orderTotal)}
+        <div className="text-sm text-muted">
+          {d.codAmount > 0 ? (
+            d.status === 'Delivered' ? (
+              `COD ${money(d.cashCollected)} collected`
+            ) : (
+              <strong style={{ color: 'var(--amber)' }}>COD: collect {money(d.codAmount)}</strong>
+            )
+          ) : (
+            `Prepaid · ${d.paymentMethod}`
+          )}
+        </div>
+      </td>
       <td>
-        {d.partnerPhoneHref ? (
-          <a className="btn btn-outline" style={SMALL_BTN} href={d.partnerPhoneHref}>
-            Call Partner
-          </a>
-        ) : (
-          <span className="text-muted text-sm">No contact</span>
+        {d.partner || <span className="text-muted">Not assigned</span>}
+        {d.partner && (
+          <div className="text-sm text-muted">
+            {[formatMobile(d.partnerPhone), d.partnerVehicle].filter(Boolean).join(' · ')}
+          </div>
         )}
       </td>
       <td>
-        {canManage && (
-          <button
-            className="btn btn-outline"
-            data-action="delivery"
-            style={ASSIGN_BTN}
-            onClick={() => onAssign(d.id)}
-          >
-            Assign Delivery
-          </button>
+        <Badge status={badge.text} type={badge.type} />
+        {late && (
+          <div className="text-sm" style={{ color: 'var(--red)' }}>
+            {minutesLate(d)} min late
+          </div>
         )}
-        {canManage && normalizeDeliveryStatus(d.status) !== 'Delivered' && (
-          <button
-            className="btn btn-outline"
-            data-action="delivery"
-            style={SMALL_BTN}
-            onClick={() => onEdit(d.id)}
-          >
-            Edit
+        {d.attempts > 0 && <div className="text-sm text-muted">Attempts: {d.attempts}</div>}
+        {d.status === 'Failed Attempt' && d.failureReason && <div className="text-sm text-muted">{d.failureReason}</div>}
+        <div className="text-sm text-muted nowrap">{when(d.lastChangeAt)}</div>
+      </td>
+      <td>
+        {primary.map((a) => (
+          <button key={a.kind} type="button" className="btn btn-primary" style={BTN} onClick={() => onAction(a.kind, d)}>
+            {a.label}
           </button>
-        )}
+        ))}
+        <button type="button" className="btn btn-outline" style={BTN} onClick={() => onOpen(d)}>
+          {actions.length > primary.length ? 'More…' : 'Details'}
+        </button>
       </td>
     </tr>
   );

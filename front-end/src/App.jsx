@@ -11,6 +11,7 @@ import InventoryPage from './pages/InventoryPage.jsx';
 import DeliveryPage from './pages/DeliveryPage.jsx';
 import ReturnsPage from './pages/ReturnsPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
+import CouponsPage from './pages/CouponsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
@@ -30,6 +31,7 @@ const PAGES = {
   delivery: DeliveryPage,
   returns: ReturnsPage,
   reports: ReportsPage,
+  coupons: CouponsPage,
   users: UsersPage,
   profile: ProfilePage,
   notifications: NotificationsPage,

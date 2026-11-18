@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api, storeLoginSession } from '../lib/http.js';
 import usePageSetup from '../hooks/usePageSetup.js';
 import { CSS, FONTS } from '../lib/pageAssets.js';
 import AmbientGlow from '../components/login/AmbientGlow.jsx';
@@ -13,7 +14,11 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('expired')
+      ? 'Your session ended. Please sign in again.'
+      : '',
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [fieldStatus, setFieldStatus] = useState({
@@ -59,119 +64,48 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      let response = null;
-      let userData = null;
+      let userData;
       try {
-        response = await fetch('http://localhost:3000/api/auth/login', {
+        userData = await api('/auth/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: username.trim(), password: password.trim() }),
+          anonymous: true,
+          body: { username: username.trim(), password: password.trim() },
         });
-      } catch {
-        try {
-          response = await fetch('http://localhost:4000/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: username.trim(), password: password.trim() }),
-          });
-        } catch {
-          response = null;
-        }
+      } catch (err) {
+        setFieldStatus((prev) => ({
+          ...prev,
+          password: { error: err.status === 401, shake: true },
+        }));
+        setErrorMessage(
+          err.status === 401
+            ? err.message && !/invalid username/i.test(err.message)
+              ? err.message
+              : 'Incorrect username or password.'
+            : err.status === 0
+              ? 'Cannot reach the BillBhai server. Start the backend and try again.'
+              : err.message || 'Sign-in failed. Please try again.',
+        );
+        setIsLoading(false);
+        return;
       }
 
-      if (response && response.ok) {
-        userData = await response.json();
-      } else {
-        const overrides = JSON.parse(localStorage.getItem('bb_auth_overrides') || '{}');
-        const trimmedUser = username.trim();
-        const lowerUser = trimmedUser.toLowerCase();
-        const matchedOverride =
-          overrides[trimmedUser] ||
-          overrides[lowerUser] ||
-          Object.values(overrides).find(
-            (o) =>
-              o &&
-              (String(o.username || '').toLowerCase() === lowerUser ||
-                String(o.email || '').toLowerCase() === lowerUser),
-          );
-
-        if (matchedOverride && matchedOverride.password === password.trim()) {
-          const rawRole = String(matchedOverride.role || '').toLowerCase();
-          userData = {
-            id: matchedOverride.id || `USR-${Date.now()}`,
-            username: matchedOverride.username || trimmedUser,
-            name: matchedOverride.name || matchedOverride.username || trimmedUser,
-            role: rawRole || 'admin',
-            email: matchedOverride.email || '',
-            companyId: matchedOverride.companyId || 'BIZ-101',
-            businessName: matchedOverride.businessName || 'BillBhai',
-          };
-        } else {
-          setFieldStatus((prev) => ({
-            ...prev,
-            password: { error: true, shake: true },
-          }));
-          if (response && response.status === 401) {
-            setErrorMessage('Incorrect username or password.');
-          } else if (!response) {
-            setErrorMessage('Backend is unavailable. Start backend server and try again.');
-          } else {
-            setErrorMessage('Authentication failed. Please try again.');
-          }
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      const rawRole = String(userData.role || '').toLowerCase();
-      let role = 'admin';
-      if (rawRole === 'superuser' || rawRole === 'super') role = 'superuser';
-      else if (rawRole === 'cashier') role = 'cashier';
-      else if (rawRole.includes('return')) role = 'returnhandler';
-      else if (rawRole.includes('inventory')) role = 'inventorymanager';
-      else if (rawRole.includes('delivery')) role = 'deliveryops';
-      else if (rawRole === 'customer' || rawRole === 'user') role = 'customer';
-
-      localStorage.setItem('userRole', role);
-      localStorage.setItem('userName', userData.username);
-      localStorage.setItem(
-        'currentUser',
-        JSON.stringify({
-          id: userData.id,
-          username: userData.username,
-          name: userData.name || userData.username,
-          role: role,
-          email: userData.email || '',
-          companyId: userData.companyId || null,
-        }),
-      );
-
-      if (userData.companyId) {
-        localStorage.setItem('activeBusinessId', userData.companyId);
-        localStorage.setItem('activeBusinessName', userData.businessName || 'BillBhai');
-      }
+      storeLoginSession(userData);
+      const role = String(userData.role || '').toLowerCase();
 
       setIsLoading(false);
       setIsSuccess(true);
 
       setTimeout(() => {
-        if (role === 'superuser') {
-          navigate('/superuser');
-        } else if (role === 'cashier') {
-          navigate('/cashier');
-        } else if (role === 'returnhandler') {
-          navigate('/returns');
-        } else if (role === 'inventorymanager') {
-          navigate('/inventory');
-        } else if (role === 'deliveryops') {
-          navigate('/delivery');
-        } else {
-          navigate('/dashboard');
-        }
-      }, 1000);
+        if (role === 'superuser') navigate('/superuser');
+        else if (role === 'cashier' || role === 'customer') navigate('/cashier');
+        else if (role === 'returnhandler') navigate('/returns');
+        else if (role === 'inventorymanager') navigate('/inventory');
+        else if (role === 'deliveryops') navigate('/delivery');
+        else navigate('/dashboard');
+      }, 600);
     } catch (err) {
       console.error('Login error:', err);
-      setErrorMessage('Backend is unavailable. Start backend server and try again.');
+      setErrorMessage('Sign-in failed. Please try again.');
       setIsLoading(false);
     }
   };

@@ -1,3 +1,4 @@
+import { createProductSchema } from '../products/products.schema';
 import fs from 'fs';
 import path from 'path';
 import { config } from '../../config/index';
@@ -67,7 +68,7 @@ export class UploadsService {
   /** Attaches an already-stored image to a product and returns the product. */
   public attachImageToProduct(productId: string, record: UploadRecord) {
     this.products.findOne(productId);
-    return this.products.update(productId, { imageUrl: record.url });
+    return this.products.update(productId, { imageUrl: record.url }, record.uploadedBy);
   }
 
   public remove(id: string): DeleteUploadResult {
@@ -97,6 +98,7 @@ export class UploadsService {
   public importProductsFromCsv(
     meta: UploadedFileMeta,
     uploadedBy: string,
+    companyId: string,
   ): CsvImportSummary {
     const raw = fs.readFileSync(meta.absolutePath, 'utf-8');
     const lines = raw
@@ -130,26 +132,33 @@ export class UploadsService {
         row[column] = cells[index] ?? '';
       });
 
-      const price = Number(row.price);
-      if (!row.name || !row.category || !row.supplierId) {
-        errors.push({ row: rowNumber, reason: 'name, category and supplierId are required' });
-        return;
-      }
-      if (!Number.isFinite(price) || price < 0) {
-        errors.push({ row: rowNumber, reason: `price "${row.price}" is not a non-negative number` });
+      // Same rules as the Add Product form: the row goes through the product schema.
+      const num = (v: string | undefined) => (v === undefined || v === '' ? undefined : Number(v));
+      const parsed = createProductSchema.safeParse({
+        companyId,
+        name: row.name,
+        category: row.category,
+        price: num(row.price),
+        supplierId: row.supplierId,
+        barcode: row.barcode || undefined,
+        size: row.size || undefined,
+        description: row.description || undefined,
+        gstRate: num(row.gstRate),
+        costPrice: num(row.costPrice),
+        openingStock: num(row.openingStock ?? row.stock) ?? 0,
+        reorderLevel: num(row.reorderLevel) ?? 10,
+        location: row.location || 'Shelf',
+      });
+      if (!parsed.success) {
+        errors.push({
+          row: rowNumber,
+          reason: parsed.error.issues.map((i) => `${i.path.join('.') || 'row'}: ${i.message}`).join('; '),
+        });
         return;
       }
 
       try {
-        const created = this.products.create({
-          name: row.name,
-          category: row.category,
-          price,
-          supplierId: row.supplierId,
-          barcode: row.barcode || undefined,
-          size: row.size || undefined,
-          description: row.description || undefined,
-        });
+        const created = this.products.create({ ...parsed.data, companyId }, uploadedBy);
         createdProductIds.push(created.id);
       } catch (error) {
         errors.push({

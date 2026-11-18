@@ -4,113 +4,53 @@ import { validate } from '../../middleware/validate.middleware';
 import { ordersController, OrdersController } from './orders.controller';
 import {
   billNoParamsSchema,
-  createBillSchema,
+  cancelOrderSchema,
   createOrderSchema,
-  createPaymentSchema,
   listOrdersQuerySchema,
   orderIdParamsSchema,
+  quoteOrderSchema,
   updateOrderSchema,
   validatePromotionSchema,
 } from './orders.schema';
 
+const SELLERS = ['superuser', 'admin', 'cashier', 'customer'];
+/** Everyone whose daily work starts from an order can read orders. */
+const READERS = ['superuser', 'admin', 'cashier', 'returnhandler', 'deliveryops', 'inventorymanager'];
+const EDITORS = ['superuser', 'admin', 'cashier'];
+const MANAGERS = ['superuser', 'admin'];
+
 /**
  * Orders Module Router
  *
- * Router-level middleware chain per endpoint:
- *   requireRoles(...)  -> role based access control
- *   validate({...})    -> zod schema validation
- *   controller.method  -> request handling
- *
- * ORDERING MATTERS: every literal path - /promotions/validate, /bills/all,
- * /payments/all - is registered BEFORE the generic /:id routes, otherwise the
- * parameterised handler swallows them.
+ * Literal paths are registered before '/:id'. Bills and payments are created
+ * by the checkout itself, so there are no POST routes for them.
  */
-export function createOrdersRouter(
-  controller: OrdersController = ordersController,
-): Router {
+export function createOrdersRouter(controller: OrdersController = ordersController): Router {
   const router = Router();
 
-  router.post(
-    '/promotions/validate',
-    requireRoles('superuser', 'admin', 'cashier', 'customer'),
-    validate({ body: validatePromotionSchema }),
-    controller.validatePromotion,
-  );
+  router.post('/promotions/validate', requireRoles(...SELLERS), validate({ body: validatePromotionSchema }), controller.validatePromotion);
+  router.post('/quote', requireRoles(...SELLERS), validate({ body: quoteOrderSchema }), controller.quote);
+  router.get('/bills/all', requireRoles(...EDITORS), controller.findAllBills);
+  router.get('/bills/:billNo', requireRoles(...EDITORS), validate({ params: billNoParamsSchema }), controller.findOneBill);
+  router.get('/payments/all', requireRoles(...EDITORS), controller.findAllPayments);
+  router.get('/payments/:billNo', requireRoles(...EDITORS), validate({ params: billNoParamsSchema }), controller.findOnePayment);
 
-  router.get(
-    '/bills/all',
-    requireRoles('superuser', 'admin', 'cashier'),
-    controller.findAllBills,
-  );
-
-  router.post(
-    '/bills',
-    requireRoles('superuser', 'admin', 'cashier'),
-    validate({ body: createBillSchema }),
-    controller.createBill,
-  );
-
-  router.get(
-    '/bills/:billNo',
-    requireRoles('superuser', 'admin', 'cashier'),
-    validate({ params: billNoParamsSchema }),
-    controller.findOneBill,
-  );
-
-  router.get(
-    '/payments/all',
-    requireRoles('superuser', 'admin', 'cashier'),
-    controller.findAllPayments,
-  );
-
-  router.post(
-    '/payments',
-    requireRoles('superuser', 'admin', 'cashier'),
-    validate({ body: createPaymentSchema }),
-    controller.createPayment,
-  );
-
-  router.get(
-    '/payments/:billNo',
-    requireRoles('superuser', 'admin', 'cashier'),
-    validate({ params: billNoParamsSchema }),
-    controller.findOnePayment,
-  );
-
-  router.get(
-    '/',
-    requireRoles('superuser', 'admin', 'cashier', 'returnhandler'),
-    validate({ query: listOrdersQuerySchema }),
-    controller.findAll,
-  );
-
-  router.post(
-    '/',
-    requireRoles('superuser', 'admin', 'cashier', 'customer'),
-    validate({ body: createOrderSchema }),
-    controller.create,
-  );
-
-  router.get(
-    '/:id',
-    requireRoles('superuser', 'admin', 'cashier', 'returnhandler', 'deliveryops'),
-    validate({ params: orderIdParamsSchema }),
-    controller.findOne,
-  );
-
+  router.get('/', requireRoles(...READERS), validate({ query: listOrdersQuerySchema }), controller.findAll);
+  router.post('/', requireRoles(...SELLERS), validate({ body: createOrderSchema }), controller.create);
+  router.get('/:id', requireRoles(...READERS), validate({ params: orderIdParamsSchema }), controller.findOne);
   router.put(
     '/:id',
-    requireRoles('superuser', 'admin', 'cashier'),
+    requireRoles(...EDITORS),
     validate({ params: orderIdParamsSchema, body: updateOrderSchema }),
     controller.update,
   );
-
-  router.delete(
-    '/:id',
-    requireRoles('superuser', 'admin'),
-    validate({ params: orderIdParamsSchema }),
-    controller.remove,
+  router.post(
+    '/:id/cancel',
+    requireRoles(...MANAGERS),
+    validate({ params: orderIdParamsSchema, body: cancelOrderSchema }),
+    controller.cancel,
   );
+  router.delete('/:id', requireRoles(...MANAGERS), validate({ params: orderIdParamsSchema }), controller.remove);
 
   return router;
 }

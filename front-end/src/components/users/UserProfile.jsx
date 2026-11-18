@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import Badge from '../common/Badge.jsx';
-import { encodeUserToken, getUserLoginHandle } from '../../lib/dashboard/credentials.js';
+import { api } from '../../lib/http.js';
 
 const AVATAR_STYLE = {
   width: '80px',
@@ -16,74 +17,38 @@ const AVATAR_STYLE = {
 };
 const CENTER = { justifyContent: 'center' };
 
-const ACTIVITY = {
-  Delivery: [
-    [
-      'Today, 11:30',
-      <>
-        Delivered Order <strong>#ORD-4819</strong>
-      </>,
-    ],
-    ['Today, 09:15', 'Out for delivery with 4 orders'],
-    ['Yesterday, 17:00', 'Finished shift'],
-  ],
-  Sales: [
-    [
-      'Today, 14:02',
-      <>
-        Created Order <strong>#ORD-4821</strong> for ₹1250
-      </>,
-    ],
-    [
-      'Yesterday, 16:45',
-      <>
-        Processed Return <strong>#RET-201</strong>
-      </>,
-    ],
-    ['Yesterday, 10:30', 'Logged in'],
-  ],
-  default: [
-    [
-      'Today, 10:12',
-      <>
-        Updated inventory stock for <strong>SKU-05</strong>
-      </>,
-    ],
-    ['14 Feb, 09:00', 'System login'],
-  ],
-};
+function when(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? String(iso)
+    : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
 
-export default function UserProfile({
-  user,
-  onBack,
-  onChangeRole,
-  onPasswordReset,
-  onToggleSuspension,
-  onDelete,
-}) {
-  const initial = user.name.charAt(0).toUpperCase();
-  const email = String(
-    user.email || `${user.name.toLowerCase().replace(/\s+/g, '.')}@billbhai.com`,
-  ).trim();
-  const loginHandle = getUserLoginHandle(user);
-  const userToken = encodeUserToken(user.name);
-  const normalizedStatus = String(user.status || '').toLowerCase();
-  const activity =
-    ACTIVITY[user.role === 'Delivery' || user.role === 'Sales' ? user.role : 'default'];
+/**
+ * One staff account: details, admin actions, and its real history (what was
+ * changed on the account, from the activity log).
+ */
+export default function UserProfile({ user, canManage, isSelf, onBack, onEdit, onPasswordReset, onToggleSuspension, onDelete }) {
+  const [history, setHistory] = useState({ loading: true, rows: [] });
+
+  useEffect(() => {
+    let alive = true;
+    api('/activity', { query: { entity: 'user', entityId: user.id, limit: 30 } })
+      .then((rows) => alive && setHistory({ loading: false, rows: Array.isArray(rows) ? rows : [] }))
+      .catch(() => alive && setHistory({ loading: false, rows: [] }));
+    return () => {
+      alive = false;
+    };
+  }, [user.id, user.version]);
+
+  const suspended = String(user.status).toLowerCase() === 'suspended';
 
   return (
     <>
       <div className="page-header" style={{ justifyContent: 'flex-start', gap: '16px' }}>
-        <button className="btn btn-outline" style={{ padding: '8px' }} onClick={onBack}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
+        <button className="btn btn-outline" style={{ padding: '8px' }} onClick={onBack} aria-label="Back to users">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
@@ -94,81 +59,72 @@ export default function UserProfile({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="card">
             <div className="card-bd" style={{ textAlign: 'center', paddingTop: '30px' }}>
-              <div style={AVATAR_STYLE}>{initial}</div>
+              <div style={AVATAR_STYLE}>{user.name.charAt(0).toUpperCase()}</div>
               <h3 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>{user.name}</h3>
-              <p
-                className="text-muted"
-                style={{ marginBottom: '8px' }}
-              >{`${user.role} • ${email}`}</p>
-              <p
-                className="text-sm text-muted"
-                style={{ marginBottom: '8px' }}
-              >{`Login: ${loginHandle}`}</p>
+              <p className="text-muted" style={{ marginBottom: '8px' }}>
+                {user.role} • {user.email || 'no email'}
+              </p>
+              <p className="text-sm text-muted" style={{ marginBottom: '4px' }}>
+                Sign-in name: <strong>{user.username}</strong>
+              </p>
+              <p className="text-sm text-muted" style={{ marginBottom: '8px' }}>
+                Mobile: {user.phone || '—'} · Last changed {when(user.updatedAt)}
+                {user.updatedBy ? ` by ${user.updatedBy}` : ''}
+              </p>
               <div style={{ marginBottom: '20px' }}>
-                <Badge status={user.status} />
+                <Badge status={user.status} type={suspended ? 'cancelled' : 'active'} />
               </div>
             </div>
           </div>
-          <div className="card">
-            <div className="card-hd">
-              <h3 style={{ color: 'var(--red)' }}>Admin Actions</h3>
+          {canManage && (
+            <div className="card">
+              <div className="card-hd">
+                <h3>Admin Actions</h3>
+              </div>
+              <div className="card-bd" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button className="btn btn-outline" style={CENTER} onClick={() => onEdit(user)}>
+                  Edit details or role
+                </button>
+                <button className="btn btn-outline" style={CENTER} onClick={() => onPasswordReset(user)}>
+                  Reset password
+                </button>
+                {!isSelf && (
+                  <button
+                    className="btn"
+                    style={{ justifyContent: 'center', background: 'rgba(220, 53, 69, 0.1)', color: 'var(--red)', border: '1px solid rgba(220, 53, 69, 0.3)' }}
+                    onClick={() => onToggleSuspension(user)}
+                  >
+                    {suspended ? 'Activate account' : 'Suspend account'}
+                  </button>
+                )}
+                {!isSelf && (
+                  <button
+                    className="btn"
+                    style={{ justifyContent: 'center', background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--red)' }}
+                    onClick={() => onDelete(user)}
+                  >
+                    Delete user
+                  </button>
+                )}
+              </div>
             </div>
-            <div
-              className="card-bd"
-              style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
-            >
-              <button
-                className="btn btn-outline"
-                style={CENTER}
-                onClick={() => onChangeRole(userToken)}
-              >
-                Change User Role
-              </button>
-              <button
-                className="btn btn-outline"
-                style={CENTER}
-                onClick={() => onPasswordReset(userToken)}
-              >
-                Send Password Reset
-              </button>
-              <button
-                className="btn"
-                style={{
-                  justifyContent: 'center',
-                  background: 'rgba(220, 53, 69, 0.1)',
-                  color: 'var(--red)',
-                  border: '1px solid rgba(220, 53, 69, 0.3)',
-                }}
-                onClick={() => onToggleSuspension(userToken)}
-              >
-                {normalizedStatus === 'suspended' ? 'Activate Account' : 'Suspend Account'}
-              </button>
-              <button
-                className="btn"
-                style={{
-                  justifyContent: 'center',
-                  background: 'var(--red-bg)',
-                  color: 'var(--red)',
-                  border: '1px solid var(--red)',
-                }}
-                onClick={() => onDelete(userToken)}
-              >
-                Delete User
-              </button>
-            </div>
-          </div>
+          )}
         </div>
         <div className="card">
           <div className="card-hd">
-            <h3>Recent Activity</h3>
+            <h3>Account History</h3>
           </div>
           <div className="card-bd">
+            {history.loading && <p className="text-muted">Loading…</p>}
+            {!history.loading && !history.rows.length && <p className="text-muted">No changes recorded for this account yet.</p>}
             <div className="timeline">
-              {activity.map(([time, text]) => (
-                <div className="timeline-item" key={time}>
+              {history.rows.map((h) => (
+                <div className="timeline-item" key={h.id}>
                   <div className="timeline-marker" />
-                  <div className="timeline-time">{time}</div>
-                  <div className="timeline-content">{text}</div>
+                  <div className="timeline-time">{when(h.at)}</div>
+                  <div className="timeline-content">
+                    <strong>{h.by}</strong>: {h.summary}
+                  </div>
                 </div>
               ))}
             </div>

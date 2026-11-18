@@ -38,7 +38,7 @@ export function createCustomersRouter(
 
   router.get(
     '/',
-    requireRoles('superuser', 'admin', 'cashier'),
+    requireRoles('superuser', 'admin', 'cashier', 'returnhandler', 'deliveryops'),
     validate({ query: listCustomersQuerySchema }),
     controller.findAll,
   );
@@ -59,7 +59,7 @@ export function createCustomersRouter(
 
   router.put(
     '/:id',
-    requireRoles('superuser', 'admin', 'cashier', 'customer'),
+    requireRoles('superuser', 'admin', 'cashier'),
     validate({ params: customerIdParamsSchema, body: updateCustomerSchema }),
     controller.update,
   );

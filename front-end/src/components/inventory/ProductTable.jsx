@@ -1,27 +1,10 @@
 import DataTable from '../common/DataTable.jsx';
 import Badge from '../common/Badge.jsx';
+import { DANGER_BTN, SMALL_BTN, formatMobile, money } from './inventoryUtils.js';
 
-const COLUMNS = [
-  'SKU',
-  'Product',
-  'Category',
-  'Supplier',
-  'Supplier Contact',
-  'Lead Time',
-  'Stock',
-  'Unit Price',
-  'Status',
-  'Actions',
-];
-const EDIT_STYLE = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px' };
-const DELETE_STYLE = {
-  padding: '4px 8px',
-  fontSize: '0.75rem',
-  color: 'var(--red)',
-  borderColor: 'var(--red)',
-};
+const COLUMNS = ['SKU', 'Product', 'Supplier', 'Stock', 'Reorder at', 'Unit price', 'Status', 'Actions'];
 
-export default function ProductTable({ rows, canManage, onEdit, onDelete }) {
+export default function ProductTable({ rows, canManage, onEdit, onReceive, onAdjust, onHistory, onDeactivate, onReactivate }) {
   return (
     <section className="card">
       <div className="card-bd">
@@ -29,43 +12,68 @@ export default function ProductTable({ rows, canManage, onEdit, onDelete }) {
           columns={COLUMNS}
           rows={rows}
           tbodyId="inventoryTableBodyDyn"
-          emptyMessage="No inventory items match the selected filters."
-          emptyColSpan={10}
-          renderRow={(item, i) => (
-            <tr key={`${item.sku}-${i}`}>
-              <td className="cell-main">{item.sku}</td>
-              <td>{item.name}</td>
-              <td>{item.cat}</td>
-              <td>{item.supplierMeta.name}</td>
-              <td>
-                {item.supplierMeta.contact}
-                <div className="text-sm text-muted">{item.supplierMeta.phone}</div>
-              </td>
-              <td>{item.supplierMeta.leadTimeDays} days</td>
-              <td>{item.stock}</td>
-              <td>Rs {Math.max(0, Number(item.price || 0)).toLocaleString()}</td>
-              <td>
-                <Badge status={item.normalizedStatus} />
+          emptyMessage="No products match the selected filters."
+          emptyColSpan={COLUMNS.length}
+          renderRow={(item) => (
+            <tr key={item.productId} style={item.active ? undefined : { opacity: 0.55 }}>
+              <td className="cell-main">
+                {item.productId}
+                {item.barcode && <div className="text-sm text-muted">{item.barcode}</div>}
               </td>
               <td>
-                {canManage && (
-                  <button
-                    className="btn btn-outline"
-                    style={EDIT_STYLE}
-                    onClick={() => onEdit(item.sku)}
-                  >
-                    Edit
-                  </button>
+                {item.name}
+                {item.size && <span className="text-muted"> · {item.size}</span>}
+                <div className="text-sm text-muted">
+                  {item.cat} · {item.location} · GST {item.gstRate}%
+                </div>
+              </td>
+              <td>
+                {item.supplier || '—'}
+                {item.supplierContact && <div className="text-sm text-muted">{item.supplierContact}</div>}
+                {item.supplierPhone && <div className="text-sm text-muted nowrap">{formatMobile(item.supplierPhone)}</div>}
+              </td>
+              <td>
+                <strong>{item.stock}</strong>
+              </td>
+              <td>{item.reorderLevel}</td>
+              <td className="nowrap">
+                {money(item.price)}
+                {item.costPrice !== undefined && item.costPrice !== null && (
+                  <div className="text-sm text-muted">cost {money(item.costPrice)}</div>
                 )}
-                {canManage && (
-                  <button
-                    className="btn btn-outline"
-                    style={DELETE_STYLE}
-                    onClick={() => onDelete(item.sku)}
-                  >
-                    Delete
-                  </button>
+              </td>
+              <td>
+                {item.active ? <Badge status={item.status} /> : <Badge status="Inactive" />}
+              </td>
+              <td>
+                <div className="row-actions">
+                {canManage && item.active && (
+                  <>
+                    <button className="btn btn-outline" style={SMALL_BTN} onClick={() => onReceive(item)}>
+                      Receive
+                    </button>
+                    <button className="btn btn-outline" style={SMALL_BTN} onClick={() => onAdjust(item)}>
+                      Adjust
+                    </button>
+                    <button className="btn btn-outline" style={SMALL_BTN} onClick={() => onEdit(item)}>
+                      Edit
+                    </button>
+                  </>
                 )}
+                <button className="btn btn-outline" style={SMALL_BTN} onClick={() => onHistory(item)}>
+                  History
+                </button>
+                {canManage &&
+                  (item.active ? (
+                    <button className="btn btn-outline" style={DANGER_BTN} onClick={() => onDeactivate(item)}>
+                      Deactivate
+                    </button>
+                  ) : (
+                    <button className="btn btn-outline" style={SMALL_BTN} onClick={() => onReactivate(item)}>
+                      Reactivate
+                    </button>
+                  ))}
+                </div>
               </td>
             </tr>
           )}

@@ -1,96 +1,74 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import usePageSetup from '../hooks/usePageSetup.js';
 import { FONTS } from '../lib/pageAssets.js';
 import inlineCss from '../styles/business-welcome-inline.css?inline';
 import InfoRow from '../components/businessWelcome/InfoRow.jsx';
 import WelcomeActions from '../components/businessWelcome/WelcomeActions.jsx';
+import { api, getAuthToken } from '../lib/http.js';
+import { loadObject } from '../lib/dashboard/storage.js';
 
-function readSignupData() {
-  const raw = sessionStorage.getItem('bb_recent_business_signup');
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
+const PLAN_LABELS = {
+  starter: 'Starter Plan (Free)',
+  pro: 'Growth / Pro Plan (₹1,999/mo)',
+  enterprise: 'Enterprise Plan (₹4,999/mo)',
+};
 
-function planLabel(data) {
-  if (data.planName) return data.planName;
-  if (data.plan === 'enterprise') return 'Enterprise Plan (₹4,999/mo)';
-  if (data.plan === 'pro') return 'Growth / Pro Plan (₹1,999/mo)';
-  return 'Starter Plan (Free Forever)';
-}
-
-function establishNewAdminSession(data, targetPage) {
-  localStorage.setItem('activeBusinessId', String(data.businessId || '').trim());
-  localStorage.setItem('activeBusinessName', String(data.businessName || '').trim());
-  localStorage.setItem('activeBusinessPlan', String(data.plan || 'starter').trim());
-  localStorage.setItem('userRole', 'admin');
-  localStorage.setItem('userName', String(data.username || '').trim());
-  localStorage.setItem(
-    'currentUser',
-    JSON.stringify({
-      id: data.adminUserId || `USR-${Date.now()}`,
-      username: String(data.username || '').trim(),
-      name: String(data.ownerName || data.username || 'Admin').trim(),
-      role: 'admin',
-      email: String(data.email || '').trim(),
-      companyId: String(data.businessId || '').trim(),
-      businessName: String(data.businessName || '').trim(),
-      plan: String(data.plan || 'starter').trim(),
-    }),
-  );
-  if (targetPage) {
-    sessionStorage.setItem('bb_post_login_redirect', String(targetPage).trim());
-  }
-}
-
+/**
+ * "Your business is ready". Shows what the server holds for the signed-in
+ * owner's business. The password is never shown again: the owner chose it.
+ */
 export default function BusinessWelcomePage() {
-  usePageSetup({
-    title: 'BillBhai - Business Ready',
-    styles: [inlineCss],
-    fonts: FONTS.businessWelcome,
-  });
+  usePageSetup({ title: 'BillBhai - Business Ready', styles: [inlineCss], fonts: FONTS.businessWelcome });
 
   const navigate = useNavigate();
-  const [data] = useState(readSignupData);
-  const redirected = useRef(false);
+  const [user] = useState(() => loadObject('currentUser', {}));
+  const [company, setCompany] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!data && !redirected.current) {
-      redirected.current = true;
-      navigate('/register-business');
+    if (!getAuthToken()) {
+      navigate('/login');
+      return undefined;
     }
-  }, [data, navigate]);
+    let alive = true;
+    api('/companies/me/profile')
+      .then((c) => {
+        if (!alive) return;
+        setCompany(c);
+        if (c && c.plan) localStorage.setItem('activeBusinessPlan', c.plan);
+      })
+      .catch((err) => alive && setError(err.message));
+    return () => {
+      alive = false;
+    };
+  }, [navigate]);
 
-  const show = (value) => (data && value) || '-';
+  const show = (value) => value || '-';
 
   return (
     <main className="card">
       <h1>Your Business Is Ready</h1>
       <p className="muted">
-        Use these credentials to sign in and manage your business, then add more users from the
-        Users section.
+        You are signed in as the admin. Next: add your products in Inventory and your staff in Users. Each new staff
+        member gets a temporary password to change after they sign in.
       </p>
+      {error && <p className="muted">Could not load the business details: {error}</p>}
       <section className="grid">
-        <InfoRow label="Business ID" id="businessId" value={show(data && data.businessId)} />
-        <InfoRow label="Business Name" id="businessName" value={show(data && data.businessName)} />
+        <InfoRow label="Business ID" id="businessId" value={show(company && company.id)} />
+        <InfoRow label="Business Name" id="businessName" value={show(company && company.name)} />
         <InfoRow
           label="Active Subscription"
           id="planName"
-          value={data ? planLabel(data) : '-'}
+          value={company ? PLAN_LABELS[company.plan] || company.plan : '-'}
           valueStyle={{ color: '#10b981' }}
         />
-        <InfoRow label="Owner" id="ownerName" value={show(data && data.ownerName)} />
-        <InfoRow label="Admin Username" id="username" value={show(data && data.username)} />
-        <InfoRow label="Admin Password" id="password" value={show(data && data.password)} />
-        <InfoRow label="Email" id="email" value={show(data && data.email)} />
+        <InfoRow label="GSTIN" id="gstNo" value={show(company && company.gstNo)} />
+        <InfoRow label="Owner" id="ownerName" value={show(user.name)} />
+        <InfoRow label="Your username" id="username" value={show(user.username)} />
+        <InfoRow label="Email" id="email" value={show(user.email)} />
       </section>
-      <WelcomeActions
-        onBeforeLeave={() => data && establishNewAdminSession(data, 'dashboard.html')}
-      />
+      <WelcomeActions />
     </main>
   );
 }

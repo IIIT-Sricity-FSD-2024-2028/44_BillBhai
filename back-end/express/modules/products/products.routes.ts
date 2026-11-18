@@ -10,69 +10,35 @@ import {
   updateProductSchema,
 } from './products.schema';
 
+const READERS = ['superuser', 'admin', 'cashier', 'inventorymanager', 'returnhandler', 'customer'];
+const WRITERS = ['superuser', 'admin', 'inventorymanager'];
+
 /**
  * Products Module Router
- *
- * Router-level middleware chain per endpoint:
- *   requireRoles(...)  -> role based access control
- *   validate({...})    -> zod schema validation
- *   controller.method  -> request handling
  *
  * NOTE: the literal '/categories' and '/barcode/:barcode' paths are registered
  * before '/:id', otherwise the parameterised route would capture them.
  */
-export function createProductsRouter(
-  controller: ProductsController = productsController,
-): Router {
+export function createProductsRouter(controller: ProductsController = productsController): Router {
   const router = Router();
 
-  router.get(
-    '/categories',
-    requireRoles('superuser', 'admin', 'cashier', 'inventorymanager', 'customer'),
-    controller.getCategories,
-  );
-
+  router.get('/categories', requireRoles(...READERS), validate({ query: listProductsQuerySchema }), controller.getCategories);
   router.get(
     '/barcode/:barcode',
-    requireRoles('superuser', 'admin', 'cashier', 'inventorymanager'),
-    validate({ params: productBarcodeParamsSchema }),
+    requireRoles(...READERS),
+    validate({ params: productBarcodeParamsSchema, query: listProductsQuerySchema }),
     controller.findByBarcode,
   );
-
-  router.get(
-    '/',
-    requireRoles('superuser', 'admin', 'cashier', 'inventorymanager', 'customer'),
-    validate({ query: listProductsQuerySchema }),
-    controller.findAll,
-  );
-
-  router.get(
-    '/:id',
-    requireRoles('superuser', 'admin', 'cashier', 'inventorymanager', 'customer'),
-    validate({ params: productIdParamsSchema }),
-    controller.findOne,
-  );
-
-  router.post(
-    '/',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
-    validate({ body: createProductSchema }),
-    controller.create,
-  );
-
+  router.get('/', requireRoles(...READERS), validate({ query: listProductsQuerySchema }), controller.findAll);
+  router.get('/:id', requireRoles(...READERS), validate({ params: productIdParamsSchema }), controller.findOne);
+  router.post('/', requireRoles(...WRITERS), validate({ body: createProductSchema }), controller.create);
   router.put(
     '/:id',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
+    requireRoles(...WRITERS),
     validate({ params: productIdParamsSchema, body: updateProductSchema }),
     controller.update,
   );
-
-  router.delete(
-    '/:id',
-    requireRoles('superuser', 'admin', 'inventorymanager'),
-    validate({ params: productIdParamsSchema }),
-    controller.remove,
-  );
+  router.delete('/:id', requireRoles(...WRITERS), validate({ params: productIdParamsSchema }), controller.remove);
 
   return router;
 }

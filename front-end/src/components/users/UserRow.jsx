@@ -1,35 +1,33 @@
 import Badge from '../common/Badge.jsx';
-import { encodeUserToken } from '../../lib/dashboard/credentials.js';
 
 const BTN_STYLE = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px' };
-const DELETE_STYLE = {
-  padding: '4px 8px',
-  fontSize: '0.75rem',
-  color: 'var(--red)',
-  borderColor: 'var(--red)',
-};
+const DELETE_STYLE = { ...BTN_STYLE, color: 'var(--red)', borderColor: 'var(--red)' };
 
-export default function UserRow({ user, canManage, onView, onEdit, onDelete }) {
-  const token = encodeUserToken(user.name);
+export default function UserRow({ user, canManage, isSelf, onView, onEdit, onDelete }) {
   return (
     <tr>
-      <td className="cell-main">{user.name}</td>
-      <td>{user.email || ''}</td>
-      <td>{user.normalizedRole}</td>
+      <td className="cell-main">
+        {user.name}
+        {isSelf && <span className="text-sm text-muted"> (you)</span>}
+      </td>
+      <td>{user.username}</td>
+      <td>{user.email || '—'}</td>
+      <td>{user.phone || '—'}</td>
+      <td>{user.role}</td>
       <td>
-        <Badge status={user.normalizedStatus} />
+        <Badge status={user.status} type={user.status === 'Suspended' ? 'cancelled' : 'active'} />
       </td>
       <td>
-        <button className="btn btn-outline" style={BTN_STYLE} onClick={() => onView(token)}>
+        <button className="btn btn-outline" style={BTN_STYLE} onClick={() => onView(user)}>
           View
         </button>
         {canManage && (
-          <button className="btn btn-outline" style={BTN_STYLE} onClick={() => onEdit(token)}>
+          <button className="btn btn-outline" style={BTN_STYLE} onClick={() => onEdit(user)}>
             Edit
           </button>
         )}
-        {canManage && (
-          <button className="btn btn-outline" style={DELETE_STYLE} onClick={() => onDelete(token)}>
+        {canManage && !isSelf && (
+          <button className="btn btn-outline" style={DELETE_STYLE} onClick={() => onDelete(user)}>
             Delete
           </button>
         )}

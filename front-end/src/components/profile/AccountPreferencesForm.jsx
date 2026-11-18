@@ -1,4 +1,4 @@
-import FormField, { controlClass } from '../common/FormField.jsx';
+import FormField from '../common/FormField.jsx';
 
 const TOGGLE_LABEL_STYLE = {
   display: 'flex',
@@ -16,7 +16,6 @@ const TOGGLES_WRAP_STYLE = {
 
 export default function AccountPreferencesForm({
   values,
-  errors,
   notificationOptions,
   onFieldChange,
   onToggleChange,
@@ -30,7 +29,7 @@ export default function AccountPreferencesForm({
   return (
     <section className="card" style={{ marginTop: '14px' }}>
       <div className="card-hd">
-        <h3>Account Preferences</h3>
+        <h3>Display and notification preferences</h3>
       </div>
       <div className="card-bd">
         <form
@@ -40,56 +39,6 @@ export default function AccountPreferencesForm({
             onSubmit();
           }}
         >
-          <div className="form-row">
-            <FormField label="Full Name" error="Full name is required." invalid={errors.fullName}>
-              <input
-                id="psFullName"
-                className={controlClass(errors.fullName)}
-                {...field('fullName')}
-              />
-            </FormField>
-            <FormField label="Email" error="Enter a valid email address." invalid={errors.email}>
-              <input
-                id="psEmail"
-                type="email"
-                className={controlClass(errors.email)}
-                {...field('email')}
-              />
-            </FormField>
-          </div>
-          <div className="form-row">
-            <FormField
-              label="Phone"
-              error="Enter a valid 10-digit phone number."
-              invalid={errors.phone}
-            >
-              <input
-                id="psPhone"
-                className={controlClass(errors.phone)}
-                maxLength={10}
-                inputMode="numeric"
-                placeholder="10-digit mobile"
-                {...field('phone')}
-              />
-            </FormField>
-            <FormField label="Location">
-              <input
-                id="psLocation"
-                className="form-control"
-                placeholder="Store or city"
-                {...field('location')}
-              />
-            </FormField>
-          </div>
-          <FormField label="Bio">
-            <textarea
-              id="psBio"
-              className="form-control"
-              rows={3}
-              style={{ resize: 'vertical' }}
-              {...field('bio')}
-            />
-          </FormField>
           <div className="form-row">
             <FormField label="Language">
               <select id="psLanguage" className="form-control" {...field('language')}>
@@ -119,6 +68,7 @@ export default function AccountPreferencesForm({
               </select>
             </FormField>
           </div>
+          <p className="text-sm text-muted" style={{ margin: 0 }}>Saved in this browser only.</p>
           <div style={TOGGLES_WRAP_STYLE}>
             {notificationOptions.length ? (
               notificationOptions.map((option) => (
@@ -139,6 +89,9 @@ export default function AccountPreferencesForm({
               </div>
             )}
           </div>
+          <button type="submit" className="btn btn-outline" style={{ marginTop: '12px' }}>
+            Save preferences
+          </button>
         </form>
       </div>
     </section>

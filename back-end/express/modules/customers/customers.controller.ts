@@ -1,74 +1,52 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request } from 'express';
+import { ConflictError } from '../../errors/http-error';
+import { handle, param, query } from '../../utils/http';
+import { ordersService } from '../orders/orders.service';
+import { actorName, assertInScope, listScope, writeScope } from '../../utils/scope';
 import { customersService, CustomersService } from './customers.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './customers.schema';
 
-/**
- * Customers Module Controller
- *
- * Extracts HTTP input, delegates to the service, sets an explicit status code,
- * and forwards every failure to the global error pipeline via next().
- */
+/** Customers Module Controller - scoped to the signed-in user's business. */
 export class CustomersController {
   constructor(private readonly service: CustomersService = customersService) {}
 
-  public findAll = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const companyId =
-        typeof req.query.companyId === 'string' ? req.query.companyId : undefined;
-      res.status(200).json(this.service.findAll(companyId));
-    } catch (error) {
-      next(error);
-    }
-  };
+  private owned(req: Request) {
+    const customer = this.service.findOne(param(req, 'id'));
+    assertInScope(req, customer.companyId, `Customer ${customer.id}`);
+    return customer;
+  }
 
-  public findOne = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(200).json(this.service.findOne(String(req.params.id)));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findAll = handle((req) => this.service.findAll(listScope(req, query(req, 'companyId'))));
 
-  public findByPhone = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const companyId =
-        typeof req.query.companyId === 'string' ? req.query.companyId : undefined;
-      res
-        .status(200)
-        .json(this.service.findByPhone(String(req.params.phone), companyId));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findOne = handle((req) => this.owned(req));
 
-  public create = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const created = this.service.create(req.body as CreateCustomerDto);
-      res.status(201).json(created);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findByPhone = handle((req) =>
+    this.service.findByPhone(param(req, 'phone'), listScope(req, query(req, 'companyId'))),
+  );
 
-  public update = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const updated = this.service.update(
-        String(req.params.id),
-        req.body as UpdateCustomerDto,
-      );
-      res.status(200).json(updated);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public create = handle((req) => {
+    const body = req.body as CreateCustomerDto;
+    return this.service.create({ ...body, companyId: writeScope(req, body.companyId) }, actorName(req));
+  }, 201);
 
-  public remove = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(200).json(this.service.remove(String(req.params.id)));
-    } catch (error) {
-      next(error);
+  public update = handle((req) => {
+    this.owned(req);
+    return this.service.update(param(req, 'id'), req.body as UpdateCustomerDto, actorName(req));
+  });
+
+  public remove = handle((req) => {
+    const customer = this.owned(req);
+    if (customer.name === 'Walk-in Customer' && !customer.mobileNo) {
+      throw new ConflictError('The shared walk-in record cannot be deleted');
     }
-  };
+    const orders = ordersService
+      .findAllOrders(customer.companyId, undefined, true)
+      .filter((o) => o.customerId === customer.id);
+    if (orders.length) {
+      throw new ConflictError(`${customer.name} has ${orders.length} order(s) on record and cannot be deleted`);
+    }
+    return this.service.remove(customer.id);
+  });
 }
 
 export const customersController = new CustomersController();

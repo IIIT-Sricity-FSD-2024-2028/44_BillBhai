@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import usePageSetup from '../hooks/usePageSetup.js';
 import { CSS, FONTS } from '../lib/pageAssets.js';
+import { api, storeLoginSession } from '../lib/http.js';
+import { buildUsernameSeed } from '../lib/dashboard/credentials.js';
 import AmbientGlow from '../components/login/AmbientGlow.jsx';
 import RegisterCard from '../components/register/RegisterCard.jsx';
 import RegisterField from '../components/register/RegisterField.jsx';
@@ -11,9 +13,11 @@ import TermsCheckbox from '../components/register/TermsCheckbox.jsx';
 import RegisterButton from '../components/register/RegisterButton.jsx';
 import { EMPTY_GROUP } from '../components/register/groupUtils.js';
 
-const API_BASE_URL = 'http://localhost:4000/api';
 const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 const PHONE_PATTERN = /^[6-9]\d{9}$/;
+const GSTIN_PATTERN = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+const USERNAME_PATTERN = /^[a-zA-Z0-9._-]{3,40}$/;
+const PLANS = ['starter', 'pro', 'enterprise'];
 
 const FIELDS = [
   'businessName',
@@ -22,6 +26,8 @@ const FIELDS = [
   'phone',
   'gstin',
   'businessType',
+  'address',
+  'username',
   'password',
   'confirmPassword',
 ];
@@ -40,92 +46,13 @@ function toTitleCase(value) {
     .join(' ');
 }
 
-function normalizePhoneDigits(value) {
-  return String(value || '').replace(/\D/g, '');
-}
+const digits = (value) => String(value || '').replace(/\D/g, '');
 
-function isValidEmailAddress(value) {
-  return EMAIL_PATTERN.test(String(value || '').trim());
-}
-
-function isValidPhoneNumber(value) {
-  return PHONE_PATTERN.test(normalizePhoneDigits(value));
-}
-
-function deriveAdminUsername(ownerName, email) {
-  const emailSeed = String(email || '')
-    .trim()
-    .split('@')[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]/g, '');
-  if (emailSeed) return emailSeed;
-  const ownerSeed = String(ownerName || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '.')
-    .replace(/[^a-z0-9._-]/g, '');
-  return ownerSeed || `owner${Date.now().toString().slice(-4)}`;
-}
-
-async function createBusinessAccount(payload) {
-  const companyPayload = {
-    name: payload.businessName,
-    owner: payload.ownerName,
-    adminName: payload.ownerName,
-    type: toTitleCase(payload.businessType),
-    email: payload.email,
-    phone: payload.phone,
-    gstNo: payload.gstin || undefined,
-    address: 'India',
-    plan: 'starter',
-    productsPlan: 'Starter Plan (Free)',
-    subscriptionStatus: 'Active',
-    monthlyPrice: 0,
-    renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    tenureMonths: 0,
-    storesCount: 1,
-  };
-
-  const companyResponse = await fetch(`${API_BASE_URL}/companies`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-role': 'superuser' },
-    body: JSON.stringify(companyPayload),
-  });
-  if (!companyResponse.ok) {
-    const bodyText = await companyResponse.text().catch(() => '');
-    throw new Error(
-      `Company creation failed (${companyResponse.status}): ${bodyText || 'Unknown error'}`,
-    );
-  }
-  const companyRecord = await companyResponse.json();
-
-  const username = deriveAdminUsername(payload.ownerName, payload.email);
-  const userPayload = {
-    companyId: String((companyRecord && companyRecord.id) || '').trim(),
-    name: payload.ownerName,
-    role: 'admin',
-    email: payload.email,
-    mobileNo: payload.phone,
-    username,
-    password: payload.password,
-  };
-
-  const userResponse = await fetch(`${API_BASE_URL}/users`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-role': 'superuser' },
-    body: JSON.stringify(userPayload),
-  });
-  if (!userResponse.ok) {
-    const bodyText = await userResponse.text().catch(() => '');
-    throw new Error(
-      `Admin user creation failed (${userResponse.status}): ${bodyText || 'Unknown error'}`,
-    );
-  }
-  const userRecord = await userResponse.json();
-
-  return { company: companyRecord, user: userRecord, username, password: payload.password };
-}
-
+/**
+ * Business sign-up. One request to POST /companies/register creates the
+ * business AND its owner's admin login together, then signs the owner in.
+ * Nothing is half-created and no password is kept in the browser.
+ */
 export default function RegisterBusinessPage() {
   usePageSetup({
     title: 'BillBhai — Register Your Business',
@@ -134,7 +61,10 @@ export default function RegisterBusinessPage() {
   });
 
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const requestedPlan = PLANS.includes(params.get('plan')) ? params.get('plan') : 'starter';
   const [values, setValues] = useState(initialValues);
+  const [usernameTouched, setUsernameTouched] = useState(false);
   const [groups, setGroups] = useState(initialGroups);
   const [showing, setShowing] = useState({ password: false, confirmPassword: false });
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -158,8 +88,12 @@ export default function RegisterBusinessPage() {
   }
 
   function handleChange(field, value) {
-    setValues((prev) => ({ ...prev, [field]: value }));
-    // Real-time password match (runs on input of the confirm field only).
+    setValues((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === 'ownerName' && !usernameTouched) next.username = buildUsernameSeed(value, prev.email);
+      return next;
+    });
+    if (field === 'username') setUsernameTouched(true);
     if (field === 'confirmPassword') {
       if (value && value !== values.password) {
         updateGroup(field, { error: true, errText: 'Passwords do not match', errDisplay: 'block' });
@@ -169,7 +103,6 @@ export default function RegisterBusinessPage() {
     }
   }
 
-  // Focusing a field clears its error state and hides its message.
   function handleFocus(field) {
     updateGroup(field, { error: false, shake: false, errDisplay: field === 'gstin' ? '' : 'none' });
   }
@@ -189,10 +122,9 @@ export default function RegisterBusinessPage() {
     e.preventDefault();
     setFormError('');
 
-    const next = Object.fromEntries(
-      FIELDS.map((f) => [f, { ...groups[f], error: false, shake: false }]),
-    );
+    const next = Object.fromEntries(FIELDS.map((f) => [f, { ...groups[f], error: false, shake: false }]));
     let hasError = false;
+    const problems = [];
     const fail = (field, message) => {
       next[field] = { ...next[field], error: true, shake: true };
       if (message) next[field] = { ...next[field], errText: message, errDisplay: 'block' };
@@ -200,75 +132,75 @@ export default function RegisterBusinessPage() {
     };
 
     REQUIRED.forEach((field) => {
-      if (!values[field].trim()) fail(field);
+      if (!values[field].trim()) fail(field, 'Required');
     });
-
-    if (values.email.trim() && !isValidEmailAddress(values.email)) {
-      fail('email', 'Please enter a valid email');
-    }
-
-    if (values.phone.trim() && !isValidPhoneNumber(values.phone)) {
+    if (values.businessName.trim() && values.businessName.trim().length < 2) fail('businessName', 'At least 2 characters');
+    if (values.email.trim() && !EMAIL_PATTERN.test(values.email.trim())) fail('email', 'Please enter a valid email');
+    if (values.phone.trim() && !PHONE_PATTERN.test(digits(values.phone))) {
       fail('phone', 'Enter a valid 10-digit Indian mobile number');
     }
-
+    const gst = values.gstin.trim().toUpperCase();
+    if (gst && !GSTIN_PATTERN.test(gst)) {
+      fail('gstin');
+      problems.push('GSTIN must be 15 characters, like 07AABCF1234K1Z5 (or leave it empty).');
+    }
+    if (values.address.trim() && values.address.trim().length < 8) fail('address', 'Enter the full shop address');
+    if (values.username.trim() && !USERNAME_PATTERN.test(values.username.trim())) {
+      fail('username', '3-40 letters, digits, dot, dash or underscore');
+    }
     const pw = values.password;
-    const cpw = values.confirmPassword;
-    if (pw && cpw && pw !== cpw) {
-      fail('confirmPassword', 'Passwords do not match');
+    if (pw && (pw.length < 8 || !/[A-Za-z]/.test(pw) || !/\d/.test(pw))) {
+      fail('password', 'At least 8 characters with a letter and a digit');
     }
-
-    if (pw && pw.length < 6) {
-      fail('password', 'Password must be at least 6 characters');
-    }
+    if (pw && values.confirmPassword && pw !== values.confirmPassword) fail('confirmPassword', 'Passwords do not match');
 
     setGroups(next);
-
-    if (!agreeTerms) {
-      setFormError('Please accept the Terms & Conditions');
+    if (!agreeTerms) problems.push('Please accept the Terms & Conditions.');
+    if (problems.length) {
+      setFormError(problems.join(' '));
       hasError = true;
     }
-
     if (hasError) return;
 
-    const submitPayload = {
-      businessName: values.businessName.trim(),
-      ownerName: values.ownerName.trim(),
-      email: values.email.trim().toLowerCase(),
-      phone: normalizePhoneDigits(values.phone),
-      gstin: values.gstin.trim(),
-      businessType: values.businessType.trim(),
-      password: values.password,
-    };
+    const email = values.email.trim().toLowerCase();
+    const phone = digits(values.phone).slice(-10);
+    const owner = values.ownerName.trim();
 
     setIsLoading(true);
     setDisabled(true);
     try {
-      const created = await createBusinessAccount(submitPayload);
-      sessionStorage.setItem(
-        'bb_recent_business_signup',
-        JSON.stringify({
-          createdAt: new Date().toISOString(),
-          businessId: created.company && created.company.id,
-          businessName: created.company && created.company.name,
-          ownerName: submitPayload.ownerName,
-          username: created.username,
-          password: created.password,
-          email: submitPayload.email,
-          phone: submitPayload.phone,
-        }),
-      );
+      const result = await api('/companies/register', {
+        method: 'POST',
+        anonymous: true,
+        body: {
+          plan: requestedPlan,
+          company: {
+            name: values.businessName.trim(),
+            owner,
+            adminName: owner,
+            type: toTitleCase(values.businessType),
+            email,
+            phone,
+            gstNo: gst,
+            address: values.address.trim(),
+          },
+          admin: {
+            name: owner,
+            email,
+            mobileNo: phone,
+            username: values.username.trim(),
+            password: pw,
+          },
+        },
+      });
+      storeLoginSession(result.session);
       if (!mounted.current) return;
       setIsLoading(false);
       setIsSuccess(true);
-      redirectTimer.current = setTimeout(() => {
-        navigate('/choose-plan');
-      }, 800);
+      redirectTimer.current = setTimeout(() => navigate('/choose-plan'), 700);
     } catch (error) {
-      console.error('Business registration failed:', error);
       if (!mounted.current) return;
-      setFormError(
-        error && error.message ? error.message : 'Could not create business account right now.',
-      );
+      setFormError(error && error.message ? error.message : 'Could not create the business right now.');
       setIsLoading(false);
       setDisabled(false);
     }
@@ -280,32 +212,18 @@ export default function RegisterBusinessPage() {
     <>
       <AmbientGlow />
       <RegisterCard>
-        <form
-          id="registerForm"
-          className="register-form"
-          autoComplete="off"
-          onSubmit={handleSubmit}
-        >
+        <form id="registerForm" className="register-form" autoComplete="off" onSubmit={handleSubmit} noValidate>
           <div className="form-row">
-            <RegisterField
-              {...fieldProps('businessName')}
-              placeholder="Business Name"
-              icon="business"
-            />
+            <RegisterField {...fieldProps('businessName')} placeholder="Business Name" icon="business" />
             <RegisterField {...fieldProps('ownerName')} placeholder="Owner Full Name" icon="user" />
           </div>
 
           <div className="form-row">
-            <RegisterField
-              {...fieldProps('email')}
-              type="email"
-              placeholder="Email Address"
-              icon="mail"
-            />
+            <RegisterField {...fieldProps('email')} type="email" placeholder="Email Address" icon="mail" />
             <RegisterField
               {...fieldProps('phone')}
               type="tel"
-              placeholder="Phone Number"
+              placeholder="Mobile Number"
               icon="phone"
               inputProps={{ maxLength: 10, inputMode: 'numeric' }}
             />
@@ -314,24 +232,35 @@ export default function RegisterBusinessPage() {
           <div className="form-row">
             <RegisterField
               {...fieldProps('gstin')}
-              placeholder="GSTIN (Optional)"
+              placeholder="GSTIN"
               label="GSTIN"
               icon="briefcase"
               optional
+              inputProps={{ maxLength: 15, style: { textTransform: 'uppercase' } }}
             />
             <BusinessTypeSelect {...fieldProps('businessType')} />
           </div>
 
+          <RegisterField {...fieldProps('address')} placeholder="Shop Address" icon="business" inputProps={{ maxLength: 250 }} />
+
           <div className="form-divider">
-            <span>Security</span>
+            <span>Your sign-in</span>
           </div>
+
+          <RegisterField
+            {...fieldProps('username')}
+            placeholder="Username"
+            icon="user"
+            inputProps={{ maxLength: 40, autoComplete: 'username' }}
+          />
 
           <RegisterField
             {...fieldProps('password')}
             type="password"
-            placeholder="Create Password"
+            placeholder="Password (min 8 chars)"
+            label="Create Password"
             icon="lock"
-            inputProps={{ minLength: 6 }}
+            inputProps={{ minLength: 8, autoComplete: 'new-password' }}
             showing={showing.password}
             onToggle={toggle('password')}
           />
@@ -342,13 +271,14 @@ export default function RegisterBusinessPage() {
             type="password"
             placeholder="Confirm Password"
             icon="checkCircle"
+            inputProps={{ autoComplete: 'new-password' }}
             showing={showing.confirmPassword}
             onToggle={toggle('confirmPassword')}
           />
 
           <TermsCheckbox checked={agreeTerms} onChange={setAgreeTerms} />
 
-          <p className="form-error" id="formError">
+          <p className="form-error" id="formError" role="alert">
             {formError}
           </p>
 

@@ -1,264 +1,152 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PageHeader from '../common/PageHeader.jsx';
 import ProfileIdentityCard from './ProfileIdentityCard.jsx';
+import ProfileDetailsCard from './ProfileDetailsCard.jsx';
 import SecurityCard from './SecurityCard.jsx';
 import SubscriptionPlanCard from './SubscriptionPlanCard.jsx';
 import RecentActivityCard from './RecentActivityCard.jsx';
 import AccountPreferencesForm from './AccountPreferencesForm.jsx';
+import { api } from '../../lib/http.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { loadObject } from '../../lib/dashboard/storage.js';
 import { ROLE_LABELS } from '../../lib/dashboard/constants.js';
 import {
-  getRecentProfileActivity,
-  isValidEmailAddress,
-  isValidPhoneNumber,
-  normalizeEditablePhone,
-  normalizePhoneDigits,
-  validatePasswordCriteria,
-} from '../../lib/dashboard/helpers.js';
-import {
-  getCurrentUserIdentity,
   getNotificationPreferenceConfig,
   normalizeNotificationPreferences,
-  updatePasswordOverrideForCurrentUser,
 } from '../../lib/dashboard/notifications.js';
 
 const COLUMN_STYLE = { display: 'flex', flexDirection: 'column', gap: '16px' };
+const ACTIVITY_ROLES = ['superuser', 'admin', 'cashier', 'inventorymanager', 'deliveryops', 'returnhandler'];
 
 function pickOption(value, options) {
   return options.includes(value) ? value : options[0];
 }
 
-function initialFormValues(profile) {
-  return {
-    fullName: profile.fullName || '',
-    email: profile.email || '',
-    phone: normalizeEditablePhone(profile.phone),
-    location: profile.location || '',
-    bio: profile.bio || '',
-    language: pickOption(profile.language, ['English (India)', 'Hindi', 'Tamil']),
-    currency: pickOption(profile.currency, ['INR', 'USD']),
-    timezone: pickOption(profile.timezone, ['Asia/Kolkata', 'UTC']),
-    dateFormat: pickOption(profile.dateFormat, ['DD/MM/YYYY', 'MM/DD/YYYY']),
-    notifications: { ...(profile.notifications || {}) },
-  };
+function when(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ProfileContent({ onSaved }) {
+/**
+ * Profile & Settings. Identity and contact details come from GET /users/me;
+ * the password is changed on the server after checking the current one;
+ * recent activity is this person's own entries in the activity log. Only
+ * display and notification preferences are kept in the browser.
+ */
+export default function ProfileContent() {
   const {
-    state,
     roleKey,
-    orders,
-    returns,
-    deliveries,
-    inventory,
     users,
+    inventory,
     activePlan,
     loadProfileSettingsRecord,
     saveProfileSettings,
     showToast,
     openPlanUpgrade,
     cancelSubscription,
-    apiRequest,
+    getProfileSubscriptionView,
+    refreshData,
   } = useDashboard();
 
-  const [profile, setProfile] = useState(() => loadProfileSettingsRecord());
-  const [values, setValues] = useState(() => initialFormValues(profile));
-  const [errors, setErrors] = useState({});
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [me, setMe] = useState(null);
+  const [businessName, setBusinessName] = useState('');
+  const [activity, setActivity] = useState([]);
+  const [error, setError] = useState('');
+  const [prefs, setPrefs] = useState(() => {
+    const record = loadProfileSettingsRecord();
+    return {
+      language: pickOption(record.language, ['English (India)', 'Hindi', 'Tamil']),
+      currency: pickOption(record.currency, ['INR', 'USD']),
+      timezone: pickOption(record.timezone, ['Asia/Kolkata', 'UTC']),
+      dateFormat: pickOption(record.dateFormat, ['DD/MM/YYYY', 'MM/DD/YYYY']),
+      notifications: { ...record.notifications },
+    };
+  });
+
+  useEffect(() => {
+    let alive = true;
+    api('/users/me')
+      .then((u) => {
+        if (!alive) return;
+        setMe(u);
+        if (!ACTIVITY_ROLES.includes(roleKey)) return;
+        api('/activity', { query: { limit: 300 } })
+          .then((rows) => {
+            if (!alive || !Array.isArray(rows)) return;
+            setActivity(rows.filter((r) => r.by === u.username).slice(0, 8));
+          })
+          .catch(() => {});
+      })
+      .catch((err) => alive && setError(err.message));
+    if (roleKey !== 'superuser') {
+      api('/companies/me/profile')
+        .then((c) => alive && setBusinessName(c ? c.name : ''))
+        .catch(() => {});
+    }
+    return () => {
+      alive = false;
+    };
+  }, [roleKey]);
 
   const notificationOptions = getNotificationPreferenceConfig(roleKey);
-  const activityItems = getRecentProfileActivity({ orders, returns, deliveries, inventory });
-  const showPlanCard = roleKey === 'admin' || roleKey === 'superuser';
+  // The plan belongs to a business: the platform super user has none of their own.
+  const showPlanCard = roleKey === 'admin' || (roleKey === 'superuser' && Boolean(localStorage.getItem('activeBusinessId')));
+  const staffCount = users.filter((u) => u.roleKey !== 'customer' && u.roleKey !== 'superuser').length;
 
-  const onFieldChange = (key, value) => {
-    setValues((prev) => ({ ...prev, [key]: value }));
-    if (key === 'fullName' || key === 'email' || key === 'phone') {
-      setErrors((prev) => ({ ...prev, [key]: false }));
-    }
+  const savePreferences = () => {
+    saveProfileSettings({
+      key: loadProfileSettingsRecord().key,
+      fullName: me ? me.name : loadProfileSettingsRecord().fullName,
+      email: me ? me.email : '',
+      phone: me ? me.mobileNo : '',
+      location: '',
+      bio: '',
+      language: prefs.language,
+      currency: prefs.currency,
+      timezone: prefs.timezone,
+      dateFormat: prefs.dateFormat,
+      notifications: normalizeNotificationPreferences(
+        notificationOptions.reduce((acc, option) => {
+          acc[option.key] = Boolean(prefs.notifications[option.key]);
+          return acc;
+        }, {}),
+        roleKey,
+      ),
+    });
+    showToast('Preferences saved.');
   };
 
-  const onToggleChange = (key, checked) => {
-    setValues((prev) => ({ ...prev, notifications: { ...prev.notifications, [key]: checked } }));
+  const onDetailsSaved = (saved) => {
+    setMe(saved);
+    // Keep the header name in step with the server.
+    saveProfileSettings({ ...loadProfileSettingsRecord(), fullName: saved.name, email: saved.email, phone: saved.mobileNo, location: '' });
+    refreshData();
   };
 
-  const saveProfile = async () => {
-    const cleared = { fullName: false, email: false, phone: false };
-    const fullName = String(values.fullName || '').trim();
-    const email = String(values.email || '').trim();
-    const phone = normalizePhoneDigits(values.phone || '');
-    if (!fullName) {
-      setErrors({ ...cleared, fullName: true });
-      showToast('Full name is required.', 'error');
-      return;
-    }
-    if (!isValidEmailAddress(email)) {
-      setErrors({ ...cleared, email: true });
-      showToast('Please enter a valid email address.', 'error');
-      return;
-    }
-    if (phone && !isValidPhoneNumber(phone)) {
-      setErrors({ ...cleared, phone: true });
-      showToast('Please enter a valid 10-digit phone number.', 'error');
-      return;
-    }
-    setErrors(cleared);
-
-    setIsSaving(true);
-    try {
-      const nextRecord = {
-        key: profile.key,
-        fullName,
-        email,
-        phone,
-        location: String(values.location || '').trim(),
-        bio: String(values.bio || '').trim(),
-        language: String(values.language || 'English (India)').trim(),
-        currency: String(values.currency || 'INR').trim(),
-        timezone: String(values.timezone || 'Asia/Kolkata').trim(),
-        dateFormat: String(values.dateFormat || 'DD/MM/YYYY').trim(),
-        notifications: normalizeNotificationPreferences(
-          notificationOptions.reduce((acc, option) => {
-            acc[option.key] = Boolean(values.notifications[option.key]);
-            return acc;
-          }, {}),
-          roleKey,
-        ),
-      };
-
-      saveProfileSettings(nextRecord);
-      setProfile(nextRecord);
-
-      // Sync user record to backend if user ID is known
-      const identity = getCurrentUserIdentity(state);
-      const currentUser = loadObject('currentUser', {});
-      const targetUser =
-        (currentUser && currentUser.id && users.find((u) => u.id === currentUser.id)) ||
-        users.find(
-          (u) =>
-            u.username === identity.username ||
-            u.email === identity.email ||
-            u.role === roleKey,
-        );
-
-      const userId = (currentUser && currentUser.id) || (targetUser && targetUser.id);
-      if (userId && apiRequest) {
-        try {
-          const body = { name: fullName, email };
-          if (phone && phone.length === 10) body.mobileNo = phone;
-          await apiRequest(`/users/${encodeURIComponent(String(userId))}`, {
-            method: 'PUT',
-            body,
-          });
-        } catch (apiErr) {
-          console.warn('Backend user profile update notice (local storage preserved):', apiErr);
-        }
-      }
-
-      showToast('Profile and settings saved.', 'success');
-      if (typeof onSaved === 'function') {
-        onSaved();
-      }
-    } catch (err) {
-      console.error('Save profile failed:', err);
-      showToast('Failed to save profile changes.', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const updatePassword = async () => {
-    const nextPassword = String(newPassword || '').trim();
-    const confirm = String(confirmPassword || '').trim();
-    const criteriaError = validatePasswordCriteria(nextPassword);
-    if (criteriaError) {
-      return;
-    }
-    if (nextPassword !== confirm) {
-      return;
-    }
-    setIsUpdatingPassword(true);
-    try {
-      if (!updatePasswordOverrideForCurrentUser(state, nextPassword)) {
-        showToast('Could not map current account for password update.', 'error');
-        return;
-      }
-
-      // Sync new password to backend
-      const identity = getCurrentUserIdentity(state);
-      const currentUser = loadObject('currentUser', {});
-      const targetUser =
-        (currentUser && currentUser.id && users.find((u) => u.id === currentUser.id)) ||
-        users.find(
-          (u) =>
-            u.username === identity.username ||
-            u.email === identity.email ||
-            u.role === roleKey,
-        );
-
-      const userId = (currentUser && currentUser.id) || (targetUser && targetUser.id);
-      if (userId && apiRequest) {
-        try {
-          await apiRequest(`/users/${encodeURIComponent(String(userId))}`, {
-            method: 'PUT',
-            body: { password: nextPassword },
-          });
-        } catch (apiErr) {
-          console.warn('Backend user password update notice (local override preserved):', apiErr);
-        }
-      }
-
-      setNewPassword('');
-      setConfirmPassword('');
-      showToast('Password updated successfully.', 'success');
-    } catch (err) {
-      console.error('Password update error:', err);
-      showToast('Failed to update password.', 'error');
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  };
+  const activityItems = activity.map((a) => ({ time: when(a.at), before: '', strong: a.entityId, after: ` · ${a.summary}` }));
 
   return (
     <>
-      <PageHeader
-        title="Profile & Settings"
-        actions={
-          <button
-            className="btn btn-primary"
-            id="saveProfileSettingsBtn"
-            onClick={saveProfile}
-            disabled={isSaving}
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
-        }
-      />
+      <PageHeader title="Profile & Settings" />
+      {error && <p className="text-muted">Could not load your account: {error}</p>}
       <section className="grid-2">
         <div style={COLUMN_STYLE}>
           <ProfileIdentityCard
-            fullName={values.fullName || profile.fullName}
+            fullName={me ? me.name : loadProfileSettingsRecord().fullName}
             roleLabel={ROLE_LABELS[roleKey] || 'Team Member'}
-            email={values.email || profile.email}
+            email={me ? me.email : ''}
           />
-          <SecurityCard
-            newPassword={newPassword}
-            confirmPassword={confirmPassword}
-            onNewPasswordChange={setNewPassword}
-            onConfirmPasswordChange={setConfirmPassword}
-            onUpdate={updatePassword}
-            isUpdating={isUpdatingPassword}
-          />
+          <ProfileDetailsCard me={me} canEdit={roleKey === 'admin' || roleKey === 'superuser'} businessName={businessName} onSaved={onDetailsSaved} />
+          <SecurityCard />
         </div>
         <div style={COLUMN_STYLE}>
           {showPlanCard && (
             <SubscriptionPlanCard
               plan={activePlan}
-              usersCount={users.length}
+              usersCount={staffCount}
               productsCount={inventory.length}
+              renewalText={getProfileSubscriptionView().renewalText}
               onUpgrade={openPlanUpgrade}
               onCancel={cancelSubscription}
             />
@@ -267,12 +155,13 @@ export default function ProfileContent({ onSaved }) {
         </div>
       </section>
       <AccountPreferencesForm
-        values={values}
-        errors={errors}
+        values={prefs}
         notificationOptions={notificationOptions}
-        onFieldChange={onFieldChange}
-        onToggleChange={onToggleChange}
-        onSubmit={saveProfile}
+        onFieldChange={(key, value) => setPrefs((prev) => ({ ...prev, [key]: value }))}
+        onToggleChange={(key, checked) =>
+          setPrefs((prev) => ({ ...prev, notifications: { ...prev.notifications, [key]: checked } }))
+        }
+        onSubmit={savePreferences}
       />
     </>
   );

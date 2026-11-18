@@ -1,359 +1,178 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
-import LegacySelect, { effectiveSelectValue } from '../common/LegacySelect.jsx';
-import { EMPTY_USER_FORM } from './UsersContent.jsx';
-import { useDashboard, useSession, useUsers } from '../../lib/dashboard/hooks.js';
-import { mapRoleLabelToBackendRole } from '../../lib/dashboard/api.js';
-import {
-  mapUserRoleToAuthRole,
-  normalizeAuthUserKey,
-  upsertAuthCredentialsForUser,
-} from '../../lib/dashboard/credentials.js';
-import {
-  isValidEmailAddress,
-  isValidPhoneNumber,
-  normalizePhoneDigits,
-} from '../../lib/dashboard/helpers.js';
+import { api, errorText } from '../../lib/http.js';
+import { useDashboard, useSession } from '../../lib/dashboard/hooks.js';
+import { ALL_ROLES, STAFF_ROLES, roleLabel, suggestUsername } from '../../lib/dashboard/credentials.js';
 
-const ROLE_VALUES = [
-  'Admin',
-  'Cashier',
-  'Return Handler',
-  'Inventory Manager',
-  'Delivery Ops',
-  'Customer',
-];
-const STATUS_OPTIONS = ['Active', 'Offline', 'Suspended'];
-const PHONE_ERROR = 'Enter a valid 10-digit phone number.';
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
+const USERNAME_RE = /^[a-zA-Z0-9._-]{3,40}$/;
+const EMPTY = { name: '', email: '', role: '', phone: '', username: '', status: 'Active' };
+const ERROR_BOX = { color: 'var(--red)', marginTop: '8px', fontSize: '0.85rem' };
 
-const TEXTS = {
-  add: { title: 'Add New User', submit: 'Add User' },
-  edit: { title: 'Edit User', submit: 'Save User' },
-};
-
-function roleOptions(planFeatures) {
-  return [
-    { value: '', label: 'Select role' },
-    ...ROLE_VALUES.map((value) => {
-      const locked =
-        !!planFeatures &&
-        ((value === 'Delivery Ops' && !planFeatures.delivery) ||
-          (value === 'Return Handler' && !planFeatures.returns));
-      return { value, label: value, hidden: locked, disabled: locked };
-    }),
-  ];
+function validate(values) {
+  const errors = {};
+  if (values.name.trim().length < 2) errors.name = 'Enter the full name (at least 2 letters).';
+  if (!EMAIL_RE.test(values.email.trim())) errors.email = 'Enter a valid email address.';
+  if (!/^[6-9]\d{9}$/.test(values.phone.replace(/\D/g, '').slice(-10))) errors.phone = 'Enter a 10-digit mobile number.';
+  if (!values.role) errors.role = 'Choose a role.';
+  if (!USERNAME_RE.test(values.username.trim())) {
+    errors.username = '3-40 letters, digits, dot, dash or underscore. No spaces.';
+  }
+  return errors;
 }
 
-export default function UserFormModal({ open, request, onClose }) {
-  const {
-    hasActionAccess,
-    denyAction,
-    activePlan,
-    apiRequest,
-    showToast,
-    showMutationError,
-    showCredentialsModal,
-    renderPage,
-  } = useDashboard();
+/**
+ * Add or edit a staff account. A new account gets a temporary password from
+ * the server, shown once afterwards; the browser never sets or stores one.
+ */
+export default function UserFormModal({ user, onClose }) {
+  const { roleKey, users, activePlan, showToast, showCredentialsModal, refreshData } = useDashboard();
   const { activeBusinessId } = useSession();
-  const { rows: users, setRows } = useUsers();
-
-  const [values, setValues] = useState(EMPTY_USER_FORM);
-  const [readOnly, setReadOnly] = useState(false);
-  const [planFeatures, setPlanFeatures] = useState(null);
+  const editing = Boolean(user && user.id);
+  const [values, setValues] = useState(EMPTY);
+  const [touchedUsername, setTouchedUsername] = useState(false);
   const [errors, setErrors] = useState({});
-  const [phoneError, setPhoneError] = useState({ display: undefined, message: undefined });
-  const [seenRequest, setSeenRequest] = useState(null);
+  const [serverError, setServerError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  if (request && request.id !== seenRequest) {
-    setSeenRequest(request.id);
-    setValues(request.values);
-    setReadOnly(!!request.readOnly);
-    setPlanFeatures(request.planFeatures || null);
+  useEffect(() => {
+    setValues(
+      editing
+        ? { name: user.name, email: user.email, role: user.roleKey, phone: user.phone, username: user.username, status: user.status === 'Suspended' ? 'Suspended' : 'Active' }
+        : EMPTY,
+    );
+    setTouchedUsername(editing);
     setErrors({});
-  }
+    setServerError('');
+    setSaving(false);
+  }, [user, editing]);
 
-  const texts = TEXTS[request && request.mode === 'edit' ? 'edit' : 'add'];
-  const roleOpts = roleOptions(planFeatures);
+  const roles = roleKey === 'superuser' ? ALL_ROLES : STAFF_ROLES;
+  const features = (activePlan && activePlan.features) || {};
+  const locked = (key) => (key === 'deliveryops' && !features.delivery) || (key === 'returnhandler' && !features.returns);
 
-  const bind = (key) => ({
-    value: values[key],
-    onChange: (e) => {
-      const next = e.target.value;
-      setValues((v) => ({ ...v, [key]: next }));
-      setErrors((errs) => (errs[key] ? { ...errs, [key]: false } : errs));
-    },
-  });
+  const set = (key) => (e) => {
+    const next = { ...values, [key]: e.target.value };
+    if (!editing && !touchedUsername && (key === 'name' || key === 'email')) {
+      next.username = suggestUsername(users, next.name, next.email);
+    }
+    setValues(next);
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
+  };
 
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (!hasActionAccess('users')) {
-      denyAction('User create/update');
-      return;
-    }
-    const roleValue = effectiveSelectValue(roleOpts, values.role);
-    const statusValue = effectiveSelectValue(STATUS_OPTIONS, values.status);
-
-    let valid = true;
-    const next = { ...errors };
-    [
-      ['name', values.name.trim() !== ''],
-      ['email', isValidEmailAddress(values.email)],
-      ['role', roleValue !== ''],
-    ].forEach(([key, ok]) => {
-      next[key] = !ok;
-      if (!ok) valid = false;
-    });
-
-    const features = activePlan.features;
-    if (
-      (roleValue === 'Delivery Ops' && !features.delivery) ||
-      (roleValue === 'Return Handler' && !features.returns)
-    ) {
-      showToast('Role not allowed on your current plan.');
-      valid = false;
-    }
-    const typedEmail = String(values.email || '').trim();
-    const typedPhone = normalizePhoneDigits(values.phone || '');
-    const typedUsername = String(values.username || '').trim();
-    const typedPassword = String(values.password || '').trim();
-    const normalizedTypedUsername = normalizeAuthUserKey(typedUsername);
-    if (typedUsername && typedUsername !== normalizedTypedUsername) {
-      next.username = true;
-      valid = false;
-    }
-    if (typedPhone && !isValidPhoneNumber(typedPhone)) {
-      next.phone = true;
-      setPhoneError({ display: 'block', message: PHONE_ERROR });
-      valid = false;
-    } else {
-      next.phone = false;
-      setPhoneError((p) => ({ ...p, display: 'none' }));
-    }
-    if (typedPassword && typedPassword.length < 6) {
-      next.password = true;
-      valid = false;
-    }
-    setErrors(next);
-    if (!valid) return;
-
-    const uname = values.name.trim();
-    const existingIdx =
-      request && request.mode === 'edit' ? users.findIndex((u) => u.id === values.id) : -1;
-    if (
-      existingIdx === -1 &&
-      users.some((u) => String(u.name || '').toLowerCase() === uname.toLowerCase())
-    ) {
-      showToast(`A user named "${uname}" already exists.`);
-      return;
-    }
-    const existingUser = existingIdx !== -1 ? users[existingIdx] : null;
-
-    const uData = {
-      ...(existingUser || {}),
-      name: uname,
-      role: roleValue,
-      status: statusValue,
-      email: typedEmail,
-      phone: typedPhone,
+    setServerError('');
+    const found = validate(values);
+    setErrors(found);
+    if (Object.keys(found).length) return;
+    const body = {
+      name: values.name.trim(),
+      email: values.email.trim(),
+      role: values.role,
+      mobileNo: values.phone.replace(/\D/g, '').slice(-10),
+      username: values.username.trim(),
+      status: values.status,
     };
-
-    let credential;
+    setSaving(true);
     try {
-      credential = upsertAuthCredentialsForUser(users, uData, {
-        existingUsername: existingUser && existingUser.username,
-        preferredUsername: normalizedTypedUsername,
-        forcePassword: typedPassword,
-      });
-    } catch (error) {
-      showToast(error && error.message ? error.message : 'Could not create credentials.');
-      return;
-    }
-    uData.username = credential.username;
-
-    try {
-      if (existingUser && existingUser.id) {
-        const backendUser = await apiRequest(
-          `/users/${encodeURIComponent(String(existingUser.id))}`,
-          {
-            method: 'PUT',
-            role: 'admin',
-            body: {
-              name: uData.name,
-              role: mapRoleLabelToBackendRole(uData.role),
-              email: uData.email,
-              mobileNo: uData.phone || '',
-              status: uData.status,
-              ...(typedPassword ? { password: typedPassword } : {}),
-            },
-          },
-        );
-        uData.id = backendUser.id || existingUser.id;
-      } else {
-        const backendUser = await apiRequest('/users', {
-          method: 'POST',
-          role: 'admin',
-          body: {
-            companyId: String(activeBusinessId || 'BIZ-101').trim() || 'BIZ-101',
-            name: uData.name,
-            role: mapRoleLabelToBackendRole(uData.role),
-            email: uData.email,
-            mobileNo: uData.phone || '0000000000',
-            username: uData.username,
-            password: credential.password || 'user123',
-          },
-        });
-        uData.id = backendUser.id;
+      if (editing) {
+        await api(`/users/${encodeURIComponent(user.id)}`, { method: 'PUT', body: { ...body, version: user.version } });
+        await refreshData();
+        showToast(`${body.name} updated`);
+        onClose();
+        return;
       }
-    } catch (error) {
-      showMutationError('User save', error);
-      return;
-    }
-
-    setRows((rows) => {
-      const idx = rows.findIndex((u) => u.id === uData.id);
-      if (existingIdx !== -1 && idx !== -1) return rows.map((u, i) => (i === idx ? uData : u));
-      return [...rows, uData];
-    });
-
-    onClose();
-    renderPage();
-    showToast(`User "${uData.name}" saved successfully!`);
-
-    if (existingIdx === -1 || credential.generated) {
-      showCredentialsModal(existingIdx === -1 ? 'New User Credentials' : 'User Credentials', {
-        name: uData.name,
-        username: credential.username,
-        password: credential.password,
-        role: mapUserRoleToAuthRole(uData.role),
-        email: uData.email,
+      if (roleKey === 'superuser') {
+        if (!activeBusinessId) {
+          setServerError('Open a business first (Super User Portal → the business → Manage users).');
+          setSaving(false);
+          return;
+        }
+        body.companyId = activeBusinessId;
+      }
+      const created = await api('/users', { method: 'POST', body });
+      await refreshData();
+      onClose();
+      showCredentialsModal('User Added', {
+        name: created.name,
+        username: created.username,
+        password: created.temporaryPassword,
+        role: roleLabel(created.role),
       });
+    } catch (err) {
+      setServerError(errorText(err, 'Could not save the user'));
+      setSaving(false);
     }
   };
 
+  const field = (key, label, props = {}) => (
+    <FormField label={label} htmlFor={`user_${key}`} error={errors[key] || ''} invalid={errors[key] ? true : undefined}>
+      <input id={`user_${key}`} className={controlClass(Boolean(errors[key]))} value={values[key]} onChange={set(key)} {...props} />
+    </FormField>
+  );
+
   return (
-    <Modal
-      open={open}
-      id="addUserModal"
-      title={texts.title}
-      onClose={onClose}
-      closeButtonId="userModalClose"
-      closeButtonType={null}
-    >
-      <form id="addUserForm" noValidate onSubmit={handleSubmit}>
+    <Modal open id="addUserModal" title={editing ? `Edit ${user.name}` : 'Add New User'} onClose={onClose}>
+      <form onSubmit={submit} noValidate>
         <div className="modal-body">
-          <FormField
-            label="Full Name *"
-            htmlFor="userName"
-            error="Full name is required"
-            hasError={errors.name}
-          >
-            <input
-              type="text"
-              className={controlClass(errors.name)}
-              id="userName"
-              placeholder="e.g. Rahul Sharma"
-              required
-              readOnly={readOnly}
-              {...bind('name')}
-            />
+          {field('name', 'Full name *', { maxLength: 80, autoComplete: 'off' })}
+          {field('email', 'Email *', { type: 'email', maxLength: 120, autoComplete: 'off' })}
+          {field('phone', 'Mobile number *', { inputMode: 'numeric', maxLength: 14, placeholder: '98XXXXXXXX' })}
+          <FormField label="Role *" htmlFor="user_role" error={errors.role || ''} invalid={errors.role ? true : undefined}>
+            <select id="user_role" className={controlClass(Boolean(errors.role))} value={values.role} onChange={set('role')}>
+              <option value="">Choose a role</option>
+              {roles.map(([key, label]) => (
+                <option key={key} value={key} disabled={locked(key)}>
+                  {label}
+                  {locked(key) ? ' (needs a higher plan)' : ''}
+                </option>
+              ))}
+            </select>
           </FormField>
           <FormField
-            label="Email *"
-            htmlFor="userEmail"
-            error="Valid email is required"
-            hasError={errors.email}
+            label="Username *"
+            htmlFor="user_username"
+            error={errors.username || ''}
+            invalid={errors.username ? true : undefined}
+            hint={editing ? undefined : 'Suggested from the name; change it if you like.'}
           >
             <input
-              type="email"
-              className={controlClass(errors.email)}
-              id="userEmail"
-              placeholder="e.g. rahul.s@billbhai.com"
-              required
-              {...bind('email')}
+              id="user_username"
+              className={controlClass(Boolean(errors.username))}
+              value={values.username}
+              maxLength={40}
+              autoComplete="off"
+              onChange={(e) => {
+                setTouchedUsername(true);
+                set('username')(e);
+              }}
             />
           </FormField>
-          <div className="form-row">
-            <FormField
-              label="Role *"
-              htmlFor="userRole"
-              error="Please select a role"
-              hasError={errors.role}
-            >
-              <LegacySelect
-                className={controlClass(errors.role)}
-                id="userRole"
-                required
-                options={roleOpts}
-                {...bind('role')}
-              />
-            </FormField>
-            <FormField
-              label="Phone"
-              htmlFor="userPhone"
-              error="Enter a valid 10-digit phone number"
-              hasError={errors.phone}
-              errorDisplay={phoneError.display}
-              errorMessage={phoneError.message}
-            >
-              <input
-                type="tel"
-                className={controlClass(errors.phone)}
-                id="userPhone"
-                placeholder="e.g. 9876543210"
-                maxLength={10}
-                inputMode="numeric"
-                {...bind('phone')}
-              />
-            </FormField>
-          </div>
-          <div className="form-row">
-            <FormField
-              label="Username"
-              htmlFor="userUsername"
-              error="Use only letters, numbers, dot, underscore, or hyphen"
-              hasError={errors.username}
-            >
-              <input
-                type="text"
-                className={controlClass(errors.username)}
-                id="userUsername"
-                placeholder="e.g. rahul.sharma"
-                readOnly={readOnly}
-                {...bind('username')}
-              />
-            </FormField>
-            <FormField
-              label="Password"
-              htmlFor="userPassword"
-              error="Password must be at least 6 characters"
-              hasError={errors.password}
-            >
-              <input
-                type="password"
-                className={controlClass(errors.password)}
-                id="userPassword"
-                placeholder="Minimum 6 characters"
-                {...bind('password')}
-              />
-            </FormField>
-          </div>
-          <FormField label="Status" htmlFor="userStatus">
-            <LegacySelect
-              className="form-control"
-              id="userStatus"
-              options={STATUS_OPTIONS}
-              {...bind('status')}
-            />
+          <FormField label="Status" htmlFor="user_status" hint="A suspended user cannot sign in.">
+            <select id="user_status" className="form-control" value={values.status} onChange={set('status')}>
+              <option value="Active">Active</option>
+              <option value="Suspended">Suspended</option>
+            </select>
           </FormField>
+          {!editing && (
+            <p className="text-sm text-muted" style={{ margin: 0 }}>
+              A temporary password is created when you save and shown once, so you can give it to them.
+            </p>
+          )}
+          {serverError && (
+            <div style={ERROR_BOX} role="alert">
+              {serverError}
+            </div>
+          )}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn btn-outline" id="userModalCancel" onClick={onClose}>
+          <button type="button" className="btn btn-outline" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary">
-            {texts.submit}
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? 'Saving…' : editing ? 'Save User' : 'Add User'}
           </button>
         </div>
       </form>

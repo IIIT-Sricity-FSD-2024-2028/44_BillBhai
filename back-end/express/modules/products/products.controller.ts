@@ -1,101 +1,62 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request } from 'express';
+import { handle, param, query } from '../../utils/http';
+import { actorName, assertInScope, listScope, writeScope } from '../../utils/scope';
+import { ForbiddenError } from '../../errors/http-error';
+import { planOf } from '../../utils/plans';
+import { companiesService } from '../companies/companies.service';
 import { productsService, ProductsService } from './products.service';
-import {
-  CreateProductDto,
-  UpdateProductDto,
-} from './products.schema';
+import { CreateProductDto, UpdateProductDto } from './products.schema';
 
 /**
  * Products Module Controller
  *
- * Responsibilities:
- * - Reads request data from Express.
- * - Delegates all business operations to the service layer.
- * - Returns explicit HTTP status codes.
- * - Forwards unexpected errors to the global error pipeline.
+ * Every read and write is limited to the signed-in user's business.
  */
 export class ProductsController {
   constructor(private readonly service: ProductsService = productsService) {}
 
-  public findAll = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const category =
-        typeof req.query.category === 'string' ? req.query.category : undefined;
-      const products = this.service.findAll(category);
-      res.status(200).json(products);
-    } catch (error) {
-      next(error);
-    }
-  };
+  private owned(req: Request) {
+    const product = this.service.findOne(param(req, 'id'));
+    assertInScope(req, product.companyId, `Product ${product.id}`);
+    return product;
+  }
 
-  public getCategories = (
-    _req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void => {
-    try {
-      const categories = this.service.getCategories();
-      res.status(200).json(categories);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findAll = handle((req) =>
+    this.service.findAll({
+      companyId: listScope(req, query(req, 'companyId')),
+      category: query(req, 'category'),
+      includeInactive: query(req, 'includeInactive') === 'true',
+    }),
+  );
 
-  public findByBarcode = (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void => {
-    try {
-      const barcode = String(req.params.barcode);
-      const product = this.service.findByBarcode(barcode);
-      res.status(200).json(product);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findOne = handle((req) => this.owned(req));
 
-  public findOne = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const id = String(req.params.id);
-      const product = this.service.findOne(id);
-      res.status(200).json(product);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findByBarcode = handle((req) =>
+    this.service.findByBarcode(param(req, 'barcode'), listScope(req, query(req, 'companyId'))),
+  );
 
-  public create = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const dto = req.body as CreateProductDto;
-      const created = this.service.create(dto);
-      res.status(201).json(created);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public getCategories = handle((req) => this.service.getCategories(listScope(req, query(req, 'companyId'))));
 
-  public update = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const id = String(req.params.id);
-      const dto = req.body as UpdateProductDto;
-      const updated = this.service.update(id, dto);
-      res.status(200).json(updated);
-    } catch (error) {
-      next(error);
+  public create = handle((req) => {
+    const body = req.body as CreateProductDto;
+    const companyId = writeScope(req, body.companyId);
+    const plan = planOf(companiesService.findOne(companyId));
+    const count = this.service.findAll({ companyId, includeInactive: true }).length;
+    if (count >= plan.limits.maxProducts) {
+      throw new ForbiddenError(`The ${plan.name} allows ${plan.limits.maxProducts} products. Upgrade the plan to add more.`);
     }
-  };
+    return this.service.create({ ...body, companyId }, actorName(req));
+  }, 201);
 
-  public remove = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const id = String(req.params.id);
-      const deleted = this.service.remove(id);
-      res.status(200).json(deleted);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public update = handle((req) => {
+    this.owned(req);
+    return this.service.update(param(req, 'id'), req.body as UpdateProductDto, actorName(req));
+  });
+
+  public remove = handle((req) => {
+    this.owned(req);
+    return this.service.remove(param(req, 'id'), actorName(req));
+  });
 }
 
 export const productsController = new ProductsController();
-

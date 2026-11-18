@@ -469,3 +469,73 @@ body.no-sidebar .content-area {
         grid-template-columns: 1fr;
     }
 }
+
+/* ── Stock on product cards, typed quantities, POS notices ── */
+.prod-stock { font-size: 0.75rem; margin-top: 6px; font-weight: 600; }
+.prod-stock-ok { color: var(--text-muted); }
+.prod-stock-low { color: var(--amber, #b45309); }
+.prod-stock-out { color: var(--red); }
+.prod-card-disabled { opacity: 0.55; cursor: not-allowed; }
+.prod-card-disabled:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.qty-input {
+    width: 38px; text-align: center; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--bg-card); color: var(--text-heading); font-weight: 600; padding: 2px 0;
+}
+.qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.qty-btn.remove { color: var(--red); }
+.cart-notice {
+    margin: 10px 16px 0; padding: 8px 10px; border-radius: var(--radius-sm);
+    background: rgba(220, 38, 38, 0.08); color: var(--red); font-size: 0.82rem;
+}
+.pay-method-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+.pay-method-row button { flex: 1; min-width: 90px; justify-content: center; }
+.pay-method-row button.active { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.quote-note { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; }
+.sales-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex;
+    align-items: center; justify-content: center; z-index: 50; padding: 16px;
+}
+.sales-modal {
+    background: var(--bg-card); color: var(--text-heading); border-radius: var(--radius);
+    width: min(760px, 100%); max-height: 86vh; overflow: auto; padding: 20px; box-shadow: var(--shadow);
+}
+.sales-modal table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.sales-modal th, .sales-modal td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.sales-sub { font-size: 0.75rem; }
+.sales-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0 16px; }
+.sales-tiles div { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; }
+.sales-tiles strong { display: block; font-size: 1.1rem; }
+.receipt .receipt-meta { font-size: 0.75rem; }
+
+/* Step 3 keeps one width whichever option is chosen. */
+.fulfillment-centered { width: 100%; }
+.fulfillment-centered .checkout-summary-card { max-width: none; }
+
+/* Narrow screens: search on its own line, categories scroll sideways. */
+@media (max-width: 1279px) {
+    .pos-controls { flex-wrap: wrap; }
+    .pos-search { flex: 1 1 100%; }
+    .category-filters { max-width: 100%; overflow-x: auto; }
+}
+
+/* Phones: a header that fits, two products per row, cart in reach. */
+@media (max-width: 720px) {
+    .top-header .breadcrumb,
+    #cashierPlanBadge,
+    #backToDashboard,
+    .hide-on-phone { display: none; }
+    .top-header { padding: 0 10px; gap: 8px; }
+    .top-header .header-right { gap: 4px; }
+    .header-logo-img { height: 22px; }
+    .header-nav-btn { margin-right: 2px; padding: 0 8px; }
+    .product-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        max-height: 52vh;
+    }
+    .prod-card { padding: 12px 8px; }
+    .prod-img { font-size: 2.2rem; margin-bottom: 6px; }
+    .sales-modal { padding: 14px; }
+    .sales-modal th, .sales-modal td { padding: 6px 4px; }
+    .sales-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

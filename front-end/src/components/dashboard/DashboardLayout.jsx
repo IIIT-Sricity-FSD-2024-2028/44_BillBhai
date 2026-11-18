@@ -64,6 +64,9 @@ function BackendErrorBanner({ message, onRetry }) {
   );
 }
 
+/** At this width and below the sidebar is a drawer (see dashboard.css). */
+const SIDEBAR_DRAWER_WIDTH = 1279;
+
 export default function DashboardLayout({ page, children, afterMain, toast }) {
   const navigate = useNavigate();
   const [boot] = useState(() => computeBootContext(page));
@@ -151,17 +154,17 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
 
   const closeModal = (id) => setModals((list) => list.filter((m) => m.id !== id));
   const onNavClick = () => {
-    if (window.innerWidth <= 768) setMobileOpen(false);
+    if (window.innerWidth <= SIDEBAR_DRAWER_WIDTH) setMobileOpen(false);
   };
   const onMenuToggle = () => {
-    if (window.innerWidth <= 768) setMobileOpen((v) => !v);
+    if (window.innerWidth <= SIDEBAR_DRAWER_WIDTH) setMobileOpen((v) => !v);
     else setCollapsed((v) => !v);
   };
   const onLogout = () => clearSession();
 
   const activePlan = getActiveCompanyPlan(s.businesses);
   let planBadge = null;
-  if (s.shell.planBadgeVisible) {
+  if (s.shell.planBadgeVisible && !(s.roleKey === 'superuser' && !s.activeBusinessId)) {
     let bClass = 'b-active';
     if (activePlan.key === 'starter') bClass = 'b-pending';
     if (activePlan.key === 'enterprise') bClass = 'b-processing';

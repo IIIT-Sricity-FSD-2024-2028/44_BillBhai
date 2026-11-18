@@ -1,91 +1,129 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request } from 'express';
+import { InventoryItem } from '../../data/entities';
+import { BadRequestError, ConflictError } from '../../errors/http-error';
+import { handle, param, query } from '../../utils/http';
+import { actorName, assertInScope, listScope } from '../../utils/scope';
+import { productsService, ProductsService } from '../products/products.service';
+import { suppliersService, SuppliersService } from '../suppliers/suppliers.service';
 import { inventoryService, InventoryService } from './inventory.service';
-import { AdjustStockDto, CreateInventoryDto, UpdateInventoryDto } from './inventory.schema';
+import { AdjustStockDto, ReceiveStockDto, UpdateInventoryDto } from './inventory.schema';
 
 /**
  * Inventory Module Controller
  *
- * Extracts HTTP input, delegates to the service, sets an explicit status code,
- * and forwards every failure to the global error pipeline via next().
+ * List reads return each stock row joined to its product and supplier, so
+ * the Inventory page and the till see the same name, price and count.
  */
 export class InventoryController {
-  constructor(private readonly service: InventoryService = inventoryService) {}
+  constructor(
+    private readonly service: InventoryService = inventoryService,
+    private readonly products: ProductsService = productsService,
+    private readonly suppliers: SuppliersService = suppliersService,
+  ) {}
 
-  public findAll = (_req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(200).json(this.service.findAll());
-    } catch (error) {
-      next(error);
-    }
-  };
+  private enrich(rows: InventoryItem[]) {
+    return rows.map((row) => {
+      let product;
+      try {
+        product = this.products.findOne(row.productId);
+      } catch {
+        product = undefined;
+      }
+      let supplier;
+      try {
+        supplier = product ? this.suppliers.findOne(product.supplierId) : undefined;
+      } catch {
+        supplier = undefined;
+      }
+      return {
+        ...row,
+        productName: product?.name ?? row.productId,
+        category: product?.category ?? 'Uncategorized',
+        price: product?.price ?? 0,
+        costPrice: product?.costPrice,
+        gstRate: product?.gstRate ?? 0,
+        barcode: product?.barcode,
+        size: product?.size,
+        active: product?.active !== false,
+        productVersion: product?.version,
+        supplierId: product?.supplierId,
+        supplierName: supplier?.name ?? '',
+        supplierContact: supplier?.contactPerson ?? '',
+        supplierPhone: supplier?.mobileNo ?? '',
+        supplierEmail: supplier?.email ?? '',
+        leadTimeDays: supplier?.leadTimeDays,
+        moq: supplier?.moq,
+      };
+    });
+  }
 
-  public findLowStock = (
-    _req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void => {
-    try {
-      res.status(200).json(this.service.findLowStock());
-    } catch (error) {
-      next(error);
-    }
-  };
+  private ownedByProduct(req: Request, productId: string) {
+    const row = this.service.findByProduct(productId);
+    assertInScope(req, row.companyId, `Product ${productId}`);
+    return row;
+  }
 
-  public findByProduct = (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void => {
-    try {
-      res.status(200).json(this.service.findByProduct(String(req.params.productId)));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findAll = handle((req) => this.enrich(this.service.findAll(listScope(req, query(req, 'companyId')))));
 
-  public findOne = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(200).json(this.service.findOne(String(req.params.id)));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findLowStock = handle((req) =>
+    this.enrich(this.service.findLowStock(listScope(req, query(req, 'companyId')))),
+  );
 
-  public update = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const updated = this.service.update(
-        String(req.params.id),
-        req.body as UpdateInventoryDto,
-      );
-      res.status(200).json(updated);
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findMovements = handle((req) =>
+    this.service.findMovements({
+      companyId: listScope(req, query(req, 'companyId')),
+      productId: query(req, 'productId'),
+      type: query(req, 'type'),
+      limit: Number((req.query as Record<string, unknown>).limit) || undefined,
+    }),
+  );
 
-  public create = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(201).json(this.service.create(req.body as CreateInventoryDto));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findOne = handle((req) => {
+    const row = this.service.findOne(param(req, 'id'));
+    assertInScope(req, row.companyId, `Inventory item ${row.id}`);
+    return this.enrich([row])[0];
+  });
 
-  public adjustStock = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(200).json(this.service.adjustStock(req.body as AdjustStockDto));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public findByProduct = handle((req) => this.enrich([this.ownedByProduct(req, param(req, 'productId'))])[0]);
 
-  public remove = (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      res.status(200).json(this.service.remove(String(req.params.id)));
-    } catch (error) {
-      next(error);
+  public update = handle((req) => {
+    const row = this.service.findOne(param(req, 'id'));
+    assertInScope(req, row.companyId, `Inventory item ${row.id}`);
+    return this.enrich([this.service.update(row.id, req.body as UpdateInventoryDto, actorName(req))])[0];
+  });
+
+  public adjustStock = handle((req) => {
+    const body = req.body as AdjustStockDto;
+    this.ownedByProduct(req, body.productId);
+    return this.enrich([this.service.adjustStock(body, actorName(req))])[0];
+  });
+
+  public receiveStock = handle((req) => {
+    const body = req.body as ReceiveStockDto;
+    const row = this.ownedByProduct(req, body.productId);
+    if (body.supplierId) {
+      const supplier = this.suppliers.findOne(body.supplierId);
+      if (supplier.companyId !== row.companyId) {
+        throw new BadRequestError(`Supplier ${body.supplierId} does not belong to this business`);
+      }
     }
-  };
+    return this.enrich([this.service.receive(body, actorName(req))])[0];
+  });
+
+  public remove = handle((req) => {
+    const row = this.service.findOne(param(req, 'id'));
+    assertInScope(req, row.companyId, `Inventory item ${row.id}`);
+    let active = false;
+    try {
+      active = this.products.findOne(row.productId).active !== false;
+    } catch {
+      active = false;
+    }
+    if (active) {
+      throw new ConflictError('This product is still sold. Deactivate the product before removing its stock record.');
+    }
+    return this.service.remove(row.id);
+  });
 }
 
 export const inventoryController = new InventoryController();

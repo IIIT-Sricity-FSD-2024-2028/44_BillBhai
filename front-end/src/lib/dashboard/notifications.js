@@ -1,5 +1,4 @@
 import {
-  AUTH_OVERRIDE_STORAGE_KEY,
   CUSTOMER_SESSION_NOTIFICATION_KEY,
   NOTIFICATION_CATEGORY_LABELS,
   NOTIFICATION_STATE_STORAGE_KEY,
@@ -7,18 +6,21 @@ import {
   ROLE_LABELS,
   ROLE_NOTIFICATION_CONFIG,
 } from './constants.js';
-import {
-  buildBusinessSeedData,
-  formatRelativeTime,
-  getSupplierDetails,
-  getDeliveryPartnerDetails,
-  normalizeDeliveryStatus,
-  normalizeInventoryStatus,
-  normalizeOrderStatus,
-  parseMonthEntry,
-  parseOrderDate,
-} from './helpers.js';
+import { formatRelativeTime } from './helpers.js';
 import { loadObject, saveObject } from './storage.js';
+
+/**
+ * Notifications.
+ *
+ * Every notification is worked out from records the server returned (stock
+ * rows, deliveries, returns, orders, coupons, businesses) and carries the time
+ * of the record it is about (last stock change, last delivery step, when the
+ * return was raised). Nothing is invented: a record without a time says
+ * "Current snapshot". Which ones a person has read is remembered per browser.
+ */
+
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 
 export function getNotificationPreferenceConfig(roleKey) {
   return ROLE_NOTIFICATION_CONFIG[roleKey] || ROLE_NOTIFICATION_CONFIG.customer;
@@ -29,8 +31,7 @@ export function normalizeNotificationPreferences(savedPreferences, roleKey) {
   const safe = savedPreferences && typeof savedPreferences === 'object' ? savedPreferences : {};
   const next = {};
   config.forEach((item) => {
-    next[item.key] =
-      typeof safe[item.key] === 'boolean' ? safe[item.key] : item.defaultEnabled !== false;
+    next[item.key] = typeof safe[item.key] === 'boolean' ? safe[item.key] : item.defaultEnabled !== false;
   });
   return next;
 }
@@ -40,9 +41,7 @@ export function getNotificationCategoryLabel(category) {
 }
 
 export function getNotificationPriorityRank(priority) {
-  const value = String(priority || 'medium')
-    .trim()
-    .toLowerCase();
+  const value = String(priority || 'medium').trim().toLowerCase();
   if (value === 'critical') return 4;
   if (value === 'high') return 3;
   if (value === 'medium') return 2;
@@ -50,37 +49,28 @@ export function getNotificationPriorityRank(priority) {
 }
 
 export function getNotificationColor(category, priority) {
-  const normalizedCategory = String(category || '')
-    .trim()
-    .toLowerCase();
-  const normalizedPriority = String(priority || '')
-    .trim()
-    .toLowerCase();
-  if (normalizedPriority === 'critical') return 'red';
-  if (normalizedCategory === 'payments') return 'green';
-  if (normalizedCategory === 'inventory') return 'amber';
-  if (normalizedCategory === 'delivery') return 'blue';
-  if (normalizedCategory === 'returns') return 'amber';
-  if (normalizedCategory === 'users' || normalizedCategory === 'businesses') return 'purple';
+  const c = String(category || '').trim().toLowerCase();
+  const p = String(priority || '').trim().toLowerCase();
+  if (p === 'critical') return 'red';
+  if (c === 'payments') return 'green';
+  if (c === 'inventory' || c === 'returns') return 'amber';
+  if (c === 'delivery') return 'blue';
+  if (c === 'users' || c === 'businesses') return 'purple';
   return 'blue';
 }
 
 export function getNotificationIconKeyForCategory(category) {
-  const normalized = String(category || '')
-    .trim()
-    .toLowerCase();
-  if (normalized === 'payments') return 'payment';
-  if (normalized === 'inventory') return 'alert';
-  if (normalized === 'delivery') return 'delivery';
-  if (normalized === 'returns') return 'return';
-  if (normalized === 'users' || normalized === 'businesses') return 'user';
+  const c = String(category || '').trim().toLowerCase();
+  if (c === 'payments') return 'payment';
+  if (c === 'inventory') return 'alert';
+  if (c === 'delivery') return 'delivery';
+  if (c === 'returns') return 'return';
+  if (c === 'users' || c === 'businesses') return 'user';
   return 'order';
 }
 
 export function getNotificationPriorityBadgeProps(notification) {
-  const priority = String((notification && notification.priority) || 'low')
-    .trim()
-    .toLowerCase();
+  const priority = String((notification && notification.priority) || 'low').trim().toLowerCase();
   if (priority === 'critical') return { text: 'Critical', type: 'cancelled' };
   if (priority === 'high') return { text: 'High', type: 'pending' };
   if (priority === 'medium') return { text: 'Medium', type: 'processing' };
@@ -89,33 +79,24 @@ export function getNotificationPriorityBadgeProps(notification) {
 
 export function makeNotificationRecord(record) {
   const safe = record && typeof record === 'object' ? record : {};
-  const category = String(safe.category || 'orders')
-    .trim()
-    .toLowerCase();
-  const priority = String(safe.priority || 'medium')
-    .trim()
-    .toLowerCase();
-  const sortTimeMs = Number(safe.sortTimeMs) || Date.now();
+  const category = String(safe.category || 'orders').trim().toLowerCase();
+  const priority = String(safe.priority || 'medium').trim().toLowerCase();
+  const sortTimeMs = Math.max(0, Number(safe.sortTimeMs) || 0);
   const detailRows = Array.isArray(safe.detailRows)
     ? safe.detailRows
         .map((row) => ({
           label: String((row && row.label) || '').trim(),
-          value: String((row && row.value) || '-').trim() || '-',
+          value: String((row && row.value) ?? '-').trim() || '-',
         }))
         .filter((row) => row.label)
     : [];
-
   return {
-    id: String(safe.id || `notif-${Math.random().toString(36).slice(2)}`).trim(),
+    id: String(safe.id || `notif-${category}-${safe.title || ''}`).trim(),
     title: String(safe.title || 'Notification').trim(),
     desc: String(safe.desc || '').trim(),
     category,
-    color: String(safe.color || getNotificationColor(category, priority))
-      .trim()
-      .toLowerCase(),
-    iconKey: String(safe.iconKey || getNotificationIconKeyForCategory(category))
-      .trim()
-      .toLowerCase(),
+    color: String(safe.color || getNotificationColor(category, priority)).trim().toLowerCase(),
+    iconKey: String(safe.iconKey || getNotificationIconKeyForCategory(category)).trim().toLowerCase(),
     priority,
     priorityRank: getNotificationPriorityRank(priority),
     sortTimeMs,
@@ -125,147 +106,97 @@ export function makeNotificationRecord(record) {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Profile preferences (this browser only)                             */
+/* ------------------------------------------------------------------ */
+
 export function getCurrentUserIdentity(s) {
   const currentUser = loadObject('currentUser', {});
-  const roleKey = (s && s.roleKey) || localStorage.getItem('userRole') || 'admin';
-  const username = String(
-    currentUser.username ||
-      currentUser.id ||
-      (currentUser.email && currentUser.email.split('@')[0]) ||
-      (roleKey === 'superuser' ? 'chirag' : roleKey) ||
-      'admin',
-  )
-    .trim()
-    .toLowerCase();
-  const displayName =
-    String(currentUser.name || localStorage.getItem('userName') || 'User').trim() || 'User';
-  const roleLabel = ROLE_LABELS[roleKey] || 'Team Member';
-  const email = String(
-    currentUser.email || (username.includes('@') ? username : `${username || roleKey}@billbhai.com`),
-  ).trim();
-  const key = String(currentUser.id || username || roleKey || 'user')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '.');
-  return { key, username, displayName, roleLabel, email };
+  const username = String(currentUser.username || '').trim();
+  const displayName = String(currentUser.name || localStorage.getItem('userName') || 'User').trim() || 'User';
+  return {
+    key: (username || displayName.toLowerCase().replace(/\s+/g, '.')).trim(),
+    username,
+    displayName,
+    roleLabel: ROLE_LABELS[s.roleKey] || 'Team Member',
+    email: String(currentUser.email || '').trim(),
+    phone: String(currentUser.phone || '').trim(),
+  };
 }
 
+/**
+ * Display preferences and notification switches. Name, email and phone are
+ * the server's (shown here for the header); they are changed on the Profile
+ * page through the API, not stored as preferences.
+ */
 export function loadProfileSettingsRecord(s) {
   const identity = getCurrentUserIdentity(s);
   const store = loadObject(PROFILE_SETTINGS_STORAGE_KEY, {});
-  const legacyNameKey = identity.displayName.toLowerCase().replace(/\s+/g, '.');
-  const saved =
-    (store[identity.key] && typeof store[identity.key] === 'object' && store[identity.key]) ||
-    (store[identity.username] && typeof store[identity.username] === 'object' && store[identity.username]) ||
-    (store[legacyNameKey] && typeof store[legacyNameKey] === 'object' && store[legacyNameKey]) ||
-    {};
+  const saved = store[identity.key] && typeof store[identity.key] === 'object' ? store[identity.key] : {};
   return {
     key: identity.key,
-    fullName: String(saved.fullName || identity.displayName).trim() || identity.displayName,
-    email: String(saved.email || identity.email).trim() || identity.email,
-    phone: String(saved.phone || '').trim(),
-    location: String(saved.location || '').trim(),
-    bio: String(saved.bio || '').trim(),
+    fullName: identity.displayName,
+    email: identity.email,
+    phone: identity.phone,
+    // Never used to rename the business.
+    location: '',
+    bio: '',
     language: String(saved.language || 'English (India)').trim(),
     currency: String(saved.currency || 'INR').trim(),
     timezone: String(saved.timezone || 'Asia/Kolkata').trim(),
     dateFormat: String(saved.dateFormat || 'DD/MM/YYYY').trim(),
-    notifications: normalizeNotificationPreferences(saved.notifications, (s && s.roleKey) || 'admin'),
+    notifications: normalizeNotificationPreferences(saved.notifications, s.roleKey),
   };
 }
 
 export function writeProfileSettingsRecord(s, record) {
   const identity = getCurrentUserIdentity(s);
-  const key = String(identity.key || record.key).trim() || 'user';
+  const key = String(record.key || identity.key).trim() || identity.key;
   const store = loadObject(PROFILE_SETTINGS_STORAGE_KEY, {});
-  const data = {
-    fullName: record.fullName,
-    email: record.email,
-    phone: record.phone,
-    location: record.location,
-    bio: record.bio,
+  store[key] = {
     language: record.language,
     currency: record.currency,
     timezone: record.timezone,
     dateFormat: record.dateFormat,
     notifications: { ...record.notifications },
   };
-  store[key] = data;
-  if (identity.username) store[identity.username] = data;
-  if (record.key && record.key !== key) store[record.key] = data;
   saveObject(PROFILE_SETTINGS_STORAGE_KEY, store);
-
-  localStorage.setItem('userName', record.fullName);
-  const currentUser = loadObject('currentUser', {});
-  let newBusinessName = currentUser.businessName;
-  if (record.location) {
-    newBusinessName = record.location;
-    localStorage.setItem('activeBusinessName', record.location);
+  if (record.fullName) {
+    // Mirror of what the server now holds, for the header.
+    localStorage.setItem('userName', record.fullName);
+    const currentUser = loadObject('currentUser', {});
+    saveObject('currentUser', {
+      ...currentUser,
+      name: record.fullName,
+      email: record.email ?? currentUser.email,
+      phone: record.phone ?? currentUser.phone,
+    });
   }
-  saveObject('currentUser', {
-    ...currentUser,
-    username: currentUser.username || identity.username || 'admin',
-    name: record.fullName,
-    email: record.email,
-    businessName: newBusinessName,
-  });
 }
 
-export function updatePasswordOverrideForCurrentUser(s, newPassword) {
-  const identity = getCurrentUserIdentity(s);
-  const username = identity.username || identity.key || 'admin';
-  const overrides = loadObject(AUTH_OVERRIDE_STORAGE_KEY, {});
-  const trimmedPassword = String(newPassword).trim();
-  overrides[username] = {
-    ...(overrides[username] || {}),
-    username,
-    name: identity.displayName,
-    email: identity.email,
-    password: trimmedPassword,
-  };
-  if (username.toLowerCase() !== username) {
-    overrides[username.toLowerCase()] = {
-      ...(overrides[username.toLowerCase()] || {}),
-      username: username.toLowerCase(),
-      name: identity.displayName,
-      email: identity.email,
-      password: trimmedPassword,
-    };
-  }
-  saveObject(AUTH_OVERRIDE_STORAGE_KEY, overrides);
-  return true;
-}
+/* ------------------------------------------------------------------ */
+/* Read state                                                          */
+/* ------------------------------------------------------------------ */
 
 export function getActiveBusinessRecord(s) {
   if (s.selectedBusiness) return s.selectedBusiness;
   const scopedId = String(localStorage.getItem('activeBusinessId') || '').trim();
-  return s.businesses.find((item) => item.id === scopedId) || s.businesses[0] || null;
+  return (s.businesses || []).find((item) => item.id === scopedId) || null;
 }
 
 export function getNotificationAudienceKey(s) {
   const currentUser = loadObject('currentUser', {});
-  const username = String(
-    currentUser.username || localStorage.getItem('userName') || s.roleKey || 'user',
-  )
+  const username = String(currentUser.username || localStorage.getItem('userName') || s.roleKey || 'user')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-');
-
   if (s.roleKey === 'customer') {
-    const sessionId = String(
-      sessionStorage.getItem('bb_customer_session_id') || 'customer-session',
-    ).trim();
+    const sessionId = String(sessionStorage.getItem('bb_customer_session_id') || 'customer-session').trim();
     return `${s.roleKey}::${username}::${sessionId}`;
   }
-
-  const business = getActiveBusinessRecord(s);
-  const businessScope =
-    s.roleKey === 'superuser'
-      ? 'all-businesses'
-      : String(
-          (business && business.id) || localStorage.getItem('activeBusinessId') || 'global',
-        ).trim();
-  return `${s.roleKey}::${username}::${businessScope}`;
+  const scope =
+    s.roleKey === 'superuser' ? 'all-businesses' : String(localStorage.getItem('activeBusinessId') || 'global').trim();
+  return `${s.roleKey}::${username}::${scope}`;
 }
 
 export function loadNotificationState(s) {
@@ -273,17 +204,14 @@ export function loadNotificationState(s) {
   const key = getNotificationAudienceKey(s);
   const saved = store[key] && typeof store[key] === 'object' ? store[key] : {};
   const readMap =
-    saved.readMap && typeof saved.readMap === 'object' && !Array.isArray(saved.readMap)
-      ? saved.readMap
-      : {};
+    saved.readMap && typeof saved.readMap === 'object' && !Array.isArray(saved.readMap) ? saved.readMap : {};
   return { key, readMap };
 }
 
 export function saveNotificationState(s, state) {
   const safe = state && typeof state === 'object' ? state : {};
   const store = loadObject(NOTIFICATION_STATE_STORAGE_KEY, {});
-  const key =
-    String(safe.key || getNotificationAudienceKey(s)).trim() || getNotificationAudienceKey(s);
+  const key = String(safe.key || getNotificationAudienceKey(s)).trim() || getNotificationAudienceKey(s);
   store[key] = { readMap: safe.readMap && typeof safe.readMap === 'object' ? safe.readMap : {} };
   saveObject(NOTIFICATION_STATE_STORAGE_KEY, store);
 }
@@ -300,8 +228,7 @@ export function writeNotificationsRead(s, ids, isRead) {
   const state = loadNotificationState(s);
   (Array.isArray(ids) ? ids : []).forEach((id) => {
     const safeId = String(id || '').trim();
-    if (!safeId) return;
-    state.readMap[safeId] = Boolean(isRead);
+    if (safeId) state.readMap[safeId] = Boolean(isRead);
   });
   saveNotificationState(s, state);
 }
@@ -312,636 +239,266 @@ export function loadCustomerSessionNotifications() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
+  } catch {
     return [];
   }
 }
 
-function rs(n) {
-  return `Rs ${Math.max(0, Number(n || 0)).toLocaleString()}`;
+/* ------------------------------------------------------------------ */
+/* Builders, one per kind of record                                    */
+/* ------------------------------------------------------------------ */
+
+function ms(value) {
+  const t = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(t) ? t : 0;
 }
 
-function getBusinessDataForNotifications(s, business, fallbackIndex) {
-  const idx = Number(fallbackIndex) || 0;
-  const seed = buildBusinessSeedData(business, idx);
-  const store = s.businessDataStore || {};
-  const source =
-    store[business.id] && typeof store[business.id] === 'object' ? store[business.id] : seed;
-  return {
-    orders: Array.isArray(source.orders) ? source.orders : seed.orders,
-    inventory: Array.isArray(source.inventory) ? source.inventory : seed.inventory,
-    deliveries: Array.isArray(source.deliveries) ? source.deliveries : seed.deliveries,
-    returns: Array.isArray(source.returns) ? source.returns : seed.returns,
-    users: Array.isArray(source.users) ? source.users : seed.users,
-  };
+function rupees(n) {
+  return `₹${Math.max(0, Number(n || 0)).toLocaleString('en-IN')}`;
 }
 
-export function getNotificationContexts(s) {
-  if (s.roleKey === 'superuser') {
-    return s.businesses.map((business, index) => ({
-      business,
-      data: getBusinessDataForNotifications(s, business, index),
-    }));
-  }
-  const business = getActiveBusinessRecord(s);
-  if (!business) return [];
-  return [
-    {
-      business,
-      data: {
-        orders: s.orders,
-        inventory: s.inventory,
-        deliveries: s.deliveries,
-        returns: s.returns,
-        users: s.users,
-      },
-    },
-  ];
-}
-
-export function createOrderNotification(order, business, category, priority) {
-  const parsed = parseOrderDate(order && order.date);
-  const status = normalizeOrderStatus(order && order.status);
-  return makeNotificationRecord({
-    id: `order:${business ? business.id : 'global'}:${order.id}:${status}`,
-    category: category || 'orders',
-    priority:
-      priority || (status === 'Cancelled' ? 'high' : status === 'Pending' ? 'medium' : 'low'),
-    title: `${order.id} is ${status.toLowerCase()}`,
-    desc: `${order.customer} • ${rs(order.total)} • ${order.payment || 'Pending payment'}`,
-    sortTimeMs: parsed ? parsed.getTime() : Date.now(),
-    detailRows: [
-      { label: 'Business', value: business ? business.name : '-' },
-      { label: 'Order', value: String(order.id || '-') },
-      { label: 'Customer', value: String(order.customer || '-') },
-      { label: 'Status', value: status },
-      { label: 'Payment', value: String(order.payment || 'Pending') },
-      { label: 'Total', value: rs(order.total) },
-    ],
-  });
-}
-
-export function createPaymentNotification(source, business, fallbackIndex) {
-  if (source && source.id && source.customer) {
-    const parsed = parseOrderDate(source && source.date);
-    return makeNotificationRecord({
-      id: `payment:${business ? business.id : 'global'}:${source.id}:${source.payment || 'pending'}`,
-      category: 'payments',
-      priority:
-        String(source.payment || '')
-          .trim()
-          .toLowerCase() === 'pending'
-          ? 'high'
-          : 'low',
-      title: `Payment update for ${source.id}`,
-      desc: `${source.customer} paid via ${source.payment || 'Pending'} for ${rs(source.total)}.`,
-      sortTimeMs: parsed ? parsed.getTime() : Date.now() - (Number(fallbackIndex) || 0) * 1000,
-      detailRows: [
-        { label: 'Business', value: business ? business.name : '-' },
-        { label: 'Order', value: String(source.id || '-') },
-        { label: 'Customer', value: String(source.customer || '-') },
-        { label: 'Mode', value: String(source.payment || 'Pending') },
-        { label: 'Amount', value: rs(source.total) },
-      ],
-    });
-  }
-
-  const monthLabel = String((source && source.month) || 'Current cycle').trim();
-  const status = String((source && source.status) || 'Due').trim();
-  const amount = Math.max(
-    0,
-    Number((source && source.amount) || (business && business.paymentDue) || 0),
-  );
-  return makeNotificationRecord({
-    id: `payment:${business ? business.id : 'global'}:${monthLabel}:${status}:${amount}`,
-    category: 'payments',
-    priority: status.toLowerCase() === 'paid' ? 'low' : 'high',
-    title: `${business ? business.name : 'Business'} billing is ${status.toLowerCase()}`,
-    desc: `${monthLabel} billing cycle shows Rs ${amount.toLocaleString()} as ${status.toLowerCase()}.`,
-    sortTimeMs: parseMonthEntry(monthLabel, fallbackIndex),
-    detailRows: [
-      { label: 'Business', value: business ? business.name : '-' },
-      { label: 'Billing Cycle', value: monthLabel },
-      { label: 'Amount', value: `Rs ${amount.toLocaleString()}` },
-      { label: 'Status', value: status },
-      { label: 'Plan', value: String((business && business.productsPlan) || '-') },
-    ],
-  });
-}
-
-export function createInventoryNotification(item, business, fallbackIndex) {
-  const status = normalizeInventoryStatus(item && item.status, item && item.stock);
-  const supplier = getSupplierDetails(item);
-  const stock = Math.max(0, Number(item && item.stock) || 0);
-  const priority =
-    status === 'Out of Stock' || status === 'Critical'
-      ? 'critical'
-      : status === 'Low Stock'
-        ? 'high'
-        : 'low';
-  return makeNotificationRecord({
-    id: `inventory:${business ? business.id : 'global'}:${item.sku}:${status}:${stock}`,
-    category: 'inventory',
-    priority,
-    title: `${status}: ${item.name}`,
-    desc: `${item.sku} is at ${stock} units. Supplier ${supplier.name} needs ${supplier.leadTimeDays} day${supplier.leadTimeDays === 1 ? '' : 's'} lead time.`,
-    sortTimeMs: Date.now() - (Number(fallbackIndex) || 0) * 60000,
-    detailRows: [
-      { label: 'Business', value: business ? business.name : '-' },
-      { label: 'SKU', value: String(item.sku || '-') },
-      { label: 'Product', value: String(item.name || '-') },
-      { label: 'Category', value: String(item.cat || '-') },
-      { label: 'Stock', value: String(stock) },
-      { label: 'Status', value: status },
-      { label: 'Supplier', value: supplier.name },
-      { label: 'Lead Time', value: `${supplier.leadTimeDays} days` },
-    ],
-  });
-}
-
-export function createDeliveryNotification(item, business, fallbackIndex) {
-  const partner = getDeliveryPartnerDetails(item);
-  const status = normalizeDeliveryStatus(item && item.status);
-  const parsed = parseOrderDate(item && (item.updatedAt || item.time));
-  const priority =
-    status === 'Failed' || partner.name === 'Unassigned'
-      ? 'critical'
-      : status === 'Pending'
-        ? 'high'
-        : status === 'In Transit'
-          ? 'medium'
-          : 'low';
-  return makeNotificationRecord({
-    id: `delivery:${business ? business.id : 'global'}:${item.id}:${status}:${partner.name}`,
-    category: 'delivery',
-    priority,
-    title: `${item.id} is ${status.toLowerCase()}`,
-    desc: `${item.customer} • ${partner.name} • ${item.address || 'Address pending'}`,
-    sortTimeMs: parsed ? parsed.getTime() : Date.now() - (Number(fallbackIndex) || 0) * 1000,
-    detailRows: [
-      { label: 'Business', value: business ? business.name : '-' },
-      { label: 'Delivery', value: String(item.id || '-') },
-      { label: 'Order', value: String(item.oid || '-') },
-      { label: 'Customer', value: String(item.customer || '-') },
-      { label: 'Status', value: status },
-      { label: 'Partner', value: partner.name },
-      { label: 'Partner Phone', value: partner.phone },
-      {
-        label: 'ETA',
-        value: item.etaMin === null ? '-' : `${Math.max(0, Math.round(item.etaMin))} min`,
-      },
-      { label: 'Address', value: String(item.address || '-') },
-    ],
-  });
-}
-
-export function createReturnNotification(item, business, fallbackIndex) {
-  const parsed = parseOrderDate(item && item.updatedAt);
-  const status = String((item && item.status) || 'Pending').trim() || 'Pending';
-  const priority = status.toLowerCase().includes('pending')
-    ? 'high'
-    : status.toLowerCase().includes('approve')
-      ? 'medium'
-      : 'low';
-  return makeNotificationRecord({
-    id: `return:${business ? business.id : 'global'}:${item.id}:${status}`,
-    category: 'returns',
-    priority,
-    title: `${item.id} is ${status.toLowerCase()}`,
-    desc: `${item.product} for ${item.customer} • ${item.reason} • ${rs(item.amount)}`,
-    sortTimeMs: parsed ? parsed.getTime() : Date.now() - (Number(fallbackIndex) || 0) * 1000,
-    detailRows: [
-      { label: 'Business', value: business ? business.name : '-' },
-      { label: 'Return', value: String(item.id || '-') },
-      { label: 'Order', value: String(item.oid || '-') },
-      { label: 'Customer', value: String(item.customer || '-') },
-      { label: 'Product', value: String(item.product || '-') },
-      { label: 'Reason', value: String(item.reason || '-') },
-      { label: 'Status', value: status },
-      { label: 'Requested By', value: String(item.requestedBy || '-') },
-      { label: 'Amount', value: rs(item.amount) },
-    ],
-  });
-}
-
-export function createBusinessNotification(business, fallbackIndex) {
-  return makeNotificationRecord({
-    id: `business:${business.id}:${business.status}:${business.paymentDue || 0}`,
-    category: 'businesses',
-    priority: String(business.status || '').toLowerCase() === 'active' ? 'low' : 'high',
-    title: `${business.name} is ${String(business.status || 'Active').toLowerCase()}`,
-    desc: `${business.productsPlan || 'Plan pending'} • ${business.storesCount || 0} stores • ${rs(business.paymentDue)} due`,
-    sortTimeMs: Date.now() - (Number(fallbackIndex) || 0) * 120000,
-    detailRows: [
-      { label: 'Business', value: business.name },
-      { label: 'Owner', value: String(business.owner || '-') },
-      { label: 'Status', value: String(business.status || '-') },
-      { label: 'Plan', value: String(business.productsPlan || '-') },
-      { label: 'Stores', value: String(business.storesCount || 0) },
-      { label: 'Payment Due', value: rs(business.paymentDue) },
-    ],
-  });
-}
-
-export function createUserSummaryNotification(business, userRows, fallbackIndex) {
-  const rows = Array.isArray(userRows) ? userRows : [];
-  const activeCount = rows.filter(
-    (item) =>
-      String((item && item.status) || '')
-        .trim()
-        .toLowerCase() === 'active',
-  ).length;
-  const inactiveCount = Math.max(0, rows.length - activeCount);
-  return makeNotificationRecord({
-    id: `users:${business ? business.id : 'global'}:${activeCount}:${inactiveCount}`,
-    category: 'users',
-    priority: inactiveCount ? 'high' : 'low',
-    title: `${business ? business.name : 'Team'} roster snapshot`,
-    desc: `${activeCount} active staff${inactiveCount ? `, ${inactiveCount} inactive` : ''}.`,
-    sortTimeMs: Date.now() - (Number(fallbackIndex) || 0) * 240000,
-    detailRows: [
-      { label: 'Business', value: business ? business.name : '-' },
-      { label: 'Total Team Members', value: String(rows.length) },
-      { label: 'Active', value: String(activeCount) },
-      { label: 'Inactive', value: String(inactiveCount) },
-    ],
-  });
-}
-
-export function createSummaryNotification(title, desc, detailRows, priority, fallbackIndex) {
-  return makeNotificationRecord({
-    id: `summary:${title.replace(/\s+/g, '-').toLowerCase()}`,
-    category: 'summary',
-    priority: priority || 'low',
-    title,
-    desc,
-    sortTimeMs: Date.now() - (Number(fallbackIndex) || 0) * 300000,
-    detailRows: Array.isArray(detailRows) ? detailRows : [],
-  });
-}
-
-const byOrderDateDesc = (a, b) =>
-  (parseOrderDate(b && b.date)?.getTime() || 0) - (parseOrderDate(a && a.date)?.getTime() || 0);
-const byUpdatedAtDesc = (a, b) =>
-  (parseOrderDate(b && b.updatedAt)?.getTime() || 0) -
-  (parseOrderDate(a && a.updatedAt)?.getTime() || 0);
-const byStockAsc = (a, b) =>
-  Math.max(0, Number((a && a.stock) || 0)) - Math.max(0, Number((b && b.stock) || 0));
-
-export function generateSuperuserNotifications(s) {
-  const contexts = getNotificationContexts(s);
-  const list = [];
-  let activeBusinesses = 0;
-  let dueAmountTotal = 0;
-
-  contexts.forEach((context, index) => {
-    const { business, data } = context;
-    if (
-      String(business.status || '')
-        .trim()
-        .toLowerCase() === 'active'
+function stockNotifications(inventory, { outOfStockOnly = false } = {}) {
+  return (inventory || [])
+    .filter((row) => row.active !== false)
+    .filter((row) =>
+      outOfStockOnly ? row.status === 'Out of Stock' : ['Out of Stock', 'Critical', 'Low Stock'].includes(row.status),
     )
-      activeBusinesses += 1;
-    dueAmountTotal += Math.max(0, Number(business.paymentDue || 0));
+    .map((row) => {
+      const priority = row.status === 'Out of Stock' ? 'critical' : row.status === 'Critical' ? 'high' : 'medium';
+      const title =
+        row.status === 'Out of Stock'
+          ? `Out of stock: ${row.name}`
+          : `${row.status === 'Critical' ? 'Critical' : 'Low'} stock: ${row.name}`;
+      return makeNotificationRecord({
+        id: `inv-${row.productId || row.sku}-${row.status}-${row.stock}`,
+        title,
+        desc: `${row.stock} left (reorder at ${row.reorderLevel}).${row.supplier ? ` Supplier: ${row.supplier}` : ''}${row.leadTimeDays ? `, ${row.leadTimeDays} day(s) to deliver` : ''}.`,
+        category: 'inventory',
+        priority,
+        sortTimeMs: ms(row.lastUpdated),
+        detailRows: [
+          { label: 'Product', value: `${row.name} (${row.sku})` },
+          { label: 'On the shelf', value: row.stock },
+          { label: 'Reorder level', value: row.reorderLevel },
+          { label: 'Location', value: row.location || '-' },
+          { label: 'Supplier', value: row.supplier || '-' },
+          { label: 'Supplier phone', value: row.supplierPhone || '-' },
+        ],
+      });
+    });
+}
 
-    list.push(createBusinessNotification(business, index));
-    if (Number(business.paymentDue || 0) > 0) {
+function deliveryNotifications(deliveries, now) {
+  const list = [];
+  (deliveries || []).forEach((d) => {
+    const last = ms(d.lastChangeAt);
+    const rows = [
+      { label: 'Delivery', value: d.id },
+      { label: 'Order', value: d.orderId },
+      { label: 'Customer', value: `${d.customer || '-'} ${d.customerPhone || ''}`.trim() },
+      { label: 'Address', value: d.address || '-' },
+      { label: 'Partner', value: d.partner ? `${d.partner} ${d.partnerPhone || ''}`.trim() : 'Not assigned' },
+      { label: 'Status', value: d.status },
+    ];
+    if (d.status === 'Pending') {
       list.push(
-        createPaymentNotification(
-          { month: 'Current billing cycle', amount: business.paymentDue, status: 'Due' },
-          business,
-          index,
-        ),
+        makeNotificationRecord({
+          id: `del-${d.id}-unassigned`,
+          title: `Needs a partner: ${d.orderId}`,
+          desc: `${d.customer || 'Customer'} is waiting; no delivery partner assigned yet.`,
+          category: 'delivery',
+          priority: now - last > HOUR ? 'high' : 'medium',
+          sortTimeMs: last,
+          detailRows: rows,
+        }),
       );
     }
-    if (Array.isArray(business.payments)) {
-      business.payments
-        .filter(
-          (payment) =>
-            String(payment.status || '')
-              .trim()
-              .toLowerCase() !== 'paid',
-        )
-        .slice(0, 2)
-        .forEach((payment, paymentIndex) =>
-          list.push(createPaymentNotification(payment, business, index * 5 + paymentIndex)),
-        );
+    if (d.status === 'Failed Attempt') {
+      list.push(
+        makeNotificationRecord({
+          id: `del-${d.id}-failed-${d.attempts}`,
+          title: `Delivery failed: ${d.orderId}`,
+          desc: `Attempt ${d.attempts}: ${d.failureReason || 'no reason given'}. Retry or return it to the store.`,
+          category: 'delivery',
+          priority: 'high',
+          sortTimeMs: last,
+          detailRows: rows,
+        }),
+      );
     }
-
-    list.push(createUserSummaryNotification(business, data.users, index));
-
-    data.orders
-      .slice()
-      .sort(byOrderDateDesc)
-      .slice(0, 2)
-      .forEach((order) => list.push(createOrderNotification(order, business, 'orders', 'medium')));
-
-    data.inventory
-      .filter(
-        (item) => normalizeInventoryStatus(item && item.status, item && item.stock) !== 'In Stock',
-      )
-      .sort(byStockAsc)
-      .slice(0, 2)
-      .forEach((item, itemIndex) =>
-        list.push(createInventoryNotification(item, business, index * 2 + itemIndex)),
-      );
-
-    const deliveryRows = (Array.isArray(data.deliveries) ? data.deliveries : [])
-      .map((item) => {
-        const order = (Array.isArray(data.orders) ? data.orders : []).find(
-          (orderRow) => orderRow.id === item.oid,
+    if (['Dispatched', 'Out for Delivery'].includes(d.status)) {
+      const due = last + (Number(d.etaMin) || 45) * 60 * 1000;
+      if (last && now > due) {
+        list.push(
+          makeNotificationRecord({
+            id: `del-${d.id}-late-${d.status}`,
+            title: `Running late: ${d.orderId}`,
+            desc: `${d.status} for ${Math.round((now - last) / 60000)} min, ETA was ${Number(d.etaMin) || 45} min. Call ${String(d.partner || 'the partner').replace(/\.$/, '')}.`,
+            category: 'delivery',
+            priority: 'high',
+            sortTimeMs: due,
+            detailRows: rows,
+          }),
         );
-        return {
-          ...item,
-          customer: String(item.customer || (order && order.customer) || '').trim() || '-',
-        };
-      })
-      .filter((item) => {
-        const status = normalizeDeliveryStatus(item && item.status);
-        const partner = String((item && item.partner) || '').trim() || 'Unassigned';
-        return status !== 'Delivered' || partner === 'Unassigned';
-      })
-      .slice(0, 2);
-    deliveryRows.forEach((item, itemIndex) =>
-      list.push(createDeliveryNotification(item, business, index * 2 + itemIndex)),
-    );
-
-    const returnRows = (Array.isArray(data.returns) ? data.returns : [])
-      .map((item) => {
-        const order = (Array.isArray(data.orders) ? data.orders : []).find(
-          (orderRow) => orderRow.id === item.oid,
-        );
-        return { ...item, customer: String((order && order.customer) || '').trim() || '-' };
-      })
-      .filter((item) =>
-        String(item.status || '')
-          .trim()
-          .toLowerCase()
-          .includes('pending'),
-      )
-      .slice(0, 2);
-    returnRows.forEach((item, itemIndex) =>
-      list.push(createReturnNotification(item, business, index * 2 + itemIndex)),
-    );
+      }
+    }
   });
-
-  list.push(
-    createSummaryNotification(
-      'Portfolio snapshot',
-      `${contexts.length} businesses tracked, ${activeBusinesses} active, Rs ${dueAmountTotal.toLocaleString()} due.`,
-      [
-        { label: 'Total Businesses', value: String(contexts.length) },
-        { label: 'Active Businesses', value: String(activeBusinesses) },
-        { label: 'Outstanding Due', value: `Rs ${dueAmountTotal.toLocaleString()}` },
-      ],
-      dueAmountTotal > 0 ? 'high' : 'low',
-      0,
-    ),
-  );
   return list;
 }
 
-export function generateAdminNotifications(s) {
-  const context = getNotificationContexts(s)[0];
-  if (!context) return [];
-  const { business, data } = context;
-  const list = [];
-  const inventoryAlerts = data.inventory.filter(
-    (item) => normalizeInventoryStatus(item && item.status, item && item.stock) !== 'In Stock',
-  );
-  const activeDeliveries = data.deliveries.filter((item) => {
-    const status = normalizeDeliveryStatus(item && item.status);
-    return status === 'Pending' || status === 'In Transit' || status === 'Failed';
-  });
-  const pendingReturns = data.returns.filter((item) =>
-    String((item && item.status) || '')
-      .trim()
-      .toLowerCase()
-      .includes('pending'),
-  ).length;
-
-  list.push(
-    createSummaryNotification(
-      `${business.name} operations snapshot`,
-      `${data.orders.length} orders, ${inventoryAlerts.length} stock alerts, ${activeDeliveries.length} active deliveries, ${pendingReturns} pending returns.`,
-      [
-        { label: 'Business', value: business.name },
-        { label: 'Orders', value: String(data.orders.length) },
-        { label: 'Inventory Alerts', value: String(inventoryAlerts.length) },
-        { label: 'Active Deliveries', value: String(activeDeliveries.length) },
-        { label: 'Pending Returns', value: String(pendingReturns) },
-      ],
-      inventoryAlerts.length || activeDeliveries.length || pendingReturns ? 'high' : 'low',
-      0,
-    ),
-  );
-
-  if (Number(business.paymentDue || 0) > 0) {
-    list.push(
-      createPaymentNotification(
-        { month: 'Current billing cycle', amount: business.paymentDue, status: 'Due' },
-        business,
-        0,
-      ),
-    );
-  }
-
-  data.orders
-    .slice()
-    .sort(byOrderDateDesc)
-    .slice(0, 8)
-    .forEach((order, index) =>
-      list.push(createOrderNotification(order, business, 'orders', index < 3 ? 'medium' : 'low')),
-    );
-
-  data.orders
-    .slice()
-    .sort(byOrderDateDesc)
-    .slice(0, 4)
-    .forEach((order, index) => list.push(createPaymentNotification(order, business, index)));
-
-  inventoryAlerts
-    .sort(byStockAsc)
-    .slice(0, 8)
-    .forEach((item, index) => list.push(createInventoryNotification(item, business, index)));
-
-  activeDeliveries.slice(0, 8).forEach((item, index) => {
-    const order = data.orders.find((orderRow) => orderRow.id === item.oid);
-    list.push(
-      createDeliveryNotification(
-        {
-          ...item,
-          customer: String(item.customer || (order && order.customer) || '').trim() || '-',
-        },
-        business,
-        index,
-      ),
-    );
-  });
-
-  data.returns
-    .slice()
-    .sort(byUpdatedAtDesc)
-    .slice(0, 8)
-    .forEach((item, index) => {
-      const order = data.orders.find((orderRow) => orderRow.id === item.oid);
-      list.push(
-        createReturnNotification(
-          { ...item, customer: String((order && order.customer) || '').trim() || '-' },
-          business,
-          index,
-        ),
-      );
+function codNotifications(orders, deliveries, now) {
+  const byOrder = new Map((deliveries || []).map((d) => [d.orderId, d]));
+  return (orders || [])
+    .filter((o) => o.payment === 'COD' && o.paymentStatus === 'Pending' && o.status !== 'Cancelled')
+    .map((o) => {
+      const d = byOrder.get(o.id);
+      const age = now - ms(o.orderDate);
+      return makeNotificationRecord({
+        id: `cod-${o.id}`,
+        title: `COD to collect: ${rupees(o.total)} (${o.id})`,
+        desc: `${o.customer} · ${d ? `delivery ${d.status}` : 'no delivery yet'}${d && d.partner ? ` with ${d.partner}` : ''}.`,
+        category: 'payments',
+        priority: age > 6 * HOUR ? 'high' : 'low',
+        sortTimeMs: ms(o.orderDate),
+        detailRows: [
+          { label: 'Order', value: o.id },
+          { label: 'Amount', value: rupees(o.total) },
+          { label: 'Customer', value: `${o.customer} ${o.customerPhone || ''}`.trim() },
+          { label: 'Delivery', value: d ? `${d.id} (${d.status})` : 'Not created' },
+        ],
+      });
     });
-
-  list.push(createUserSummaryNotification(business, data.users, 0));
-  return list;
 }
 
-export function generateCashierNotifications(s) {
-  const context = getNotificationContexts(s)[0];
-  if (!context) return [];
-  const { business, data } = context;
-  const list = [];
-
-  data.orders
-    .slice()
-    .sort(byOrderDateDesc)
-    .slice(0, 6)
-    .forEach((order, index) =>
-      list.push(createOrderNotification(order, business, 'orders', index < 2 ? 'medium' : 'low')),
-    );
-
-  data.orders
-    .slice()
-    .sort(byOrderDateDesc)
-    .slice(0, 4)
-    .forEach((order, index) => list.push(createPaymentNotification(order, business, index)));
-
-  data.returns
-    .filter((item) => {
-      const status = String((item && item.status) || '')
-        .trim()
-        .toLowerCase();
-      return status.includes('approve') || status.includes('refund') || status.includes('reject');
-    })
-    .slice(0, 6)
-    .forEach((item, index) => {
-      const order = data.orders.find((orderRow) => orderRow.id === item.oid);
-      list.push(
-        createReturnNotification(
-          { ...item, customer: String((order && order.customer) || '').trim() || '-' },
-          business,
-          index,
-        ),
-      );
+function returnNotifications(returns, now) {
+  return (returns || [])
+    .filter((r) => r.status === 'Pending' || r.status === 'Approved')
+    .map((r) => {
+      const raised = ms(r.createdAt || r.returnDate);
+      const old = now - raised > 2 * DAY;
+      return makeNotificationRecord({
+        id: `ret-${r.id}-${r.status}`,
+        title: `${r.status === 'Pending' ? 'Return to decide' : 'Approved, refund pending'}: ${r.id}`,
+        desc: `${r.product} from ${r.orderId} (${r.reason}). ${r.returnType === 'exchange' ? 'Exchange' : `Refund ${rupees(r.amount)}`}.`,
+        category: 'returns',
+        priority: old ? 'high' : 'medium',
+        sortTimeMs: raised,
+        detailRows: [
+          { label: 'Return', value: r.id },
+          { label: 'Order', value: r.orderId },
+          { label: 'Customer', value: r.customer || '-' },
+          { label: 'Items', value: r.product },
+          { label: 'Reason', value: r.reason },
+          { label: 'Refund', value: r.returnType === 'exchange' ? 'Exchange' : rupees(r.amount) },
+        ],
+      });
     });
-  return list;
 }
 
-export function generateInventoryManagerNotifications(s) {
-  const context = getNotificationContexts(s)[0];
-  if (!context) return [];
-  const { business } = context;
-  const alerts = context.data.inventory
-    .filter(
-      (item) => normalizeInventoryStatus(item && item.status, item && item.stock) !== 'In Stock',
-    )
-    .sort(byStockAsc);
-  const list = [
-    createSummaryNotification(
-      `${business.name} stock snapshot`,
-      `${alerts.length} SKUs need attention in inventory.`,
-      [
-        { label: 'Business', value: business.name },
-        { label: 'SKUs needing action', value: String(alerts.length) },
-      ],
-      alerts.length ? 'high' : 'low',
-      0,
-    ),
-  ];
-  alerts
-    .slice(0, 10)
-    .forEach((item, index) => list.push(createInventoryNotification(item, business, index)));
-  return list;
-}
-
-export function generateDeliveryOpsNotifications(s) {
-  const context = getNotificationContexts(s)[0];
-  if (!context) return [];
-  const { business } = context;
-  const activeRows = context.data.deliveries
-    .map((item) => {
-      const order = context.data.orders.find((orderRow) => orderRow.id === item.oid);
-      return {
-        ...item,
-        customer: String(item.customer || (order && order.customer) || '').trim() || '-',
-      };
-    })
-    .sort(
-      (a, b) =>
-        (parseOrderDate(b && (b.updatedAt || b.time))?.getTime() || 0) -
-        (parseOrderDate(a && (a.updatedAt || a.time))?.getTime() || 0),
-    );
-
-  const actionable = activeRows.filter((item) => {
-    const status = normalizeDeliveryStatus(item && item.status);
-    const partner = String((item && item.partner) || '').trim() || 'Unassigned';
-    return status !== 'Delivered' || partner === 'Unassigned';
+function couponNotifications(coupons, now) {
+  const list = [];
+  (coupons || []).forEach((c) => {
+    if (!c.active) return;
+    const ends = ms(`${c.validTo}T23:59:59+05:30`);
+    const daysLeft = Math.ceil((ends - now) / DAY);
+    if (ends && daysLeft >= 0 && daysLeft <= 7) {
+      list.push(
+        makeNotificationRecord({
+          id: `cpn-${c.id}-expiring-${c.validTo}`,
+          title: `Coupon ${c.code} ends ${daysLeft === 0 ? 'today' : `in ${daysLeft} day(s)`}`,
+          desc: `Valid until ${c.validTo}. Used ${Number(c.usedCount || 0)} time(s).`,
+          category: 'orders',
+          priority: 'low',
+          sortTimeMs: ms(c.updatedAt) || ms(c.createdAt),
+        }),
+      );
+    }
+    if (Number(c.usageLimit) > 0 && Number(c.usedCount || 0) >= Number(c.usageLimit) * 0.9) {
+      list.push(
+        makeNotificationRecord({
+          id: `cpn-${c.id}-limit-${c.usedCount}`,
+          title: `Coupon ${c.code} is nearly used up`,
+          desc: `${c.usedCount} of ${c.usageLimit} uses taken.`,
+          category: 'orders',
+          priority: 'medium',
+          sortTimeMs: ms(c.updatedAt) || ms(c.createdAt),
+        }),
+      );
+    }
   });
-
-  const list = [
-    createSummaryNotification(
-      `${business.name} delivery queue`,
-      `${actionable.length} deliveries still need active attention.`,
-      [
-        { label: 'Business', value: business.name },
-        { label: 'Actionable Deliveries', value: String(actionable.length) },
-      ],
-      actionable.length ? 'high' : 'low',
-      0,
-    ),
-  ];
-  actionable
-    .slice(0, 10)
-    .forEach((item, index) => list.push(createDeliveryNotification(item, business, index)));
   return list;
 }
 
-export function generateReturnHandlerNotifications(s) {
-  const context = getNotificationContexts(s)[0];
-  if (!context) return [];
-  const { business } = context;
-  const rows = context.data.returns
-    .map((item) => {
-      const order = context.data.orders.find((orderRow) => orderRow.id === item.oid);
-      return { ...item, customer: String((order && order.customer) || '').trim() || '-' };
-    })
-    .sort(byUpdatedAtDesc);
-
-  const pendingCount = rows.filter((item) =>
-    String(item.status || '')
-      .trim()
-      .toLowerCase()
-      .includes('pending'),
-  ).length;
-  const list = [
-    createSummaryNotification(
-      `${business.name} returns desk`,
-      `${pendingCount} returns are still pending review.`,
-      [
-        { label: 'Business', value: business.name },
-        { label: 'Pending Returns', value: String(pendingCount) },
-        { label: 'Total Returns', value: String(rows.length) },
-      ],
-      pendingCount ? 'high' : 'low',
-      0,
-    ),
-  ];
-  rows
-    .slice(0, 10)
-    .forEach((item, index) => list.push(createReturnNotification(item, business, index)));
+function businessNotifications(businesses, now) {
+  const list = [];
+  (businesses || []).forEach((b) => {
+    const at = ms(b.updatedAt);
+    if (b.status && b.status !== 'Active') {
+      list.push(
+        makeNotificationRecord({
+          id: `biz-${b.id}-${b.status}`,
+          title: `${b.name} is ${String(b.status).toLowerCase()}`,
+          desc: 'Its staff cannot sign in until it is resumed.',
+          category: 'businesses',
+          priority: 'high',
+          sortTimeMs: at,
+        }),
+      );
+    }
+    if (Number(b.paymentDue) > 0) {
+      list.push(
+        makeNotificationRecord({
+          id: `biz-${b.id}-due-${b.paymentDue}`,
+          title: `Payment due from ${b.name}: ${rupees(b.paymentDue)}`,
+          desc: 'Subscription payment outstanding.',
+          category: 'payments',
+          priority: Number(b.paymentDue) >= 10000 ? 'high' : 'medium',
+          sortTimeMs: at,
+        }),
+      );
+    }
+    if (String(b.subscriptionStatus || '') === 'Cancelled') {
+      list.push(
+        makeNotificationRecord({
+          id: `biz-${b.id}-cancelled`,
+          title: `${b.name} cancelled its subscription`,
+          desc: 'Follow up before the renewal date.',
+          category: 'businesses',
+          priority: 'medium',
+          sortTimeMs: at,
+        }),
+      );
+    }
+    const renews = ms(b.renewalDate);
+    if (renews && renews - now <= 7 * DAY && renews >= now - DAY) {
+      list.push(
+        makeNotificationRecord({
+          id: `biz-${b.id}-renewal-${b.renewalDate}`,
+          title: `${b.name} renews on ${b.renewalDate}`,
+          desc: `Plan: ${b.productsPlan || b.plan || '-'}.`,
+          category: 'businesses',
+          priority: 'low',
+          sortTimeMs: at,
+        }),
+      );
+    }
+  });
   return list;
+}
+
+function suspendedUserNotifications(users) {
+  return (users || [])
+    .filter((u) => u.status === 'Suspended')
+    .map((u) =>
+      makeNotificationRecord({
+        id: `usr-${u.id}-suspended`,
+        title: `${u.name} is suspended`,
+        desc: `${u.role} account cannot sign in.`,
+        category: 'users',
+        priority: 'low',
+        sortTimeMs: ms(u.updatedAt),
+      }),
+    );
 }
 
 export function generateCustomerNotifications() {
@@ -949,27 +506,46 @@ export function generateCustomerNotifications() {
     makeNotificationRecord({
       ...item,
       id: String((item && item.id) || `customer-session-${index + 1}`).trim(),
-      category: String((item && item.category) || 'orders')
-        .trim()
-        .toLowerCase(),
-      priority: String((item && item.priority) || 'medium')
-        .trim()
-        .toLowerCase(),
-      sortTimeMs: Number(item && item.sortTimeMs) || Date.now() - index * 1000,
-      detailRows: Array.isArray(item && item.detailRows) ? item.detailRows : [],
+      sortTimeMs: Number(item && item.sortTimeMs) || 0,
     }),
   );
 }
 
 export function getDerivedNotifications(s) {
-  if (s.roleKey === 'superuser') return generateSuperuserNotifications(s);
-  if (s.roleKey === 'admin') return generateAdminNotifications(s);
-  if (s.roleKey === 'cashier') return generateCashierNotifications(s);
-  if (s.roleKey === 'inventorymanager') return generateInventoryManagerNotifications(s);
-  if (s.roleKey === 'deliveryops') return generateDeliveryOpsNotifications(s);
-  if (s.roleKey === 'returnhandler') return generateReturnHandlerNotifications(s);
-  if (s.roleKey === 'customer') return generateCustomerNotifications(s);
-  return [];
+  const now = Date.now();
+  switch (s.roleKey) {
+    case 'superuser':
+      return [
+        ...businessNotifications(s.businesses, now),
+        ...(getActiveBusinessRecord(s) ? stockNotifications(s.inventory) : []),
+      ];
+    case 'admin':
+      return [
+        ...stockNotifications(s.inventory),
+        ...deliveryNotifications(s.deliveries, now),
+        ...codNotifications(s.orders, s.deliveries, now),
+        ...returnNotifications(s.returns, now),
+        ...couponNotifications(s.coupons, now),
+        ...suspendedUserNotifications(s.users),
+        ...businessNotifications(s.businesses, now).filter((n) => n.category === 'payments' || n.id.includes('renewal')),
+      ];
+    case 'cashier':
+      return [
+        ...stockNotifications(s.inventory, { outOfStockOnly: true }),
+        ...returnNotifications(s.returns, now),
+        ...couponNotifications(s.coupons, now),
+      ];
+    case 'inventorymanager':
+      return stockNotifications(s.inventory);
+    case 'deliveryops':
+      return [...deliveryNotifications(s.deliveries, now), ...codNotifications(s.orders, s.deliveries, now)];
+    case 'returnhandler':
+      return returnNotifications(s.returns, now);
+    case 'customer':
+      return generateCustomerNotifications();
+    default:
+      return [];
+  }
 }
 
 export function getActiveNotifications(s) {
@@ -979,10 +555,7 @@ export function getActiveNotifications(s) {
     .filter((item) => preferences[item.category] !== false)
     .map((item) => {
       const hasSavedState = Object.prototype.hasOwnProperty.call(state.readMap, item.id);
-      return {
-        ...item,
-        unread: hasSavedState ? !state.readMap[item.id] : Boolean(item.defaultUnread),
-      };
+      return { ...item, unread: hasSavedState ? !state.readMap[item.id] : Boolean(item.defaultUnread) };
     })
     .sort((a, b) => {
       if (b.priorityRank !== a.priorityRank) return b.priorityRank - a.priorityRank;
@@ -992,27 +565,13 @@ export function getActiveNotifications(s) {
 
 export function resolveNotificationViewState(input) {
   const defaults = { status: 'all', category: 'all', sort: 'priority' };
-  if (typeof input === 'string')
-    return {
-      ...defaults,
-      status:
-        String(input || 'all')
-          .trim()
-          .toLowerCase() || 'all',
-    };
+  if (typeof input === 'string') {
+    return { ...defaults, status: String(input || 'all').trim().toLowerCase() || 'all' };
+  }
   if (!input || typeof input !== 'object') return defaults;
   return {
-    status:
-      String(input.status || defaults.status)
-        .trim()
-        .toLowerCase() || defaults.status,
-    category:
-      String(input.category || defaults.category)
-        .trim()
-        .toLowerCase() || defaults.category,
-    sort:
-      String(input.sort || defaults.sort)
-        .trim()
-        .toLowerCase() || defaults.sort,
+    status: String(input.status || defaults.status).trim().toLowerCase() || defaults.status,
+    category: String(input.category || defaults.category).trim().toLowerCase() || defaults.category,
+    sort: String(input.sort || defaults.sort).trim().toLowerCase() || defaults.sort,
   };
 }

@@ -4,10 +4,10 @@ import FilterToolbar from '../common/FilterToolbar.jsx';
 import DataTable from '../common/DataTable.jsx';
 import UserRow from './UserRow.jsx';
 import UserProfile from './UserProfile.jsx';
+import UserFormModal from './UserFormModal.jsx';
 import useUserActions from './useUserActions.js';
-import { useDashboard, useUsers } from '../../lib/dashboard/hooks.js';
-import { decodeUserToken } from '../../lib/dashboard/credentials.js';
-import { normalizeEditablePhone } from '../../lib/dashboard/helpers.js';
+import { useDashboard } from '../../lib/dashboard/hooks.js';
+import { loadObject } from '../../lib/dashboard/storage.js';
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name A-Z' },
@@ -15,101 +15,53 @@ const SORT_OPTIONS = [
   { value: 'status', label: 'Status A-Z' },
 ];
 
-export const EMPTY_USER_FORM = {
-  name: '',
-  email: '',
-  role: '',
-  phone: '',
-  username: '',
-  password: '',
-  status: 'Active',
-};
-
-export default function UsersContent({ onOpenModal }) {
-  const { hasActionAccess, denyAction, activePlan } = useDashboard();
-  const { rows: users } = useUsers();
-  const actions = useUserActions();
+export default function UsersContent() {
+  const { users, activePlan, roleKey } = useDashboard();
+  const { canManage, deleteUser, resetPassword, toggleSuspension } = useUserActions();
+  const selfId = String(loadObject('currentUser', {}).id || '');
 
   const [role, setRole] = useState('all');
   const [status, setStatus] = useState('all');
   const [sortKey, setSortKey] = useState('name');
-  const [profileName, setProfileName] = useState(null);
+  const [search, setSearch] = useState('');
+  const [profileId, setProfileId] = useState(null);
+  const [formUser, setFormUser] = useState(null);
 
-  const canManage = hasActionAccess('users');
+  const staff = users.filter((u) => u.roleKey !== 'customer' && u.roleKey !== 'superuser');
+  const maxUsers = activePlan && activePlan.limits ? activePlan.limits.maxUsers : Infinity;
+  const atLimit = roleKey !== 'superuser' && Number.isFinite(maxUsers) && staff.length >= maxUsers;
 
-  const openModal = (mode, values, readOnly) => {
-    if (!hasActionAccess('users')) {
-      denyAction('User create');
-      return;
-    }
-    onOpenModal({ mode, values, readOnly, planFeatures: activePlan.features });
-  };
+  const form = formUser && <UserFormModal user={formUser.id ? formUser : null} onClose={() => setFormUser(null)} />;
 
-  const addUser = () => openModal('add', EMPTY_USER_FORM, false);
-
-  const editUser = (token) => {
-    if (!hasActionAccess('users')) {
-      denyAction('User update');
-      return;
-    }
-    const u = users.find((item) => item.name === decodeUserToken(token));
-    if (!u) return;
-    openModal(
-      'edit',
-      {
-        ...EMPTY_USER_FORM,
-        id: u.id,
-        name: u.name,
-        email: u.email || '',
-        role: u.role,
-        status: u.status,
-        phone: normalizeEditablePhone(u.phone || ''),
-        username: String(u.username || '').trim(),
-      },
-      true,
-    );
-  };
-
-  const viewUser = (token) => {
-    const name = decodeUserToken(token);
-    if (users.some((u) => u.name === name)) setProfileName(name);
-  };
-
-  const profileUser = profileName !== null ? users.find((u) => u.name === profileName) : null;
+  const profileUser = profileId ? users.find((u) => u.id === profileId) : null;
   if (profileUser) {
     return (
-      <UserProfile
-        user={profileUser}
-        onBack={() => setProfileName(null)}
-        onChangeRole={actions.changeUserRole}
-        onPasswordReset={actions.sendUserPasswordReset}
-        onToggleSuspension={actions.toggleUserSuspension}
-        onDelete={(token) => {
-          actions.deleteUser(token);
-          setProfileName(null);
-        }}
-      />
+      <>
+        <UserProfile
+          user={profileUser}
+          canManage={canManage}
+          isSelf={profileUser.id === selfId}
+          onBack={() => setProfileId(null)}
+          onEdit={setFormUser}
+          onPasswordReset={resetPassword}
+          onToggleSuspension={toggleSuspension}
+          onDelete={(u) => deleteUser(u, () => setProfileId(null))}
+        />
+        {form}
+      </>
     );
   }
 
-  const userRows = users.map((user) => ({
-    ...user,
-    normalizedRole: String((user && user.role) || 'Unassigned').trim() || 'Unassigned',
-    normalizedStatus: String((user && user.status) || 'Inactive').trim() || 'Inactive',
-  }));
-  const roleOptions = Array.from(new Set(userRows.map((item) => item.normalizedRole))).sort();
-  const statusOptions = Array.from(new Set(userRows.map((item) => item.normalizedStatus))).sort();
-
-  const visibleRows = userRows
-    .filter((item) => {
-      if (role !== 'all' && item.normalizedRole !== role) return false;
-      if (status !== 'all' && item.normalizedStatus !== status) return false;
-      return true;
-    })
+  const roleOptions = Array.from(new Set(users.map((u) => u.role))).sort();
+  const needle = search.trim().toLowerCase();
+  const visible = users
+    .filter((u) => role === 'all' || u.role === role)
+    .filter((u) => status === 'all' || u.status === status)
+    .filter((u) => !needle || [u.name, u.username, u.email, u.phone].some((v) => String(v || '').toLowerCase().includes(needle)))
     .sort((a, b) => {
-      if (sortKey === 'role') return a.normalizedRole.localeCompare(b.normalizedRole);
-      if (sortKey === 'status') return a.normalizedStatus.localeCompare(b.normalizedStatus);
-      return String(a.name || '').localeCompare(String(b.name || ''));
+      if (sortKey === 'role') return a.role.localeCompare(b.role) || a.name.localeCompare(b.name);
+      if (sortKey === 'status') return a.status.localeCompare(b.status) || a.name.localeCompare(b.name);
+      return a.name.localeCompare(b.name);
     });
 
   return (
@@ -118,60 +70,59 @@ export default function UsersContent({ onOpenModal }) {
         title="Users"
         actions={
           canManage ? (
-            <button className="btn btn-primary" id="addUserBtnDyn" onClick={addUser}>
+            <button
+              className="btn btn-primary"
+              id="addUserBtnDyn"
+              onClick={() => setFormUser({})}
+              disabled={atLimit}
+              title={atLimit ? `Your ${activePlan.name} allows ${maxUsers} staff accounts` : undefined}
+            >
               + Add User
             </button>
           ) : null
         }
       />
+      {atLimit && (
+        <p className="text-sm text-muted" style={{ margin: '0 0 12px' }}>
+          {`Your ${activePlan.name} allows ${maxUsers} staff accounts and you have ${staff.length}. Upgrade the plan from Profile to add more.`}
+        </p>
+      )}
       <section className="card" style={{ marginBottom: '14px' }}>
         <FilterToolbar
           filters={[
-            {
-              id: 'usersRoleFilter',
-              label: 'Role',
-              value: role,
-              onChange: setRole,
-              options: [{ value: 'all', label: 'All roles' }, ...roleOptions],
-            },
-            {
-              id: 'usersStatusFilter',
-              label: 'Status',
-              value: status,
-              onChange: setStatus,
-              options: [{ value: 'all', label: 'All statuses' }, ...statusOptions],
-            },
-            {
-              id: 'usersSortSelect',
-              label: 'Sort by',
-              value: sortKey,
-              onChange: setSortKey,
-              options: SORT_OPTIONS,
-            },
+            { id: 'usersRoleFilter', label: 'Role', value: role, onChange: setRole, options: [{ value: 'all', label: 'All roles' }, ...roleOptions] },
+            { id: 'usersStatusFilter', label: 'Status', value: status, onChange: setStatus, options: [{ value: 'all', label: 'All statuses' }, 'Active', 'Suspended'] },
+            { id: 'usersSortSelect', label: 'Sort by', value: sortKey, onChange: setSortKey, options: SORT_OPTIONS },
           ]}
-        />
+        >
+          <div className="toolbar-group">
+            <label className="toolbar-label" htmlFor="usersSearch">Search</label>
+            <input id="usersSearch" className="form-control" placeholder="Name, username, email or phone" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+        </FilterToolbar>
       </section>
       <section className="card">
         <div className="card-bd">
           <DataTable
-            columns={['Name', 'Email', 'Role', 'Status', 'Actions']}
-            rows={visibleRows}
+            columns={['Name', 'Username', 'Email', 'Mobile', 'Role', 'Status', 'Actions']}
+            rows={visible}
             tbodyId="usersTableBodyDyn"
             emptyMessage="No users match the selected filters."
-            emptyColSpan={5}
-            renderRow={(user, index) => (
+            renderRow={(user) => (
               <UserRow
-                key={`${user.id ?? user.name}-${index}`}
+                key={user.id}
                 user={user}
                 canManage={canManage}
-                onView={viewUser}
-                onEdit={editUser}
-                onDelete={actions.deleteUser}
+                isSelf={user.id === selfId}
+                onView={(u) => setProfileId(u.id)}
+                onEdit={setFormUser}
+                onDelete={(u) => deleteUser(u)}
               />
             )}
           />
         </div>
       </section>
+      {form}
     </>
   );
 }

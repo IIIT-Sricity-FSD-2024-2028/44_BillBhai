@@ -5,6 +5,7 @@ import { signAccessToken } from '../../middleware/rbac.middleware';
 import { usersService, UsersService } from '../users/users.service';
 import { companiesService } from '../companies/companies.service';
 import { AuthenticatedUser, LoginDto, LoginResult } from './auth.schema';
+import { planKeyOf } from '../../utils/plans';
 
 /**
  * Auth Module Service
@@ -35,14 +36,28 @@ export class AuthService {
     }
 
     if (user.status && user.status.toLowerCase() !== 'active') {
-      throw new UnauthorizedError('This account is not active');
+      throw new UnauthorizedError('This account is not active. Ask your admin.');
+    }
+
+    if (user.role !== 'superuser') {
+      let company;
+      try {
+        company = companiesService.findOne(user.companyId);
+      } catch {
+        throw new UnauthorizedError('Your business is no longer registered');
+      }
+      if (company.status && company.status !== 'Active') {
+        throw new UnauthorizedError(`${company.name} is ${company.status.toLowerCase()}. Contact BillBhai support.`);
+      }
     }
 
     return {
       id: user.id,
       username: user.username,
+      name: user.name,
       role: user.role,
       email: user.email,
+      mobileNo: user.mobileNo,
       companyId: user.companyId,
     };
   }
@@ -58,8 +73,11 @@ export class AuthService {
     });
 
     let businessName = '';
+    let plan = '';
     try {
-      businessName = user.companyId ? companiesService.findOne(user.companyId).name : '';
+      const company = companiesService.findOne(user.companyId);
+      businessName = company.name;
+      plan = planKeyOf(company);
     } catch {
       businessName = '';
     }
@@ -67,6 +85,7 @@ export class AuthService {
     return {
       ...user,
       businessName,
+      plan,
       accessToken,
       tokenType: 'Bearer',
       expiresIn: config.auth.jwtExpiresIn,

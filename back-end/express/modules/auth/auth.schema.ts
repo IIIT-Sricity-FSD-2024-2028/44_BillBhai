@@ -12,14 +12,18 @@ export type LoginDto = z.infer<typeof loginSchema>;
 export interface AuthenticatedUser {
   id: string;
   username: string;
+  name: string;
   role: string;
   email: string;
+  mobileNo: string;
   companyId: string;
 }
 
 export interface LoginResult extends AuthenticatedUser {
   /** Shop name for the header and printed bills; empty for platform users. */
   businessName: string;
+  /** starter | pro | enterprise (empty for platform users). */
+  plan: string;
   accessToken: string;
   tokenType: 'Bearer';
   expiresIn: string;

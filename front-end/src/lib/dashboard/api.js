@@ -1,31 +1,17 @@
-import { API_BASE_CANDIDATES, API_BASE_URL } from './constants.js';
+import { api, errorText } from '../http.js';
 import { formatBackendDate, normalizeBusinessRecord, cloneRows } from './helpers.js';
 import { normalizeRole } from './session.js';
-import { loadObject } from './storage.js';
 
 export function normalizeBackendRole(role) {
   const key = normalizeRole(role);
   if (key === 'superuser' || key === 'super') return 'superuser';
-  if (
-    key === 'admin' ||
-    key === 'opshead' ||
-    key === 'storemanager' ||
-    key === 'accountant' ||
-    key === 'supportagent'
-  )
-    return 'admin';
   if (key === 'cashier') return 'cashier';
   if (key === 'returnhandler' || key === 'returns') return 'returnhandler';
   if (key === 'inventorymanager' || key === 'inventory') return 'inventorymanager';
-  if (
-    key === 'deliveryops' ||
-    key === 'delivery' ||
-    key === 'deliverymanager' ||
-    key === 'deliverydriver'
-  )
-    return 'deliveryops';
+  if (key === 'deliveryops' || key === 'delivery' || key === 'deliverymanager') return 'deliveryops';
   if (key === 'customer' || key === 'user') return 'customer';
-  return 'admin';
+  if (key === 'admin') return 'admin';
+  return '';
 }
 
 export function mapBackendRoleToLabel(role) {
@@ -36,7 +22,8 @@ export function mapBackendRoleToLabel(role) {
   if (normalized === 'returnhandler') return 'Return Handler';
   if (normalized === 'inventorymanager') return 'Inventory Manager';
   if (normalized === 'deliveryops') return 'Delivery Ops';
-  return 'Customer';
+  if (normalized === 'customer') return 'Customer';
+  return String(role || '');
 }
 
 export function mapRoleLabelToBackendRole(role) {
@@ -49,467 +36,267 @@ export function setApiActiveRole(roleKey) {
 }
 
 export function getCurrentSessionRole() {
-  return normalizeBackendRole(localStorage.getItem('userRole') || activeRoleKeyForApi || 'admin');
+  return normalizeBackendRole(localStorage.getItem('userRole') || activeRoleKeyForApi);
 }
 
+/**
+ * apiRequest(path, { method, body, query })
+ *
+ * The `role` option older pages pass is ignored: the server reads the role
+ * from the sign-in token.
+ */
 export async function apiRequest(path, options) {
   const opts = options && typeof options === 'object' ? options : {};
-  const method = String(opts.method || 'GET').toUpperCase();
-  const role = normalizeBackendRole(opts.role || getCurrentSessionRole());
-  const headers = { 'Content-Type': 'application/json', 'x-role': role };
-  const request = { method, headers, cache: 'no-store' };
-  if (opts.body !== undefined) request.body = JSON.stringify(opts.body);
-
-  const candidateBases = [API_BASE_URL, ...API_BASE_CANDIDATES].filter(
-    (base, idx, arr) => arr.indexOf(base) === idx,
-  );
-  let lastNetworkError = null;
-
-  for (const baseUrl of candidateBases) {
-    try {
-      const response = await fetch(`${baseUrl}${path}`, request);
-      const contentType = response.headers.get('content-type') || '';
-      const payload = contentType.includes('application/json')
-        ? await response.json()
-        : await response.text();
-      if (!response.ok) {
-        const message =
-          payload && typeof payload === 'object' && payload.message
-            ? payload.message
-            : `HTTP ${response.status}`;
-        const error = new Error(message);
-        error.status = response.status;
-        throw error;
-      }
-      return payload;
-    } catch (error) {
-      if (error && typeof error.status === 'number') throw error;
-      lastNetworkError = error;
-    }
-  }
-
-  const networkError = new Error(
-    'Cannot connect to backend API. Ensure backend is running on http://localhost:4000',
-  );
-  networkError.cause = lastNetworkError || null;
-  throw networkError;
+  return api(path, { method: opts.method, body: opts.body, query: opts.query });
 }
 
 export function mutationErrorMessage(actionLabel, error) {
-  const message = error && error.message ? error.message : 'Backend unavailable';
-  return `${actionLabel} failed: ${message}`;
+  return `${actionLabel} failed: ${errorText(error, 'server unavailable')}`;
 }
 
 export function isNotFoundError(error) {
-  return (
-    Number(error && error.status) === 404 ||
-    /not found/i.test(String((error && error.message) || ''))
-  );
+  return Number(error && error.status) === 404;
 }
 
-export function buildBackendReturnPayload(item, overrides) {
-  const patch = overrides && typeof overrides === 'object' ? overrides : {};
-  const currentUser = loadObject('currentUser', {});
-  const companyId = String(
-    localStorage.getItem('activeBusinessId') || currentUser.companyId || '',
-  ).trim();
-  const nextRequestedBy =
-    String(
-      patch.requestedBy !== undefined
-        ? patch.requestedBy
-        : (item && item.requestedBy) || localStorage.getItem('userName') || 'Operator',
-    ).trim() || 'Operator';
+/** What each role's screens read. Calls a role may not make are skipped. */
+const READS = {
+  inventory: ['superuser', 'admin', 'inventorymanager', 'cashier', 'returnhandler'],
+  orders: ['superuser', 'admin', 'cashier', 'returnhandler', 'deliveryops', 'inventorymanager'],
+  deliveries: ['superuser', 'admin', 'deliveryops', 'cashier'],
+  returns: ['superuser', 'admin', 'returnhandler', 'cashier'],
+  users: ['superuser', 'admin'],
+  suppliers: ['superuser', 'admin', 'inventorymanager'],
+  coupons: ['superuser', 'admin', 'cashier'],
+};
 
+function can(roleKey, what) {
+  return READS[what].includes(roleKey);
+}
+
+export function mapOrderRow(order) {
+  const lines = (Array.isArray(order.items) ? order.items : []).map((item) => ({
+    productId: item.productId,
+    productName: item.productName || item.productId,
+    quantity: Number(item.quantity) || 0,
+    itemPrice: Number(item.itemPrice) || 0,
+    gstRate: Number(item.gstRate) || 0,
+  }));
+  const total = Math.max(0, Number(order.total) || 0);
+  const refunded = Math.max(0, Number(order.refundedAmount) || 0);
   return {
-    companyId: companyId || undefined,
-    orderId: String(
-      patch.orderId !== undefined ? patch.orderId : (item && (item.oid || item.orderId)) || '',
-    )
-      .trim()
-      .toUpperCase(),
-    staffId:
-      String(
-        patch.staffId !== undefined
-          ? patch.staffId
-          : (item && item.staffId) || currentUser.id || 'USR-005',
-      ).trim() || 'USR-005',
-    reason: String(patch.reason !== undefined ? patch.reason : (item && item.reason) || '').trim(),
-    refundAmount: Math.max(
-      0,
-      Number(patch.refundAmount !== undefined ? patch.refundAmount : (item && item.amount) || 0) ||
-        0,
-    ),
-    returnType:
-      String(
-        patch.returnType !== undefined ? patch.returnType : (item && item.returnType) || 'refund',
-      ).trim() || 'refund',
-    product: String(
-      patch.product !== undefined
-        ? patch.product
-        : (item && (item.backendProduct || item.product)) || '',
-    ).trim(),
-    qty: Math.max(1, Number(patch.qty !== undefined ? patch.qty : (item && item.qty) || 1) || 1),
-    requestedBy: nextRequestedBy,
+    id: String(order.id || ''),
+    version: order.version,
+    companyId: String(order.companyId || ''),
+    customer: String(order.customerName || 'Walk-in Customer'),
+    customerId: String(order.customerId || ''),
+    customerPhone: String(order.customerPhone || ''),
+    address: String(order.customerAddress || ''),
+    items: Number(order.itemsCount) || lines.reduce((s, l) => s + l.quantity, 0),
+    lines,
+    subtotal: Number(order.subtotal ?? total + (Number(order.discountAmount) || 0)),
+    discount: Number(order.discountAmount) || 0,
+    deliveryCharge: Number(order.deliveryCharge) || 0,
+    tax: Number(order.taxAmount) || 0,
+    total,
+    refunded,
+    net: Math.max(0, total - refunded),
+    payment: String(order.paymentMethod || ''),
+    paymentStatus: String(order.paymentStatus || ''),
+    status: String(order.status || 'Processing'),
+    orderType: String(order.orderType || 'pickup'),
+    checkoutMode: String(order.checkoutMode || ''),
+    promoCode: order.promoCode ? String(order.promoCode) : '',
+    staffId: String(order.staffId || ''),
+    staffName: String(order.staffName || order.staffId || ''),
+    notes: String(order.notes || ''),
+    cancelReason: String(order.cancelReason || ''),
+    billNo: order.bill ? String(order.bill.billNo || '') : '',
+    orderDate: String(order.orderDate || ''),
+    date: formatBackendDate(order.orderDate),
+    updatedAt: order.updatedAt,
+    updatedBy: order.updatedBy,
   };
 }
 
-export async function resolveBackendReturnId(item) {
-  if (!item) throw new Error('Return item missing');
-  const currentId = String(item.backendId || item.id || '').trim();
-  const rows = await apiRequest('/returns', { role: 'returnhandler' });
-  const list = Array.isArray(rows) ? rows : [];
-
-  let match = currentId
-    ? list.find((row) => String((row && row.id) || '').trim() === currentId)
-    : null;
-  if (!match) {
-    const orderId = String(item.oid || '').trim();
-    const reason = String(item.reason || '')
-      .trim()
-      .toLowerCase();
-    const qty = Math.max(1, Number(item.qty) || 1);
-    const amount = Math.max(0, Number(item.amount) || 0);
-    const requestedBy = String(item.requestedBy || '')
-      .trim()
-      .toLowerCase();
-    match = list.find(
-      (row) =>
-        String((row && row.orderId) || '').trim() === orderId &&
-        String((row && row.reason) || '')
-          .trim()
-          .toLowerCase() === reason &&
-        Math.max(1, Number(row && row.qty) || 1) === qty &&
-        Math.abs(Math.max(0, Number(row && row.refundAmount) || 0) - amount) < 0.01 &&
-        (!requestedBy ||
-          String((row && row.requestedBy) || '')
-            .trim()
-            .toLowerCase() === requestedBy),
-    );
-  }
-
-  if (!match || !match.id) throw new Error(`Return ${currentId || item.oid || ''} not found`);
-
-  item.backendId = String(match.id).trim();
-  item.id = item.backendId;
-  if (match.product) item.backendProduct = String(match.product).trim();
-  if (match.staffId) item.staffId = String(match.staffId).trim();
-  return item.backendId;
+export function mapInventoryRow(row) {
+  return {
+    sku: String(row.productId || ''),
+    inventoryId: String(row.id || ''),
+    productId: String(row.productId || ''),
+    version: row.version,
+    productVersion: row.productVersion,
+    name: String(row.productName || row.productId || ''),
+    cat: String(row.category || 'Uncategorized'),
+    supplier: String(row.supplierName || ''),
+    supplierId: String(row.supplierId || ''),
+    supplierContact: String(row.supplierContact || ''),
+    supplierPhone: String(row.supplierPhone || ''),
+    supplierEmail: String(row.supplierEmail || ''),
+    leadTimeDays: row.leadTimeDays,
+    moq: row.moq,
+    stock: Math.max(0, Number(row.stockAvailable) || 0),
+    price: Number(row.price) || 0,
+    costPrice: row.costPrice,
+    gstRate: Number(row.gstRate) || 0,
+    barcode: String(row.barcode || ''),
+    size: String(row.size || ''),
+    active: row.active !== false,
+    status: String(row.status || 'In Stock'),
+    reorderLevel: Math.max(0, Number(row.reorderLevel) || 0),
+    location: String(row.location || ''),
+    lastUpdated: row.lastUpdated,
+    updatedBy: row.updatedBy,
+  };
 }
 
-export async function ensureBackendReturnId(item, overrides) {
-  try {
-    return await resolveBackendReturnId(item);
-  } catch (error) {
-    if (!isNotFoundError(error) && !/not found/i.test(String((error && error.message) || '')))
-      throw error;
-  }
-
-  const created = await apiRequest('/returns', {
-    method: 'POST',
-    role: 'returnhandler',
-    body: buildBackendReturnPayload(item, overrides),
-  });
-
-  const backendId = String((created && created.id) || '').trim();
-  if (!backendId) throw new Error('Return could not be recreated in backend');
-
-  item.backendId = backendId;
-  item.id = backendId;
-  item.status = String((created && created.status) || item.status || 'Pending').trim();
-  item.staffId = String((created && created.staffId) || item.staffId || '').trim();
-  item.backendProduct = String(
-    (created && created.product) || item.backendProduct || item.product || '',
-  ).trim();
-  return backendId;
+export function mapDeliveryRow(d) {
+  const history = Array.isArray(d.history) ? d.history : [];
+  const lastAt = history.length ? history[history.length - 1].at : d.updatedAt || d.createdAt;
+  return {
+    id: String(d.id || ''),
+    version: d.version,
+    oid: String(d.orderId || ''),
+    orderId: String(d.orderId || ''),
+    customer: String(d.customerName || ''),
+    customerPhone: String(d.customerPhone || ''),
+    address: String(d.address || ''),
+    partner: String(d.partnerName || ''),
+    partnerPhone: String(d.partnerPhone || ''),
+    partnerAgency: String(d.partnerAgency || ''),
+    partnerVehicle: String(d.partnerVehicle || ''),
+    etaMin: d.etaMinutes ?? null,
+    dispatchDate: String(d.dispatchDate || ''),
+    deliveryDate: String(d.deliveryDate || ''),
+    status: String(d.status || 'Pending'),
+    codAmount: Number(d.codAmount) || 0,
+    cashCollected: Number(d.cashCollected) || 0,
+    attempts: Number(d.attempts) || 0,
+    failureReason: String(d.failureReason || ''),
+    receiverName: String(d.receiverName || ''),
+    history,
+    items: Array.isArray(d.items) ? d.items : [],
+    orderTotal: Number(d.orderTotal) || 0,
+    paymentMethod: String(d.paymentMethod || ''),
+    paymentStatus: String(d.paymentStatus || ''),
+    orderStatus: String(d.orderStatus || ''),
+    lastChangeAt: lastAt,
+    updatedAt: formatBackendDate(lastAt),
+    time: formatBackendDate(lastAt).split(' ').slice(-1)[0],
+  };
 }
 
-export async function updateReturnOnBackend(item, payload) {
-  const updatePayload = payload && typeof payload === 'object' ? payload : {};
-  const preferredId = String((item && (item.backendId || item.id)) || '').trim();
-
-  try {
-    if (!preferredId) throw new Error('Return id missing');
-    await apiRequest(`/returns/${encodeURIComponent(preferredId)}`, {
-      method: 'PUT',
-      role: 'returnhandler',
-      body: updatePayload,
-    });
-    item.backendId = preferredId;
-    return preferredId;
-  } catch (error) {
-    if (!isNotFoundError(error)) throw error;
-    const resolvedId = await ensureBackendReturnId(item, updatePayload);
-    await apiRequest(`/returns/${encodeURIComponent(String(resolvedId))}`, {
-      method: 'PUT',
-      role: 'returnhandler',
-      body: updatePayload,
-    });
-    item.backendId = resolvedId;
-    item.id = resolvedId;
-    return resolvedId;
-  }
+export function mapReturnRow(r) {
+  const items = Array.isArray(r.items) ? r.items : [];
+  return {
+    id: String(r.id || ''),
+    backendId: String(r.id || ''),
+    version: r.version,
+    companyId: String(r.companyId || ''),
+    oid: String(r.orderId || ''),
+    orderId: String(r.orderId || ''),
+    customer: String(r.customerName || r.requestedBy || ''),
+    customerPhone: String(r.customerPhone || ''),
+    product: String(r.product || items.map((i) => `${i.productName} ×${i.qty}`).join(', ')),
+    items,
+    reason: String(r.reason || ''),
+    amount: Math.max(0, Number(r.refundAmount) || 0),
+    qty: Math.max(0, Number(r.qty) || items.reduce((s, i) => s + i.qty, 0)),
+    status: String(r.status || 'Pending'),
+    requestedBy: String(r.requestedBy || ''),
+    staffId: String(r.staffId || ''),
+    returnType: String(r.returnType || 'refund'),
+    refundMethod: String(r.refundMethod || ''),
+    restock: r.restock,
+    rejectReason: String(r.rejectReason || ''),
+    note: String(r.note || ''),
+    orderTotal: Number(r.orderTotal) || 0,
+    orderDate: r.orderDate,
+    createdAt: r.createdAt,
+    resolvedAt: r.resolvedAt,
+    resolvedBy: r.resolvedBy,
+    returnDate: r.returnDate,
+    updatedAt: formatBackendDate(r.updatedAt || r.createdAt || r.returnDate),
+  };
 }
 
-export async function resolveBackendDeliveryId(item) {
-  if (!item) throw new Error('Delivery item missing');
-  const orderId = String(item.orderId || item.oid || '').trim();
-  if (!orderId) throw new Error('Delivery order id missing');
-  const delivery = await apiRequest(`/deliveries/order/${encodeURIComponent(orderId)}`, {
-    role: 'deliveryops',
-  });
-  if (!delivery || !delivery.id) throw new Error(`Delivery for order ${orderId} not found`);
-  item.id = String(delivery.id).trim();
-  return item.id;
-}
-
-export async function fetchOperationalData({
-  activeBusinessId,
-  roleKey,
-  sessionCompanyId,
-  existingBusinesses = [],
-}) {
-  const scopedCompanyId = String(activeBusinessId || '').trim();
-  const isScopedBusiness = Boolean(scopedCompanyId);
-  const isSeedBusiness = scopedCompanyId === 'BIZ-101' || scopedCompanyId === 'BIZ-102';
-  const shouldUseEmptyOperationalSeed = isScopedBusiness && !isSeedBusiness;
-
-  const [
-    productsData,
-    suppliersData,
-    inventoryData,
-    ordersData,
-    customersData,
-    deliveriesData,
-    returnsData,
-    usersData,
-    companiesData,
-  ] = await Promise.all([
-    apiRequest('/products', { role: 'cashier' }).catch(() => []),
-    apiRequest('/suppliers', { role: 'inventorymanager' }).catch(() => []),
-    apiRequest('/inventory', { role: 'inventorymanager' }).catch(() => []),
-    apiRequest(
-      scopedCompanyId ? `/orders?companyId=${encodeURIComponent(scopedCompanyId)}` : '/orders',
-      { role: 'cashier' },
-    ).catch(() => []),
-    apiRequest(
-      scopedCompanyId
-        ? `/customers?companyId=${encodeURIComponent(scopedCompanyId)}`
-        : '/customers',
-      { role: 'cashier' },
-    ).catch(() => []),
-    apiRequest('/deliveries', { role: 'deliveryops' }).catch(() => []),
-    apiRequest('/returns', { role: 'returnhandler' }).catch(() => []),
-    apiRequest(
-      scopedCompanyId ? `/users?companyId=${encodeURIComponent(scopedCompanyId)}` : '/users',
-      { role: 'admin' },
-    ).catch(() => []),
-    roleKey === 'superuser'
-      ? apiRequest('/companies', { role: 'superuser' }).catch(() => [])
-      : scopedCompanyId
-        ? apiRequest(`/companies/${encodeURIComponent(scopedCompanyId)}`, { role: 'admin' })
-            .then((company) => (company ? [company] : []))
-            .catch(() => [])
-        : [],
-  ]);
-
-  if (!Array.isArray(productsData) || !Array.isArray(inventoryData) || !Array.isArray(ordersData))
-    return false;
-
-  const customerById = new Map(
-    (Array.isArray(customersData) ? customersData : []).map((item) => [
-      String(item.id || ''),
-      item,
-    ]),
-  );
-  const orderById = new Map(
-    (Array.isArray(ordersData) ? ordersData : []).map((item) => [String(item.id || ''), item]),
-  );
-
-  const effectiveProductsData = shouldUseEmptyOperationalSeed ? [] : productsData;
-  const effectiveSuppliersData = shouldUseEmptyOperationalSeed ? [] : suppliersData;
-  const effectiveInventoryData = shouldUseEmptyOperationalSeed ? [] : inventoryData;
-
-  const effectiveDeliveryRows = (Array.isArray(deliveriesData) ? deliveriesData : []).filter(
-    (delivery) => {
-      if (!isScopedBusiness) return true;
-      return orderById.has(String((delivery && delivery.orderId) || '').trim());
-    },
-  );
-
-  const effectiveReturnRows = (Array.isArray(returnsData) ? returnsData : []).filter((ret) => {
-    if (!isScopedBusiness) return true;
-    const retCompanyId = String((ret && ret.companyId) || '').trim();
-    if (retCompanyId) return retCompanyId === scopedCompanyId;
-    return orderById.has(String((ret && ret.orderId) || '').trim());
-  });
-
-  const supplierById = new Map(
-    (Array.isArray(effectiveSuppliersData) ? effectiveSuppliersData : []).map((item) => [
-      String(item.id || ''),
-      item,
-    ]),
-  );
-  const productById = new Map(
-    (Array.isArray(effectiveProductsData) ? effectiveProductsData : []).map((item) => [
-      String(item.id || ''),
-      item,
-    ]),
-  );
-
-  const mappedInventory = effectiveInventoryData.map((inv, idx) => {
-    const product = productById.get(String(inv.productId || '')) || {};
-    const supplier = supplierById.get(String(product.supplierId || '')) || {};
-    const fallbackSku = `SKU-${String(idx + 1).padStart(2, '0')}`;
-    return {
-      sku: String(inv.id || fallbackSku).replace('INV-', 'SKU-'),
-      inventoryId: inv.id,
-      productId: inv.productId,
-      supplierId: product.supplierId,
-      name: String(product.name || inv.productId || 'Unknown Product').trim(),
-      cat: String(product.category || 'Uncategorized').trim(),
-      supplier: String(supplier.name || product.supplierId || 'Unknown Supplier').trim(),
-      stock: Math.max(0, Number(inv.stockAvailable || 0)),
-      price: Math.max(0, Number(product.price || 0)),
-      status: String(inv.status || 'In Stock').trim(),
-      reorderLevel: Math.max(0, Number(inv.reorderLevel || 0)),
-      location: String(inv.location || '').trim(),
-    };
-  });
-
-  const mappedOrders = ordersData.map((order) => {
-    const customer = customerById.get(String(order.customerId || ''));
-    const itemCount = Array.isArray(order.items)
-      ? order.items.reduce(
-          (sum, item) => sum + Math.max(0, Number((item && item.quantity) || 0)),
-          0,
-        )
-      : 0;
-    return {
-      id: String(order.id || '').trim(),
-      customer: String(
-        order.customerName || (customer && customer.name) || order.customerId || 'Unknown Customer',
-      ).trim(),
-      items: Math.max(0, Number(order.itemsCount || itemCount || 0)),
-      total: Math.max(0, Number(order.total || 0)),
-      payment: String(order.paymentMethod || 'Pending').trim(),
-      status: String(order.status || 'Pending').trim(),
-      date: formatBackendDate(order.orderDate),
-      companyId: String(order.companyId || '').trim(),
-    };
-  });
-
-  const mappedDeliveries = effectiveDeliveryRows.map((delivery) => {
-    const order = orderById.get(String(delivery.orderId || '')) || {};
-    const customer = customerById.get(String(order.customerId || '')) || {};
-    const status = String(delivery.status || 'Pending').trim();
-    const updatedAtRaw = delivery.deliveryDate || delivery.dispatchDate || '';
-    return {
-      id: String(delivery.id || '').trim(),
-      oid: String(delivery.orderId || '').trim(),
-      orderId: String(delivery.orderId || '').trim(),
-      customer: String(
-        delivery.customerName ||
-          order.customerName ||
-          customer.name ||
-          order.customerId ||
-          'Unknown Customer',
-      ).trim(),
-      address: String(
-        delivery.address || order.customerAddress || customer.address || 'Address unavailable',
-      ).trim(),
-      partner: String(delivery.partnerName || 'Unassigned').trim(),
-      partnerPhone: String(delivery.partnerPhone || '').trim(),
-      partnerAgency: String(delivery.partnerAgency || '').trim(),
-      partnerVehicle: String(delivery.partnerVehicle || '').trim(),
-      dispatchDate: String(delivery.dispatchDate || '').trim(),
-      deliveryDate: String(delivery.deliveryDate || '').trim(),
-      status,
-      etaMin: status === 'In Transit' ? 20 : status === 'Pending' ? 35 : 0,
-      updatedAt: formatBackendDate(updatedAtRaw || new Date().toISOString()),
-      time: formatBackendDate(updatedAtRaw || new Date().toISOString())
-        .split(' ')
-        .slice(-1)[0],
-    };
-  });
-
-  const mappedReturns = effectiveReturnRows.map((ret) => {
-    const order = orderById.get(String(ret.orderId || '')) || {};
-    const customer = customerById.get(String(order.customerId || '')) || {};
-    const product = productById.get(String(ret.product || '')) || {};
-    return {
-      id: String(ret.id || '').trim(),
-      backendId: String(ret.id || '').trim(),
-      companyId: String(ret.companyId || order.companyId || '').trim(),
-      oid: String(ret.orderId || '').trim(),
-      orderId: String(ret.orderId || '').trim(),
-      customer: String(customer.name || order.customerId || 'Unknown Customer').trim(),
-      product: String(product.name || ret.product || 'Unknown Product').trim(),
-      backendProduct: String(ret.product || '').trim(),
-      reason: String(ret.reason || '').trim(),
-      amount: Math.max(0, Number(ret.refundAmount ?? ret.amount ?? 0)),
-      qty: Math.max(1, Number(ret.qty || 1)),
-      status: String(ret.status || 'Pending').trim(),
-      requestedBy: String(ret.requestedBy || '').trim() || 'Operator',
-      staffId: String(ret.staffId || '').trim(),
-      returnType: String(ret.returnType || 'refund').trim() || 'refund',
-      updatedAt: formatBackendDate(ret.returnDate || new Date().toISOString()),
-    };
-  });
-
-  const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((user) => ({
-    id: String(user.id || '').trim(),
-    companyId: String(user.companyId || '').trim(),
-    name: String(user.name || '').trim(),
+export function mapUserRow(user) {
+  return {
+    id: String(user.id || ''),
+    version: user.version,
+    companyId: String(user.companyId || ''),
+    name: String(user.name || ''),
+    roleKey: normalizeBackendRole(user.role),
     role: mapBackendRoleToLabel(user.role),
-    status: String(user.status || 'Active').trim(),
-    email: String(user.email || '').trim(),
-    phone: String(user.mobileNo || '').trim(),
-    username: String(user.username || '').trim(),
-  }));
+    status: String(user.status || 'Active'),
+    email: String(user.email || ''),
+    phone: String(user.mobileNo || ''),
+    username: String(user.username || ''),
+    updatedAt: user.updatedAt,
+    updatedBy: user.updatedBy,
+  };
+}
 
+/**
+ * Loads everything the signed-in role's screens need, for one business.
+ * Returns false only if the server cannot be reached at all.
+ */
+export async function fetchOperationalData({ activeBusinessId, roleKey, existingBusinesses = [] }) {
+  const companyId = String(activeBusinessId || '').trim();
+  const scoped = companyId && companyId !== 'PLATFORM' ? { companyId } : undefined;
+  const get = (path, what, query) => (what && !can(roleKey, what) ? Promise.resolve([]) : api(path, { query }));
+
+  // One call decides whether the server is reachable at all.
+  const probe = await Promise.allSettled([
+    get('/inventory', 'inventory', scoped),
+    get('/orders', 'orders', scoped),
+  ]);
+  if (probe.every((p) => p.status === 'rejected' && Number(p.reason && p.reason.status) === 0)) return false;
+  const [inventoryData, ordersData] = probe.map((p) => (p.status === 'fulfilled' && Array.isArray(p.value) ? p.value : []));
+
+  const settled = await Promise.allSettled([
+    get('/deliveries', 'deliveries', scoped),
+    get('/returns', 'returns', scoped),
+    get('/users', 'users', scoped),
+    get('/suppliers', 'suppliers', scoped),
+    get('/coupons', 'coupons', scoped),
+    roleKey === 'superuser'
+      ? api('/companies')
+      : roleKey === 'admin' && companyId
+        ? api(`/companies/${encodeURIComponent(companyId)}`).then((c) => (c ? [c] : []))
+        : Promise.resolve([]),
+  ]);
+  const [deliveriesData, returnsData, usersData, suppliersData, couponsData, companiesData] = settled.map((s) =>
+    s.status === 'fulfilled' && Array.isArray(s.value) ? s.value : [],
+  );
+
+  const users = usersData.map(mapUserRow);
   let businesses = null;
-  if (Array.isArray(companiesData) && companiesData.length) {
+  if (companiesData.length) {
     const existingById = new Map(existingBusinesses.map((item) => [item.id, item]));
-    const usersByCompanyId = new Map();
-    mappedUsers.forEach((user) => {
-      const cid = String(user.companyId || '').trim();
-      if (!cid) return;
-      if (!usersByCompanyId.has(cid)) usersByCompanyId.set(cid, []);
-      usersByCompanyId.get(cid).push({
-        name: String(user.name || '').trim(),
-        role: String(user.role || '').trim() || 'Staff',
-        status: String(user.status || 'Active').trim() || 'Active',
-      });
-    });
-    const mapped = companiesData.map((company) => {
-      const existing = existingById.get(String(company.id || '').trim()) || {};
+    businesses = companiesData.map((company) => {
+      const existing = existingById.get(String(company.id || '')) || {};
       return normalizeBusinessRecord(
         {
           ...existing,
           ...company,
-          users:
-            usersByCompanyId.get(String((company && company.id) || '').trim()) ||
-            company.users ||
-            existing.users ||
-            [],
+          users: users
+            .filter((u) => u.companyId === company.id)
+            .map((u) => ({ id: u.id, name: u.name, role: u.role, status: u.status })),
         },
         company.id,
         company.name,
       );
     });
-    const scopeId = String(activeBusinessId || sessionCompanyId || '').trim();
-    businesses =
-      roleKey === 'superuser'
-        ? mapped
-        : mapped.filter((business) => String((business && business.id) || '').trim() === scopeId);
   }
 
   return {
-    inventory: cloneRows(mappedInventory),
-    orders: cloneRows(mappedOrders),
-    deliveries: cloneRows(mappedDeliveries),
-    returns: cloneRows(mappedReturns),
-    users: cloneRows(mappedUsers),
+    inventory: cloneRows(inventoryData.map(mapInventoryRow)),
+    orders: cloneRows(ordersData.map(mapOrderRow)),
+    deliveries: cloneRows(deliveriesData.map(mapDeliveryRow)),
+    returns: cloneRows(returnsData.map(mapReturnRow)),
+    users: cloneRows(users),
+    suppliers: cloneRows(suppliersData),
+    coupons: cloneRows(couponsData),
     businesses,
   };
 }

@@ -1,101 +1,65 @@
 import Badge from '../common/Badge.jsx';
+import { rupees, statusColour } from './orderFormat.js';
 
-const EDIT_STYLE = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px' };
-const EDIT_STYLE_ALONE = { padding: '4px 8px', fontSize: '0.75rem' };
-const DELETE_STYLE = {
-  padding: '4px 8px',
-  fontSize: '0.75rem',
-  color: 'var(--red)',
-  borderColor: 'var(--red)',
-};
+const BTN = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px' };
+const DANGER = { ...BTN, color: 'var(--red)', borderColor: 'var(--red)' };
+const SUB = { display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' };
 
-export default function OrderRow({
-  order,
-  saved = false,
-  canEdit,
-  canDelete,
-  onEdit,
-  onDelete,
-  onViewBill,
-}) {
-  if (saved) {
-    const statusClass =
-      order.status === 'Delivered'
-        ? 'b-delivered'
-        : order.status === 'Processing'
-          ? 'b-processing'
-          : order.status === 'Pending'
-            ? 'b-pending'
-            : 'b-cancelled';
-    return (
-      <tr>
-        <td className="cell-main">{order.id}</td>
-        <td>{order.customer}</td>
-        <td>{order.items}</td>
-        <td>{`₹${order.total.toLocaleString()}`}</td>
-        <td>
-          <span className={`badge b-${order.payment.toLowerCase()}`}>{order.payment}</span>
-        </td>
-        <td>
-          <span className={`badge ${statusClass}`}>{order.status}</span>
-        </td>
-        <td>{order.date}</td>
-        <td>
-          <button
-            className="btn btn-outline"
-            style={canDelete ? EDIT_STYLE : EDIT_STYLE_ALONE}
-            onClick={() => onEdit(order.id)}
-          >
-            Edit
-          </button>
-          {canDelete && (
-            <button
-              className="btn btn-outline"
-              style={DELETE_STYLE}
-              onClick={() => onDelete(order.id)}
-            >
-              Delete
-            </button>
-          )}
-        </td>
-      </tr>
-    );
-  }
+/** Whether the Orders page offers "Cancel" (the server has the final say). */
+export function canCancelOrder(order) {
+  if (order.status === 'Cancelled' || order.status === 'Returned' || order.status === 'Partially Returned') return false;
+  if (order.orderType === 'delivery') return order.status === 'Processing';
+  return true;
+}
 
+export default function OrderRow({ order, canEdit, isManager, onViewBill, onEdit, onCancel, onDelete }) {
+  const cancelled = order.status === 'Cancelled';
   return (
-    <tr>
-      <td className="cell-main">{order.id}</td>
-      <td>{order.customer}</td>
+    <tr style={cancelled ? { opacity: 0.65 } : undefined}>
+      <td className="cell-main">
+        {order.id}
+        {order.billNo && <span style={SUB}>{order.billNo}</span>}
+      </td>
+      <td>
+        {order.customer}
+        {order.customerPhone && <span style={SUB}>{order.customerPhone}</span>}
+      </td>
+      <td>{order.orderType === 'delivery' ? 'Delivery' : 'Counter'}</td>
       <td>{order.items}</td>
-      <td>{`₹${Math.max(0, Number(order.total || 0)).toLocaleString()}`}</td>
-      <td>
-        <Badge status={order.normalizedPayment} type={order.normalizedPayment.toLowerCase()} />
+      <td className="nowrap">
+        {rupees(order.total)}
+        {order.promoCode && <span style={SUB}>{order.promoCode} −{rupees(order.discount)}</span>}
+        {order.refunded > 0 && <span style={{ ...SUB, color: 'var(--red)' }}>Refunded {rupees(order.refunded)}</span>}
       </td>
       <td>
-        <Badge status={order.normalizedStatus} />
-      </td>
-      <td>{order.date}</td>
-      <td>
-        {onViewBill && (
-          <button
-            className="btn btn-outline"
-            style={EDIT_STYLE}
-            onClick={() => onViewBill(order.id)}
-          >
-            Bill
-          </button>
+        <Badge status={order.payment} type={statusColour(order.payment)} />
+        {order.paymentStatus && order.paymentStatus !== 'Paid' && (
+          <span style={SUB}>{order.paymentStatus}</span>
         )}
-        {canEdit && (
-          <button className="btn btn-outline" style={EDIT_STYLE} onClick={() => onEdit(order.id)}>
+      </td>
+      <td>
+        <Badge status={order.status} type={statusColour(order.status)} />
+      </td>
+      <td className="nowrap">
+        {order.date}
+        {order.staffName && <span style={SUB}>by {order.staffName}</span>}
+      </td>
+      <td style={{ whiteSpace: 'nowrap' }}>
+        <button className="btn btn-outline" style={BTN} onClick={() => onViewBill(order.id)}>
+          Bill
+        </button>
+        {canEdit && !cancelled && (
+          <button className="btn btn-outline" style={BTN} onClick={() => onEdit(order.id)}>
             Edit
           </button>
         )}
-        {canEdit && canDelete && (
-          <button
-            className="btn btn-outline"
-            style={DELETE_STYLE}
-            onClick={() => onDelete(order.id)}
-          >
+        {isManager && canCancelOrder(order) && (
+          <button className="btn btn-outline" style={DANGER} onClick={() => onCancel(order.id)}>
+            Cancel
+          </button>
+        )}
+        {isManager && cancelled && (
+          <button className="btn btn-outline" style={DANGER} onClick={() => onDelete(order.id)}>
             Delete
           </button>
         )}

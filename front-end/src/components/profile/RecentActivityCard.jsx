@@ -21,8 +21,7 @@ export default function RecentActivityCard({ items }) {
           ) : (
             <div className="timeline-item">
               <div className="timeline-marker" />
-              <div className="timeline-time">Just now</div>
-              <div className="timeline-content">No recent activity available.</div>
+              <div className="timeline-content">Nothing you changed yet shows here.</div>
             </div>
           )}
         </div>

@@ -1,5 +1,9 @@
 import { Router, Request, Response } from 'express';
+import { activityRouter } from '../modules/activity/activity.routes';
 import { authRouter } from '../modules/auth/auth.routes';
+import { couponsRouter } from '../modules/coupons/coupons.routes';
+import { requireRoles } from '../middleware/rbac.middleware';
+import { resetToSeed } from '../data/persistence';
 import { companiesRouter } from '../modules/companies/companies.routes';
 import { customersRouter } from '../modules/customers/customers.routes';
 import { deliveriesRouter } from '../modules/deliveries/deliveries.routes';
@@ -31,14 +35,14 @@ export function createApiRouter(): Router {
       name: 'BillBhai API',
       description:
         'BillBhai Retail Order Processing and Billing System (Express runtime)',
-      version: '1.0.0',
+      version: '2.0.0',
       status: 'operational',
       documentation: '/api/docs',
       authentication: {
         login: 'POST /api/auth/login',
         schemes: [
           'Authorization: Bearer <jwt>  (issued at login)',
-          'x-role: <role>               (header used by the existing frontend)',
+          'x-role: <role>               (test runs only; ignored otherwise)',
         ],
       },
       endpoints: {
@@ -55,12 +59,20 @@ export function createApiRouter(): Router {
         suppliers: '/api/suppliers',
         uploads: '/api/uploads',
         payments: '/api/payments',
+        coupons: '/api/coupons',
+        activity: '/api/activity',
       },
     });
   });
 
   // Feature module routers
   apiRouter.use('/auth', authRouter);
+  apiRouter.use('/coupons', couponsRouter);
+  apiRouter.use('/activity', activityRouter);
+  apiRouter.post('/admin/reset-demo', requireRoles('superuser'), (_req: Request, res: Response) => {
+    resetToSeed();
+    res.status(200).json({ message: 'All data reset to the demo seed' });
+  });
   apiRouter.use('/companies', companiesRouter);
   apiRouter.use('/users', usersRouter);
   apiRouter.use('/customers', customersRouter);

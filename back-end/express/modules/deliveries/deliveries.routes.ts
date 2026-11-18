@@ -1,76 +1,43 @@
 import { Router } from 'express';
 import { requireRoles } from '../../middleware/rbac.middleware';
 import { validate } from '../../middleware/validate.middleware';
-import {
-  deliveriesController,
-  DeliveriesController,
-} from './deliveries.controller';
+import { deliveriesController, DeliveriesController } from './deliveries.controller';
 import {
   createDeliverySchema,
   deliveryIdParamsSchema,
   listDeliveriesQuerySchema,
   orderIdParamsSchema,
+  transitionDeliverySchema,
   updateDeliverySchema,
 } from './deliveries.schema';
+
+const DESK = ['superuser', 'admin', 'deliveryops'];
+const READERS = [...DESK, 'cashier'];
 
 /**
  * Deliveries Module Router
  *
- * Router-level middleware chain per endpoint:
- *   requireRoles(...)  -> role based access control
- *   validate({...})    -> zod schema validation
- *   controller.method  -> request handling
- *
- * ORDERING MATTERS: the literal path /order/:orderId is registered BEFORE the
- * generic /:id routes, otherwise the parameterised handler swallows it.
+ * '/order/:orderId' is registered before '/:id'.
  */
-export function createDeliveriesRouter(
-  controller: DeliveriesController = deliveriesController,
-): Router {
+export function createDeliveriesRouter(controller: DeliveriesController = deliveriesController): Router {
   const router = Router();
-
-  router.get(
-    '/order/:orderId',
-    requireRoles('superuser', 'admin', 'deliveryops', 'cashier'),
-    validate({ params: orderIdParamsSchema }),
-    controller.findByOrder,
-  );
-
-  router.get(
-    '/',
-    requireRoles('superuser', 'admin', 'deliveryops'),
-    validate({ query: listDeliveriesQuerySchema }),
-    controller.findAll,
-  );
-
+  router.get('/', requireRoles(...READERS), validate({ query: listDeliveriesQuerySchema }), controller.findAll);
+  router.get('/order/:orderId', requireRoles(...READERS), validate({ params: orderIdParamsSchema }), controller.findByOrder);
+  router.get('/:id', requireRoles(...READERS), validate({ params: deliveryIdParamsSchema }), controller.findOne);
+  router.post('/', requireRoles(...DESK, 'cashier'), validate({ body: createDeliverySchema }), controller.create);
   router.post(
-    '/',
-    requireRoles('superuser', 'admin', 'deliveryops', 'cashier'),
-    validate({ body: createDeliverySchema }),
-    controller.create,
+    '/:id/status',
+    requireRoles(...DESK),
+    validate({ params: deliveryIdParamsSchema, body: transitionDeliverySchema }),
+    controller.transition,
   );
-
-  router.get(
-    '/:id',
-    requireRoles('superuser', 'admin', 'deliveryops'),
-    validate({ params: deliveryIdParamsSchema }),
-    controller.findOne,
-  );
-
   router.put(
     '/:id',
-    requireRoles('superuser', 'admin', 'deliveryops'),
+    requireRoles(...DESK),
     validate({ params: deliveryIdParamsSchema, body: updateDeliverySchema }),
     controller.update,
   );
-
-  router.delete(
-    '/:id',
-    requireRoles('superuser', 'admin'),
-    validate({ params: deliveryIdParamsSchema }),
-    controller.remove,
-  );
-
+  router.delete('/:id', requireRoles('superuser', 'admin'), validate({ params: deliveryIdParamsSchema }), controller.remove);
   return router;
 }
 

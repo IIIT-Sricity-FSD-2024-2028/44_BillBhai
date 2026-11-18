@@ -1,162 +1,88 @@
-import { useDashboard, useUsers } from '../../lib/dashboard/hooks.js';
-import { getState } from '../../lib/dashboard/store.js';
-import { mapRoleLabelToBackendRole } from '../../lib/dashboard/api.js';
-import { USER_MANAGED_ROLE_OPTIONS } from '../../lib/dashboard/constants.js';
-import {
-  decodeUserToken,
-  generateTemporaryPassword,
-  mapUserRoleToAuthRole,
-  removeAuthCredentialsForUser,
-  upsertAuthCredentialsForUser,
-} from '../../lib/dashboard/credentials.js';
+import { api, errorText } from '../../lib/http.js';
+import { useDashboard } from '../../lib/dashboard/hooks.js';
+import { roleLabel } from '../../lib/dashboard/credentials.js';
 
-const findUser = (name) => getState().users.find((user) => user.name === name);
-
+/**
+ * Staff account actions. Every action names the user by id and sends the
+ * version the screen loaded; the server enforces who may do what (no self
+ * delete, last admin kept, super users untouchable for store admins).
+ */
 export default function useUserActions() {
-  const {
-    hasActionAccess,
-    denyAction,
-    apiRequest,
-    openConfirm,
-    openQuickForm,
-    showCredentialsModal,
-    showMutationError,
-    showToast,
-    renderPage,
-  } = useDashboard();
-  const { remove, setRows } = useUsers();
+  const { hasActionAccess, denyAction, openConfirm, showCredentialsModal, showToast, refreshData } = useDashboard();
+  const canManage = hasActionAccess('users');
 
-  const replaceUser = (name, patch) =>
-    setRows((rows) => {
-      const idx = rows.findIndex((user) => user.name === name);
-      return idx === -1 ? rows : rows.map((user, i) => (i === idx ? { ...user, ...patch } : user));
-    });
+  const guard = (label) => {
+    if (canManage) return true;
+    denyAction(label);
+    return false;
+  };
 
-  const deleteUser = (token) => {
-    if (!hasActionAccess('users')) {
-      denyAction('User delete');
-      return;
-    }
-    const name = decodeUserToken(token);
+  const deleteUser = (user, after) => {
+    if (!guard('User delete')) return;
     openConfirm({
       title: 'Delete User',
-      message: `Delete User ${name}?`,
+      message: `Delete ${user.name} (${user.username})? They will be signed out and cannot sign in again. To keep their history but block sign-in, suspend them instead.`,
       confirmLabel: 'Delete',
       onConfirm: async () => {
-        const targetUser = findUser(name);
-        if (!targetUser) return true;
-        if (!targetUser.id) throw new Error('Missing backend user id');
-        await remove(targetUser.id, { role: 'admin' });
-        removeAuthCredentialsForUser(targetUser);
-        renderPage();
-        showToast(`User "${name}" deleted!`);
+        try {
+          await api(`/users/${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+        } catch (err) {
+          showToast(`Delete failed: ${errorText(err)}`);
+          return false;
+        }
+        await refreshData();
+        showToast(`${user.name} deleted`);
+        if (after) after();
         return true;
       },
     });
   };
 
-  const changeUserRole = (token) => {
-    if (!hasActionAccess('users')) {
-      denyAction('User update');
-      return;
-    }
-    const user = findUser(decodeUserToken(token));
-    if (!user) return;
-    openQuickForm({
-      title: `Change Role - ${user.name}`,
-      submitLabel: 'Update Role',
-      fields: [
-        {
-          name: 'role',
-          label: 'Role',
-          type: 'select',
-          required: true,
-          options: USER_MANAGED_ROLE_OPTIONS,
-        },
-      ],
-      initialValues: { role: mapUserRoleToAuthRole(user.role) },
-      onSubmit: async (values, closeModal) => {
+  const resetPassword = (user) => {
+    if (!guard('Password reset')) return;
+    openConfirm({
+      title: 'Reset Password',
+      message: `Give ${user.name} a new temporary password? Their old password stops working at once.`,
+      confirmLabel: 'Reset password',
+      onConfirm: async () => {
+        let result;
         try {
-          const nextRole = String(values.role || '').trim();
-          if (!user.id) throw new Error('Missing backend user id');
-          await apiRequest(`/users/${encodeURIComponent(String(user.id))}`, {
-            method: 'PUT',
-            role: 'admin',
-            body: { role: mapRoleLabelToBackendRole(nextRole) },
-          });
-          const updated = { ...user, role: nextRole };
-          const credential = upsertAuthCredentialsForUser(getState().users, updated, {
-            existingUsername: user.username,
-          });
-          replaceUser(user.name, { role: nextRole, username: credential.username });
-          closeModal();
-          showToast(`${user.name}'s role updated to ${nextRole}.`);
-        } catch (error) {
-          showMutationError('User role update', error);
+          result = await api(`/users/${encodeURIComponent(user.id)}/reset-password`, { method: 'POST', body: {} });
+        } catch (err) {
+          showToast(`Reset failed: ${errorText(err)}`);
+          return false;
         }
+        await refreshData();
+        // Shown after this dialog closes.
+        setTimeout(
+          () =>
+            showCredentialsModal('New Temporary Password', {
+              name: result.name,
+              username: result.username,
+              password: result.temporaryPassword,
+              role: roleLabel(result.role),
+            }),
+          0,
+        );
+        return true;
       },
     });
   };
 
-  const sendUserPasswordReset = async (token) => {
-    if (!hasActionAccess('users')) {
-      denyAction('User password reset');
-      return;
-    }
-    const user = findUser(decodeUserToken(token));
-    if (!user) return;
-    const tempPassword = generateTemporaryPassword();
-    const credential = upsertAuthCredentialsForUser(getState().users, user, {
-      existingUsername: user.username,
-      forcePassword: tempPassword,
-    });
+  const toggleSuspension = async (user) => {
+    if (!guard('User status update')) return;
+    const next = String(user.status).toLowerCase() === 'suspended' ? 'Active' : 'Suspended';
     try {
-      if (!user.id) throw new Error('Missing backend user id');
-      await apiRequest(`/users/${encodeURIComponent(String(user.id))}`, {
+      await api(`/users/${encodeURIComponent(user.id)}`, {
         method: 'PUT',
-        role: 'admin',
-        body: { password: credential.password },
+        body: { status: next, version: user.version },
       });
-      replaceUser(user.name, { username: credential.username });
-      showCredentialsModal('Temporary Password Generated', {
-        name: user.name,
-        username: credential.username,
-        password: credential.password,
-        role: mapUserRoleToAuthRole(user.role),
-        email: user.email,
-      });
-      showToast(`Temporary password generated for ${user.name}.`);
-    } catch (error) {
-      showMutationError('Password reset', error);
+      await refreshData();
+      showToast(next === 'Active' ? `${user.name} can sign in again` : `${user.name} is suspended and signed out`);
+    } catch (err) {
+      showToast(`Status change failed: ${errorText(err)}`);
     }
   };
 
-  const toggleUserSuspension = async (token) => {
-    if (!hasActionAccess('users')) {
-      denyAction('User status update');
-      return;
-    }
-    const user = findUser(decodeUserToken(token));
-    if (!user) return;
-    const currentlySuspended = String(user.status || '').toLowerCase() === 'suspended';
-    try {
-      const nextStatus = currentlySuspended ? 'Active' : 'Suspended';
-      if (!user.id) throw new Error('Missing backend user id');
-      await apiRequest(`/users/${encodeURIComponent(String(user.id))}`, {
-        method: 'PUT',
-        role: 'admin',
-        body: { status: nextStatus },
-      });
-      const updated = { ...user, status: nextStatus };
-      const credential = upsertAuthCredentialsForUser(getState().users, updated, {
-        existingUsername: user.username,
-      });
-      replaceUser(user.name, { status: nextStatus, username: credential.username });
-      showToast(currentlySuspended ? `${user.name} reactivated.` : `${user.name} suspended.`);
-    } catch (error) {
-      showMutationError('User status update', error);
-    }
-  };
-
-  return { deleteUser, changeUserRole, sendUserPasswordReset, toggleUserSuspension };
+  return { canManage, deleteUser, resetPassword, toggleSuspension };
 }

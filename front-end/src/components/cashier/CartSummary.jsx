@@ -15,7 +15,7 @@ export default function CartSummary({ totals }) {
         >{`- ${formatRupees(totals.discount)}`}</span>
       </div>
       <div className="cf-tot">
-        <span>Grand Total</span>
+        <span>Items total</span>
         <span id="totSpan">{formatRupees(totals.itemTotal)}</span>
       </div>
     </>

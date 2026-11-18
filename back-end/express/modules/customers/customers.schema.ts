@@ -7,6 +7,14 @@ const emailSchema = z
   .email('email must be a valid address')
   .regex(/^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/, 'email must be a valid address');
 
+const indianMobile = z
+  .string()
+  .refine((value) => {
+    const digits = value.replace(/\D/g, '');
+    const tail = digits.length > 10 && digits.startsWith('91') ? digits.slice(-10) : digits;
+    return /^[6-9]\d{9}$/.test(tail);
+  }, 'mobileNo must be a 10-digit Indian mobile number');
+
 export const listCustomersQuerySchema = z.object({
   companyId: z.string().optional(),
 });
@@ -15,37 +23,30 @@ export const customerIdParamsSchema = z.object({
   id: z.string().regex(/^CUS-\d+$/i, 'Customer id must look like CUS-001'),
 });
 
-/**
- * The phone lookup accepts whatever the till or the storefront sends
- * ('+91-98100 01001', '098100-01001', ...). The service normalises it, so the
- * only rule enforced here is that at least 10 digits are present.
- */
 export const customerPhoneParamsSchema = z.object({
-  phone: z
-    .string()
-    .refine(
-      (value) => value.replace(/\D/g, '').length >= 10,
-      'phone must contain at least 10 digits',
-    ),
+  phone: indianMobile,
 });
 
 export const createCustomerSchema = z.object({
-  companyId: z.string().min(1, 'companyId is required'),
-  name: z.string().optional(),
-  mobileNo: z
-    .string()
-    .refine(
-      (value) => value.replace(/\D/g, '').length >= 10,
-      'mobileNo must contain at least 10 digits',
-    ),
+  companyId: z.string().optional(),
+  name: z.string().trim().max(80).optional(),
+  mobileNo: indianMobile,
   email: emailSchema.optional(),
-  address: z.string().optional(),
+  address: z.string().trim().max(250).optional(),
 });
 
-export const updateCustomerSchema = createCustomerSchema.partial().refine(
-  (value) => Object.keys(value).length > 0,
-  { message: 'At least one field must be supplied' },
-);
+export const updateCustomerSchema = z
+  .object({
+    companyId: z.string().optional(),
+    name: z.string().trim().min(2).max(80).optional(),
+    mobileNo: indianMobile.optional(),
+    email: emailSchema.optional().or(z.literal('')),
+    address: z.string().trim().max(250).optional(),
+    version: z.number().int().optional(),
+  })
+  .refine((value) => Object.keys(value).filter((k) => k !== 'version').length > 0, {
+    message: 'At least one field must be supplied',
+  });
 
 export type CreateCustomerDto = z.infer<typeof createCustomerSchema>;
 export type UpdateCustomerDto = z.infer<typeof updateCustomerSchema>;

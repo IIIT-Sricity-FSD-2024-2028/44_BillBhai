@@ -5,58 +5,41 @@ import { returnsController, ReturnsController } from './returns.controller';
 import {
   createReturnSchema,
   listReturnsQuerySchema,
+  orderIdParamsSchema,
   returnIdParamsSchema,
+  transitionReturnSchema,
   updateReturnSchema,
 } from './returns.schema';
 
-/**
- * Returns Module Router
- *
- * Router-level middleware chain per endpoint:
- *   requireRoles(...)  -> role based access control
- *   validate({...})    -> zod schema validation
- *   controller.method  -> request handling
- */
-export function createReturnsRouter(
-  controller: ReturnsController = returnsController,
-): Router {
+const DESK = ['superuser', 'admin', 'returnhandler'];
+/** Counter staff can look up an order and raise a return for the desk. */
+const RAISERS = [...DESK, 'cashier'];
+
+/** Returns Module Router */
+export function createReturnsRouter(controller: ReturnsController = returnsController): Router {
   const router = Router();
-
+  router.get('/', requireRoles(...RAISERS), validate({ query: listReturnsQuerySchema }), controller.findAll);
   router.get(
-    '/',
-    requireRoles('superuser', 'admin', 'returnhandler'),
-    validate({ query: listReturnsQuerySchema }),
-    controller.findAll,
+    '/order/:orderId/returnable',
+    requireRoles(...RAISERS),
+    validate({ params: orderIdParamsSchema }),
+    controller.returnable,
   );
-
+  router.get('/:id', requireRoles(...RAISERS), validate({ params: returnIdParamsSchema }), controller.findOne);
+  router.post('/', requireRoles(...RAISERS), validate({ body: createReturnSchema }), controller.create);
   router.post(
-    '/',
-    requireRoles('superuser', 'admin', 'returnhandler', 'cashier'),
-    validate({ body: createReturnSchema }),
-    controller.create,
+    '/:id/status',
+    requireRoles(...DESK),
+    validate({ params: returnIdParamsSchema, body: transitionReturnSchema }),
+    controller.transition,
   );
-
-  router.get(
-    '/:id',
-    requireRoles('superuser', 'admin', 'returnhandler'),
-    validate({ params: returnIdParamsSchema }),
-    controller.findOne,
-  );
-
   router.put(
     '/:id',
-    requireRoles('superuser', 'admin', 'returnhandler'),
+    requireRoles(...DESK),
     validate({ params: returnIdParamsSchema, body: updateReturnSchema }),
     controller.update,
   );
-
-  router.delete(
-    '/:id',
-    requireRoles('superuser', 'admin'),
-    validate({ params: returnIdParamsSchema }),
-    controller.remove,
-  );
-
+  router.delete('/:id', requireRoles(...DESK), validate({ params: returnIdParamsSchema }), controller.remove);
   return router;
 }
 

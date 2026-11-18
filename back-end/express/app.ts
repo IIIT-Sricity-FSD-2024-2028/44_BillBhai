@@ -13,6 +13,7 @@ import {
 } from './middleware/index';
 import { apiRouter } from './routes/index';
 import { mountSwagger } from './docs/swagger';
+import { persistAfterWrites } from './data/persistence';
 
 /**
  * Express Application Factory
@@ -88,6 +89,7 @@ export function createApp(): Express {
   });
 
   // 10. Feature modules
+  app.use(config.apiPrefix, persistAfterWrites);
   app.use(config.apiPrefix, apiRouter);
 
   // 11 and 12. These two MUST stay last.

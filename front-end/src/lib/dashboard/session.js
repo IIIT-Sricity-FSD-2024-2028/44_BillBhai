@@ -5,6 +5,7 @@ import {
   ROLE_LABELS,
 } from './constants.js';
 import { loadObject } from './storage.js';
+import { getAuthToken, clearStoredSession } from '../http.js';
 
 export function normalizeRole(role) {
   return String(role || '')
@@ -26,6 +27,7 @@ export function roleFromStorage(value) {
 }
 
 export function clearSession() {
+  clearStoredSession();
   localStorage.removeItem('userRole');
   localStorage.removeItem('userName');
   localStorage.removeItem('currentUser');
@@ -72,7 +74,7 @@ export function computeBootContext(page) {
     writes,
   };
 
-  if (!storedName || !storedRole) return invalid;
+  if (!storedName || !storedRole || !getAuthToken()) return invalid;
 
   if (!localStorage.getItem('userName')) writes.push(['set', 'userName', storedName]);
   if (!localStorage.getItem('userRole')) writes.push(['set', 'userRole', storedRole]);

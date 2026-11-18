@@ -216,12 +216,12 @@ export class PaymentsService {
 
     if (targetBillNo) {
       try {
-        ordersService.findOneBill(targetBillNo);
-        ordersService.createPayment({
-          billNo: targetBillNo,
-          paymentMethod: 'Razorpay',
-          amountPaid: razorpayOrder ? razorpayOrder.amount / 100 : 0,
-        });
+        const bill = ordersService.findOneBill(targetBillNo);
+        ordersService.recordCodPayment(
+          bill.orderId,
+          razorpayOrder ? razorpayOrder.amount / 100 : 0,
+          'razorpay',
+        );
       } catch (err: unknown) {
         logger.warn('Could not auto-register payment on bill', {
           billNo: targetBillNo,
