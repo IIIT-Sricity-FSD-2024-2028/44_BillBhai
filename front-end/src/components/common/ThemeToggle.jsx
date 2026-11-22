@@ -1,4 +1,6 @@
-import useTheme from '../../hooks/useTheme.js';
+import { useDispatch, useSelector } from 'react-redux';
+import { toggleTheme } from '../../store/slices/uiSlice.js';
+import { selectCurrentTheme } from '../../store/slices/uiSlice.js';
 
 const SunIcon = (
   <svg
@@ -30,14 +32,17 @@ const MoonIcon = (
 );
 
 export default function ThemeToggle({ floating = false }) {
-  const { isLight, toggleTheme } = useTheme();
+  const dispatch = useDispatch();
+  const theme = useSelector(selectCurrentTheme);
+  const isLight = theme === 'light';
   const label = isLight ? 'Switch to dark theme' : 'Switch to light theme';
+  const handleToggle = () => dispatch(toggleTheme());
 
   return (
     <button
       type="button"
       className={floating ? 'theme-toggle theme-toggle-floating' : 'theme-toggle'}
-      onClick={toggleTheme}
+      onClick={handleToggle}
       aria-label={label}
       title={label}
     >

@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { processRefundThunk, selectPendingReturns, selectDeliveryLoading } from '../../store/slices/deliverySlice.js';
+import { showToast } from '../../store/slices/uiSlice.js';
 import PageHeader from '../common/PageHeader.jsx';
 import DataTable from '../common/DataTable.jsx';
 import Badge from '../common/Badge.jsx';
@@ -10,21 +13,29 @@ import { returnAge, returnBadgeType, returnRaisedAt, rupees, summarizeReturns } 
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { api } from '../../lib/http.js';
 
-const COLUMNS = ['Return', 'Order', 'Items', 'Reason', 'Refund', 'Status', 'Age'];
+const COLUMNS = ['Return', 'Order', 'Items', 'Reason', 'Refund', 'Status', 'Age', 'Action'];
 
 function isoDay(ms) {
   return new Date(ms + 330 * 60000).toISOString().slice(0, 10);
 }
 
-/**
- * Return desk start page. Counts come from the loaded returns; the week's
- * refund total, top reasons and top products come from GET /reports/returns
- * (the same numbers the Reports page shows).
- */
 export default function ReturnHandlerDashboard() {
   const { returns, scopedBusinessName, lastSyncedAt } = useDashboard();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const isProcessing = useSelector(selectDeliveryLoading);
+  const pendingReturns = useSelector(selectPendingReturns);
   const [week, setWeek] = useState(null);
+
+  // Handler: process a refund via Redux thunk
+  const handleProcessRefund = async (r) => {
+    const result = await dispatch(processRefundThunk({ returnId: r.id, amount: r.amount }));
+    if (processRefundThunk.fulfilled.match(result)) {
+      dispatch(showToast({ message: `Refund of ${rupees(r.amount)} processed for ${r.id}`, type: 'success' }));
+    } else {
+      dispatch(showToast({ message: `Failed to process refund for ${r.id}`, type: 'error' }));
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -90,6 +101,21 @@ export default function ReturnHandlerDashboard() {
                   <Badge status={r.status} type={returnBadgeType(r.status)} />
                 </td>
                 <td>{returnAge(r)}</td>
+                <td>
+                  {r.status === 'Approved' ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                      disabled={isProcessing}
+                      onClick={() => handleProcessRefund(r)}
+                    >
+                      Process Refund
+                    </button>
+                  ) : (
+                    <span className="text-muted text-sm">—</span>
+                  )}
+                </td>
               </tr>
             )}
           />

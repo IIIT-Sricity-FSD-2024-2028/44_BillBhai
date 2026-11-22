@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { showToast as reduxShowToast, hideToast, selectToastState } from '../../store/slices/uiSlice.js';
 import usePageSetup from '../../hooks/usePageSetup.js';
 import { CSS, FONTS } from '../../lib/pageAssets.js';
 import {
@@ -81,6 +83,8 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
 
   const s = useDashboardStore();
   const notifications = useNotifications();
+  const dispatch = useDispatch();
+  const reduxToast = useSelector(selectToastState);
   const [ready, setReady] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -90,6 +94,18 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
   const contentRef = useRef(null);
   const redirectedRef = useRef(false);
   const toastTimers = useRef([]);
+
+  // Keep local toast in sync with Redux toast (from thunks / other components)
+  useEffect(() => {
+    if (reduxToast.show && reduxToast.message) {
+      setToastState({ message: reduxToast.message, show: true, type: reduxToast.type || 'success' });
+      const timer = setTimeout(() => {
+        setToastState((t) => ({ ...t, show: false }));
+        dispatch(hideToast());
+      }, 3000);
+      toastTimers.current.push(timer);
+    }
+  }, [reduxToast, dispatch]);
 
   useLayoutEffect(() => {
     if (boot.roleKey) document.body.setAttribute('data-role', boot.roleKey);
@@ -106,6 +122,8 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
       showToast: (message, type = 'success') => {
         if (!message) return;
         setToastState({ message, show: true, type });
+        // Also push to Redux so thunks / other slices can read toast state
+        dispatch(reduxShowToast({ message, type }));
         toastTimers.current.push(
           setTimeout(() => setToastState((t) => ({ ...t, show: false })), 3000),
         );

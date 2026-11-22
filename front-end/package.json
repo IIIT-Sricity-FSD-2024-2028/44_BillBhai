@@ -9,9 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.15.0",
     "chart.js": "^4.4.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-redux": "^9.3.1",
     "react-router-dom": "^7.6.0"
   },
   "devDependencies": {

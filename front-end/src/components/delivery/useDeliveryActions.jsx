@@ -215,7 +215,7 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
         const created = await api('/deliveries', { method: 'POST', body });
         message = `Delivery ${created.id} created for ${order.id}.`;
       }
-      onDone(message);
+      onDone(message, { kind, deliveryId: d?.id, rider: form.partnerName.trim() });
     } catch (err) {
       setServerError(err.message || 'Could not save.');
       setSaving(false);
@@ -370,10 +370,10 @@ export default function useDeliveryActions({ onDone } = {}) {
     .forEach((x) => load.set(x.partner, (load.get(x.partner) || 0) + 1));
   const partners = partnerDirectory(deliveries).map((p) => ({ ...p, load: load.get(p.name) || 0 }));
 
-  const done = (message) => {
+  const done = (message, meta) => {
     setRequest(null);
-    if (onDone) onDone(message);
-    else showToast(message);
+    if (onDone) onDone(message, meta);
+    showToast(message);
     refreshData();
   };
 

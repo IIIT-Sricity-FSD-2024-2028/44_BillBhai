@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { fetchDeliveriesThunk, updateDeliveryStatusThunk } from '../../store/slices/deliverySlice.js';
 import PageHeader from '../common/PageHeader.jsx';
 import DataTable from '../common/DataTable.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
@@ -51,7 +53,19 @@ function sorter(key) {
 export default function DeliveryContent() {
   const { deliveries, orders, hasActionAccess, scopedBusinessName, syncError } = useDashboard();
   const canManage = hasActionAccess('delivery');
-  const actions = useDeliveryActions();
+  const dispatch = useDispatch();
+  const actions = useDeliveryActions({
+    onDone: (message, meta) => {
+      if (meta && (meta.kind === 'assign' || meta.kind === 'retry')) {
+        dispatch(updateDeliveryStatusThunk({ id: meta.deliveryId, status: 'Assigned', rider: meta.rider }));
+      }
+    },
+  });
+
+  // Fetch deliveries into Redux store on page mount
+  useEffect(() => {
+    dispatch(fetchDeliveriesThunk());
+  }, [dispatch]);
   const [group, setGroup] = useState('open');
   const [query, setQuery] = useState('');
   const [partner, setPartner] = useState('all');
