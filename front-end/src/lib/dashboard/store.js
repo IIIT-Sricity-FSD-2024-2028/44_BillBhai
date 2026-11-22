@@ -2,6 +2,8 @@ import { useSyncExternalStore } from 'react';
 import { LIVE_SYNC_CHANNEL, LIVE_SYNC_KEY, PLAN_DEFINITIONS, ROLE_ACTIONS } from './constants.js';
 import { apiRequest, fetchOperationalData, mutationErrorMessage, setApiActiveRole } from './api.js';
 import { API_BASE_URL } from '../http.js';
+import { getAppStore } from '../../store/storeBridge.js';
+import { fetchInventoryThunk } from '../../store/slices/inventorySlice.js';
 import {
   writeNotificationReadState,
   writeNotificationsRead,
@@ -517,6 +519,9 @@ let refreshing = null;
  * reports a change.
  */
 export function refreshData() {
+  try {
+    getAppStore()?.dispatch(fetchInventoryThunk());
+  } catch {}
   if (state.status !== 'ready') return Promise.resolve(false);
   if (refreshing) return refreshing;
   const gen = generation;
@@ -581,6 +586,9 @@ export function beginPageSession(boot, { onReady } = {}) {
     state = { ...state, status: 'ready' };
     emit();
     if (onReady) onReady();
+    try {
+      getAppStore()?.dispatch(fetchInventoryThunk());
+    } catch {}
   })();
 
   return () => {

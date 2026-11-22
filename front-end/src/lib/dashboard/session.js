@@ -6,6 +6,8 @@ import {
 } from './constants.js';
 import { loadObject } from './storage.js';
 import { getAuthToken, clearStoredSession } from '../http.js';
+import { getAppStore } from '../../store/storeBridge.js';
+import { resetInventory } from '../../store/slices/inventorySlice.js';
 
 export function normalizeRole(role) {
   return String(role || '')
@@ -28,6 +30,9 @@ export function roleFromStorage(value) {
 
 export function clearSession() {
   clearStoredSession();
+  try {
+    getAppStore()?.dispatch(resetInventory());
+  } catch {}
   localStorage.removeItem('userRole');
   localStorage.removeItem('userName');
   localStorage.removeItem('currentUser');

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectLowStockForDashboard, selectInventoryStatus } from '../store/slices/inventorySlice.js';
 import DashboardLayout from '../components/dashboard/DashboardLayout.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import StatCard from '../components/common/StatCard.jsx';
@@ -63,7 +65,8 @@ function AdminDashboard() {
   const weekOrders = week.reduce((s, d) => s + d.orders, 0);
   const trend = days.slice(-trendDays);
 
-  const lowStock = inventory.filter((p) => p.active !== false && p.status !== 'In Stock').sort((a, b) => a.stock - b.stock);
+  const lowStock = useSelector(selectLowStockForDashboard);
+  const inventoryStatus = useSelector(selectInventoryStatus);
   const openDeliveries = deliveries.filter((d) => OPEN_DELIVERY.includes(d.status));
   const unassigned = openDeliveries.filter((d) => d.status === 'Pending').length;
   const openReturns = returns.filter((r) => OPEN_RETURN.includes(r.status));
@@ -141,7 +144,13 @@ function AdminDashboard() {
           <span style={SUB}>{unassigned} waiting for a partner</span>
         </StatCard>
         <StatCard icon={ICONS.returns} label="Returns to handle" value={openReturns.length} color="red">
-          <span style={SUB}>{lowStock.length} products low or out of stock</span>
+          <span style={SUB}>
+            {inventoryStatus === 'failed'
+              ? 'Stock alerts unavailable'
+              : inventoryStatus === 'idle' || inventoryStatus === 'loading'
+                ? 'Checking stock…'
+                : `${lowStock.length} products low or out of stock`}
+          </span>
         </StatCard>
       </section>
       <section className="grid-2">
@@ -204,7 +213,13 @@ function AdminDashboard() {
               ]}
               rows={lowStock.slice(0, 6)}
               getRowKey={(p) => p.productId}
-              emptyMessage="Everything is above its reorder level."
+              emptyMessage={
+                inventoryStatus === 'failed'
+                  ? "Couldn't load stock alerts."
+                  : inventoryStatus === 'idle' || inventoryStatus === 'loading'
+                    ? 'Checking stock levels…'
+                    : 'Everything is above its reorder level.'
+              }
             />
           </div>
         </div>

@@ -1,4 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  fetchInventoryThunk,
+  selectAllProducts,
+  selectAllSuppliers,
+  selectInventoryStatus,
+  selectInventoryError,
+} from '../../store/slices/inventorySlice.js';
 import PageHeader from '../common/PageHeader.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
 import { DistributionCard, StockCard } from './InventoryCharts.jsx';
@@ -38,8 +46,22 @@ const TABS = [
 ];
 
 export default function InventoryContent() {
-  const { inventory, suppliers, hasActionAccess, openConfirm, showToast, refreshData, syncError } = useDashboard();
+  const dispatch = useDispatch();
+  const reduxProducts = useSelector(selectAllProducts);
+  const reduxSuppliers = useSelector(selectAllSuppliers);
+  const inventoryStatus = useSelector(selectInventoryStatus);
+  const inventoryError = useSelector(selectInventoryError);
+
+  const { inventory: dashInventory, suppliers: dashSuppliers, hasActionAccess, openConfirm, showToast, refreshData, syncError } = useDashboard();
   const canManage = hasActionAccess('inventory');
+
+  useEffect(() => {
+    dispatch(fetchInventoryThunk());
+  }, [dispatch]);
+
+  const inventory = reduxProducts.length ? reduxProducts : dashInventory;
+  const suppliers = reduxSuppliers.length ? reduxSuppliers : dashSuppliers;
+
   const [tab, setTab] = useState('products');
   const [category, setCategory] = useState('all');
   const [status, setStatus] = useState('all');
@@ -112,9 +134,9 @@ export default function InventoryContent() {
           ) : null
         }
       />
-      {syncError && (
+      {(syncError || inventoryError) && (
         <div className="card" style={{ marginBottom: '14px', borderColor: 'var(--red)' }}>
-          <div className="card-bd text-sm" style={{ color: 'var(--red)' }}>{syncError}</div>
+          <div className="card-bd text-sm" style={{ color: 'var(--red)' }}>{syncError || inventoryError}</div>
         </div>
       )}
       <div className="chart-tabs" style={{ marginBottom: '14px', flexWrap: 'wrap' }}>

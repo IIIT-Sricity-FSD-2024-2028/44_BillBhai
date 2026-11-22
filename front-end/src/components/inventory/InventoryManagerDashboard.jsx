@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectActiveProducts, selectAllSuppliers } from '../../store/slices/inventorySlice.js';
 import PageHeader from '../common/PageHeader.jsx';
 import StatCard from '../common/StatCard.jsx';
 import DataTable from '../common/DataTable.jsx';
@@ -74,7 +76,10 @@ export default function InventoryManagerDashboard() {
     };
   }, [lastSyncedAt]);
 
-  const active = inventory.filter((i) => i.active);
+  const reduxActive = useSelector(selectActiveProducts);
+  const reduxSuppliers = useSelector(selectAllSuppliers);
+  const active = reduxActive.length ? reduxActive : inventory.filter((i) => i.active);
+  const effectiveSuppliers = reduxSuppliers.length ? reduxSuppliers : suppliers;
   const metrics = getInventoryMetrics(active);
   const lowCritical = metrics.lowStock + metrics.critical;
   const needing = active.filter(isBelowReorder);
@@ -214,7 +219,7 @@ export default function InventoryManagerDashboard() {
       )}
       <StockActionModal
         request={stockRequest}
-        suppliers={suppliers}
+        suppliers={effectiveSuppliers}
         onClose={() => setStockRequest(null)}
         onSaved={(message) => {
           setStockRequest(null);

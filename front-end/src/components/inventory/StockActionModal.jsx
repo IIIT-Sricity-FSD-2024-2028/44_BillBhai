@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
-import { api } from '../../lib/http.js';
+import { receiveStockThunk, adjustStockThunk } from '../../store/slices/inventorySlice.js';
 import { ADJUST_REASONS, WHOLE } from './inventoryUtils.js';
 
 /**
@@ -9,6 +10,7 @@ import { ADJUST_REASONS, WHOLE } from './inventoryUtils.js';
  * request = { kind: 'receive' | 'adjust', item, quantity? }
  */
 export default function StockActionModal({ request, suppliers, onClose, onSaved }) {
+  const dispatch = useDispatch();
   const open = Boolean(request);
   const kind = request ? request.kind : 'receive';
   const item = request ? request.item : null;
@@ -61,27 +63,29 @@ export default function StockActionModal({ request, suppliers, onClose, onSaved 
     setError('');
     try {
       if (kind === 'receive') {
-        await api('/inventory/receive', {
-          method: 'POST',
-          body: {
+        await dispatch(
+          receiveStockThunk({
             productId: item.productId,
             quantity: n,
             supplierId: supplierId || undefined,
             note: note.trim() || undefined,
-          },
-        });
-        onSaved(`Received ${n} × ${item.name}. Stock is now ${item.stock + n}.`);
+          }),
+        ).unwrap();
+        onSaved(`Received ${n} × ${item.name}.`);
       } else {
         const fullReason = details.trim() ? `${reason}: ${details.trim()}` : reason;
         const adjustment = direction === 'remove' ? -n : n;
-        await api('/inventory/adjust', {
-          method: 'POST',
-          body: { productId: item.productId, adjustment, reason: fullReason },
-        });
-        onSaved(`${item.name}: ${adjustment > 0 ? '+' : ''}${adjustment} (${fullReason}). Stock is now ${item.stock + adjustment}.`);
+        await dispatch(
+          adjustStockThunk({
+            productId: item.productId,
+            adjustment,
+            reason: fullReason,
+          }),
+        ).unwrap();
+        onSaved(`${item.name}: ${adjustment > 0 ? '+' : ''}${adjustment} (${fullReason}).`);
       }
     } catch (err) {
-      setError(err.message || 'Could not save.');
+      setError(typeof err === 'string' ? err : err?.message || 'Could not save.');
       setSaving(false);
     }
   };
