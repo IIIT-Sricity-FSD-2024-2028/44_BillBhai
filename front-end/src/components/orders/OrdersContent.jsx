@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import PageHeader from '../common/PageHeader.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
 import OrdersTable from './OrdersTable.jsx';
@@ -9,10 +10,8 @@ import OrderEditModal from './OrderEditModal.jsx';
 import CancelOrderModal from './CancelOrderModal.jsx';
 import AdvancedFilters from './AdvancedFilters.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { apiRequest } from '../../lib/dashboard/api.js';
 import { downloadCsv } from '../../lib/dashboard/csv.js';
 import {
-  DEFAULT_FILTERS,
   ORDER_STATUS_OPTIONS,
   PAYMENT_METHOD_OPTIONS,
   SORT_OPTIONS,
@@ -23,6 +22,17 @@ import {
   summarise,
 } from './orderFilters.js';
 import { CHECKOUT_MODE_LABELS, dayKey, rupees } from './orderFormat.js';
+import {
+  fetchOrdersThunk,
+  deleteOrderThunk,
+  setFilter,
+  resetFilters,
+  setSelectedOrder,
+  clearSelectedOrder,
+  selectAllOrders,
+  selectOrderFilters,
+  selectSelectedOrderId,
+} from '../../store/slices/ordersSlice.js';
 
 const CSV_COLUMNS = [
   { label: 'Order ID', value: (o) => o.id },
@@ -57,8 +67,13 @@ const SUMMARY_STYLE = {
 };
 
 export default function OrdersContent() {
+  const dispatch = useDispatch();
+  const reduxOrders = useSelector(selectAllOrders);
+  const filters = useSelector(selectOrderFilters);
+  const selectedOrderId = useSelector(selectSelectedOrderId);
+
   const {
-    orders,
+    orders: dashboardOrders,
     inventory,
     coupons,
     hasActionAccess,
@@ -70,12 +85,14 @@ export default function OrdersContent() {
   } = useDashboard();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [filters, setFilters] = useState(() => {
-    const coupon = searchParams.get('coupon');
-    return coupon ? { ...DEFAULT_FILTERS, coupon: coupon.toUpperCase() } : DEFAULT_FILTERS;
-  });
+  useEffect(() => {
+    dispatch(fetchOrdersThunk());
+  }, [dispatch]);
+
+  // Use redux orders once fetched; fallback gracefully to dashboard orders if available
+  const orders = reduxOrders.length > 0 ? reduxOrders : (dashboardOrders || []);
+
   const [showAdvanced, setShowAdvanced] = useState(() => Boolean(searchParams.get('coupon')));
-  const [billOrderId, setBillOrderId] = useState(null);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(null);
   const [cancelling, setCancelling] = useState(null);
@@ -83,8 +100,8 @@ export default function OrdersContent() {
   // A link such as /orders?coupon=FLAT50 (from the Coupons page) sets the
   // coupon filter. The code stays in the address while that filter is on, so
   // the page can be reloaded or shared; changing the filter updates it.
-  const setFilter = (key, value) => {
-    setFilters((f) => ({ ...f, [key]: value }));
+  const handleSetFilter = (key, value) => {
+    dispatch(setFilter({ key, value }));
     if (key === 'coupon') {
       const next = new URLSearchParams(searchParams);
       if (value && value !== 'any' && value !== 'none' && value !== 'all') next.set('coupon', value);
@@ -114,14 +131,14 @@ export default function OrdersContent() {
       confirmLabel: 'Delete',
       onConfirm: async () => {
         try {
-          await apiRequest(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          await dispatch(deleteOrderThunk(id)).unwrap();
+          await refreshData();
+          showToast(`Order ${id} deleted`);
+          return true;
         } catch (err) {
           showMutationError('Delete', err);
           return false;
         }
-        await refreshData();
-        showToast(`Order ${id} deleted`);
-        return true;
       },
     });
   };
@@ -153,21 +170,21 @@ export default function OrdersContent() {
               id: 'ordersStatusFilter',
               label: 'Status',
               value: filters.status,
-              onChange: (v) => setFilter('status', v),
+              onChange: (v) => handleSetFilter('status', v),
               options: [{ value: 'all', label: 'All statuses' }, ...ORDER_STATUS_OPTIONS],
             },
             {
               id: 'ordersPaymentFilter',
               label: 'Payment',
               value: filters.payment,
-              onChange: (v) => setFilter('payment', v),
+              onChange: (v) => handleSetFilter('payment', v),
               options: [{ value: 'all', label: 'All payments' }, ...PAYMENT_METHOD_OPTIONS],
             },
             {
               id: 'ordersSortSelect',
               label: 'Sort by',
               value: filters.sort,
-              onChange: (v) => setFilter('sort', v),
+              onChange: (v) => handleSetFilter('sort', v),
               options: SORT_OPTIONS,
             },
           ]}
@@ -182,7 +199,7 @@ export default function OrdersContent() {
               className="toolbar-select"
               placeholder="Order, bill, customer, phone"
               value={filters.search}
-              onChange={(e) => setFilter('search', e.target.value)}
+              onChange={(e) => handleSetFilter('search', e.target.value)}
             />
           </div>
           <div className="toolbar-group" style={{ alignSelf: 'flex-end' }}>
@@ -199,9 +216,9 @@ export default function OrdersContent() {
         {showAdvanced && (
           <AdvancedFilters
             filters={filters}
-            setFilter={setFilter}
+            setFilter={handleSetFilter}
             onClear={() => {
-              setFilters((f) => ({ ...DEFAULT_FILTERS, status: f.status, payment: f.payment, search: f.search, sort: f.sort }));
+              dispatch(resetFilters());
               setSearchParams(new URLSearchParams(), { replace: true });
             }}
             orders={orders}
@@ -224,22 +241,22 @@ export default function OrdersContent() {
         rows={filtered}
         canEdit={canCreate}
         isManager={isManager}
-        onViewBill={setBillOrderId}
+        onViewBill={(id) => dispatch(setSelectedOrder(id))}
         onEdit={(id) => setEditing(findOrder(id) || null)}
         onCancel={(id) => setCancelling(findOrder(id) || null)}
         onDelete={deleteOrder}
       />
       <OrderBillModal
-        orderId={billOrderId}
-        onClose={() => setBillOrderId(null)}
+        orderId={selectedOrderId}
+        onClose={() => dispatch(clearSelectedOrder())}
         canEdit={canCreate}
         isManager={isManager}
         onEdit={(id) => {
-          setBillOrderId(null);
+          dispatch(clearSelectedOrder());
           setEditing(findOrder(id) || null);
         }}
         onCancel={(id) => {
-          setBillOrderId(null);
+          dispatch(clearSelectedOrder());
           setCancelling(findOrder(id) || null);
         }}
       />
@@ -248,7 +265,8 @@ export default function OrdersContent() {
           onClose={() => setCreating(false)}
           onCreated={(order) => {
             setCreating(false);
-            setBillOrderId(order.id);
+            dispatch(setSelectedOrder(order.id));
+            dispatch(fetchOrdersThunk());
           }}
         />
       )}

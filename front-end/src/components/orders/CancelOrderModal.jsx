@@ -1,14 +1,16 @@
 import { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { apiRequest } from '../../lib/dashboard/api.js';
+import { cancelOrderThunk } from '../../store/slices/ordersSlice.js';
 import { rupees } from './orderFormat.js';
 
 const REASONS = ['Customer changed mind', 'Billing mistake', 'Out of stock after billing', 'Duplicate bill', 'Other'];
 
 /** Admin-only void of a bill. The server puts the stock back and marks the money refunded or voided. */
 export default function CancelOrderModal({ order, onClose }) {
+  const dispatch = useDispatch();
   const { refreshData, showToast } = useDashboard();
   const [preset, setPreset] = useState(REASONS[0]);
   const [detail, setDetail] = useState('');
@@ -26,15 +28,18 @@ export default function CancelOrderModal({ order, onClose }) {
     setSaving(true);
     setError('');
     try {
-      await apiRequest(`/orders/${encodeURIComponent(order.id)}/cancel`, {
-        method: 'POST',
-        body: { reason, version: order.version },
-      });
+      await dispatch(
+        cancelOrderThunk({
+          orderId: order.id,
+          reason,
+          version: order.version,
+        }),
+      ).unwrap();
       await refreshData();
       showToast(`Order ${order.id} cancelled; stock put back`);
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(err.message || String(err));
     } finally {
       setSaving(false);
     }
