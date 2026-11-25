@@ -46,7 +46,7 @@ import couponsReducer, {
 import reportsReducer, {
   clearReportsError, fetchInventoryReportThunk, fetchReturnsReportThunk,
   fetchSalesReportThunk, resetReports, selectInventoryReport, selectReportsError,
-  selectReportsLoading, selectReturnsReport, selectSalesReport,
+  selectReportsLoading, selectReturnsReport, selectSalesReport, selectSalesReportFor,
 } from '../reportsSlice.js';
 import deliveriesReducer, {
   fetchDeliveriesThunk, createDeliveryThunk, transitionDeliveryThunk, updateDeliveryThunk,
@@ -1404,10 +1404,17 @@ console.log('🧪 Starting unit test suite for couponsSlice & reportsSlice...\n'
   state = reportsReducer(state, {
     type: fetchSalesReportThunk.fulfilled.type,
     payload: { totals: { net: 10000 } },
+    meta: { arg: { from: '2026-11-26', to: '2026-11-26' } },
+  });
+  state = reportsReducer(state, {
+    type: fetchSalesReportThunk.fulfilled.type,
+    payload: { totals: { net: 45000 } },
+    meta: { arg: { from: '2026-10-27', to: '2026-11-26' } },
   });
   assert.equal(state.loading.sales, false);
   assert.equal(state.loading.inventory, true);
-  assert.equal(state.sales.totals.net, 10000);
+  assert.equal(selectSalesReportFor({ reports: state }, '2026-11-26', '2026-11-26').totals.net, 10000);
+  assert.equal(selectSalesReportFor({ reports: state }, '2026-10-27', '2026-11-26').totals.net, 45000);
 
   state = reportsReducer(state, {
     type: fetchInventoryReportThunk.fulfilled.type,
@@ -1434,7 +1441,8 @@ console.log('🧪 Starting unit test suite for couponsSlice & reportsSlice...\n'
   assert.equal(state.error, null);
 
   const mockRoot = { reports: state };
-  assert.equal(selectSalesReport(mockRoot).totals.net, 10000);
+  assert.equal(selectSalesReport(mockRoot).totals.net, 45000);
+  assert.equal(selectSalesReportFor(mockRoot, '2026-11-26', '2026-11-26').totals.net, 10000);
   assert.equal(selectInventoryReport(mockRoot).totalSkus, 25);
   assert.equal(selectReturnsReport(mockRoot).totalRefunds, 450);
   assert.deepEqual(selectReportsLoading(mockRoot), { sales: false, inventory: false, returns: false });

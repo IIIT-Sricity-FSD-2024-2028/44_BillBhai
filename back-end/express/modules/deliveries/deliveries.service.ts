@@ -292,6 +292,30 @@ export class DeliveriesService {
     return this.clone(this.deliveries[index]);
   }
 
+  /** Syncs updated customer address or phone from an edited order to its open delivery. */
+  public syncContactForOrder(
+    orderId: string,
+    patch: { address?: string; customerPhone?: string },
+    by = 'system',
+  ): void {
+    const open = this.deliveries.find((d) => d.orderId === orderId && ACTIVE.includes(d.status));
+    if (!open) return;
+    const nextAddress = patch.address !== undefined ? patch.address.trim() : open.address;
+    const nextPhone = patch.customerPhone !== undefined ? patch.customerPhone.trim() : open.customerPhone;
+    if (nextAddress === open.address && nextPhone === open.customerPhone) return;
+    const index = this.indexOf(open.id);
+    const at = nowIso();
+    this.deliveries[index] = bumped(
+      {
+        ...open,
+        address: nextAddress || open.address,
+        customerPhone: nextPhone || open.customerPhone,
+        history: [...(open.history ?? []), { status: open.status, at, by, note: 'Order contact updated' }],
+      },
+      by,
+    );
+  }
+
   /** Used when an order is cancelled from the Orders page before dispatch. */
   public cancelForOrder(orderId: string, reason: string, by = 'system'): void {
     const open = this.deliveries.find(

@@ -249,7 +249,7 @@ describe('Suppliers routes', () => {
       const { app } = buildTestApp();
       const res = await request(app).post('/api/suppliers').set('x-role', 'admin').send(newSupplier());
       expect(res.status).toBe(400);
-      expect(res.body.message).toBe('companyId is required');
+      expect(res.body.message).toBe('Pick a business first. The super user must open a business before adding records.');
     });
 
     it('refuses a store admin creating for another company (403)', async () => {

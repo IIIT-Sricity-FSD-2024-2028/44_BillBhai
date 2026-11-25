@@ -39,7 +39,9 @@ export function listScope(req: Request, requested?: unknown): string | undefined
 /** Company a new record belongs to. Cross-company callers must name one. */
 export function writeScope(req: Request, requested?: unknown): string {
   const scoped = listScope(req, requested);
-  if (!scoped) throw new BadRequestError('companyId is required');
+  if (!scoped) {
+    throw new BadRequestError('Pick a business first. The super user must open a business before adding records.');
+  }
   return scoped;
 }
 

@@ -530,7 +530,7 @@ describe('Orders routes', () => {
       const { companyId: _c, ...body } = takeaway;
       const response = await request(app()).post('/api/orders').set('x-role', 'admin').send(body);
       expect(response.status).toBe(400);
-      expect(response.body.message).toBe('companyId is required');
+      expect(response.body.message).toBe('Pick a business first. The super user must open a business before adding records.');
     });
 
     it('sells into the signed-in user\'s own business and refuses another', async () => {

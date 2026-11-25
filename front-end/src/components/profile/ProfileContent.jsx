@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { setActiveCurrency } from "../../lib/currency.js";
-import PageHeader from "../common/PageHeader.jsx";
+import PageHeader, { homeFor } from "../common/PageHeader.jsx";
 import ProfileIdentityCard from "./ProfileIdentityCard.jsx";
 import ProfileDetailsCard from "./ProfileDetailsCard.jsx";
 import SecurityCard from "./SecurityCard.jsx";
@@ -161,7 +161,7 @@ export default function ProfileContent() {
 
   return (
     <>
-      <PageHeader title="Profile & Settings" />
+      <PageHeader title="Profile & Settings" backTo={homeFor(roleKey)} />
       {error && (
         <p className="text-muted">Could not load your account: {error}</p>
       )}

@@ -37,14 +37,21 @@ const couponFields = z.object({
   active: z.boolean().default(true),
 });
 
-function couponRules<T extends { type?: string; value?: number; validFrom?: string; validTo?: string }>(
-  schema: z.ZodType<T>,
-) {
+function couponRules<
+  T extends { type?: string; value?: number; minOrder?: number; validFrom?: string; validTo?: string },
+>(schema: z.ZodType<T>) {
   return schema
     .refine((v) => v.type !== 'percent' || v.value === undefined || v.value <= 90, {
       message: 'A percent coupon can give at most 90% off',
       path: ['value'],
     })
+    .refine(
+      (v) => v.type !== 'flat' || v.value === undefined || v.minOrder === undefined || v.minOrder >= v.value,
+      {
+        message: 'Set a minimum bill at least as big as the discount',
+        path: ['minOrder'],
+      },
+    )
     .refine((v) => !v.validFrom || !v.validTo || v.validFrom <= v.validTo, {
       message: 'validTo must be on or after validFrom',
       path: ['validTo'],

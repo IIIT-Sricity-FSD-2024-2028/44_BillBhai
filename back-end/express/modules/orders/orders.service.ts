@@ -500,7 +500,7 @@ export class OrdersService {
     }
     if (current.orderType === 'delivery' && !options.fromDelivery) {
       if (current.status === 'Shipped') {
-        throw new ConflictError(`Order ${id} is already out with the delivery partner. Mark the delivery as returned to store instead.`);
+        throw new ConflictError(`Order ${id} is already out with the delivery partner. Record a failed attempt, then return it to the store.`);
       }
       if (current.status === 'Delivered') {
         throw new ConflictError(`Order ${id} was delivered. Use a return instead of cancelling.`);

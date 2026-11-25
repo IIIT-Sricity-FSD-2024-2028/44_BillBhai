@@ -105,8 +105,12 @@ export class CouponsController {
       const gross = round2(used.reduce((s, o) => s + (o.subtotal ?? o.total + o.discountAmount), 0));
       const discount = round2(used.reduce((s, o) => s + o.discountAmount, 0));
       const net = round2(used.reduce((s, o) => s + o.total - (o.refundedAmount ?? 0), 0));
-      const customers = new Set(used.filter((o) => o.customerPhone).map((o) => o.customerId));
-      const newCustomers = used.filter((o) => o.customerPhone && firstOrder.get(o.customerId) === o.id).length;
+      const phoneOrders = used.filter((o) => o.customerPhone);
+      const customers = new Set(phoneOrders.map((o) => o.customerPhone));
+      const newCustomerPhones = new Set(
+        phoneOrders.filter((o) => firstOrder.get(o.customerId) === o.id).map((o) => o.customerPhone),
+      );
+      const newCustomers = newCustomerPhones.size;
       const byCashier = new Map<string, { staff: string; uses: number; discount: number }>();
       used.forEach((o) => {
         const key = o.staffName || o.staffId;
@@ -146,7 +150,7 @@ export class CouponsController {
         uses: used.length,
         uniqueCustomers: customers.size,
         newCustomers,
-        repeatCustomers: Math.max(0, used.filter((o) => o.customerPhone).length - newCustomers),
+        repeatCustomers: Math.max(0, customers.size - newCustomers),
         grossSales: gross,
         discountGiven: discount,
         netRevenue: net,

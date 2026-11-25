@@ -155,8 +155,8 @@ describe('ProductsService', () => {
 
     it('refuses a duplicate name in the same company, ignoring case', () => {
       expect(() =>
-        service.create({ ...newProduct({ name: '  basmati RICE ' }), companyId: 'BIZ-101' }),
-      ).toThrow('A product called "Basmati Rice" already exists (P001)');
+        service.create({ ...newProduct({ name: '  basmati RICE ', size: '5kg' }), companyId: 'BIZ-101' }),
+      ).toThrow('A product called "Basmati Rice" (5kg) already exists (P001)');
     });
 
     it('allows the same name in another company', () => {
@@ -213,8 +213,8 @@ describe('ProductsService', () => {
     });
 
     it('refuses renaming to another product name in the same company', () => {
-      expect(() => service.update('P002', { name: 'Basmati Rice' })).toThrow(
-        'A product called "Basmati Rice" already exists',
+      expect(() => service.update('P002', { name: 'Basmati Rice', size: '5kg' })).toThrow(
+        'A product called "Basmati Rice" (5kg) already exists',
       );
     });
 
@@ -339,7 +339,7 @@ describe('Products routes', () => {
       const { app } = buildTestApp();
       const res = await request(app).post('/api/products').set('x-role', 'admin').send(newProduct());
       expect(res.status).toBe(400);
-      expect(res.body.message).toBe('companyId is required');
+      expect(res.body.message).toBe('Pick a business first. The super user must open a business before adding records.');
     });
 
     it('lets the super user pick the company', async () => {
@@ -376,7 +376,7 @@ describe('Products routes', () => {
       const res = await request(app)
         .post('/api/products')
         .set('Authorization', BIZ101_ADMIN)
-        .send(newProduct({ name: 'Toor Dal' }));
+        .send(newProduct({ name: 'Toor Dal', size: '1kg' }));
       expect(res.status).toBe(409);
     });
 

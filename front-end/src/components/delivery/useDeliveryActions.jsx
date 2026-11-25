@@ -178,7 +178,8 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
       let message = '';
       if (kind === 'assign' || kind === 'retry') {
         await status({ status: 'Assigned', ...partnerBody(), note: kind === 'retry' ? `Retry ${(d.attempts || 0) + 1}` : undefined });
-        message = `${d.id} assigned to ${form.partnerName.trim()}.`;
+        const partner = form.partnerName.trim();
+        message = `${d.id} assigned to ${partner}${partner.endsWith('.') ? '' : '.'}`;
       } else if (kind === 'unassign') {
         await status({ status: 'Pending', note: form.note.trim() || undefined });
         message = `${d.id} is waiting for a partner again.`;

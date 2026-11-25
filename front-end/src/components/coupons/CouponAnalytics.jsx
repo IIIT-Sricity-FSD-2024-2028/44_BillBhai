@@ -121,7 +121,7 @@ export default function CouponAnalytics({ data, loading, error }) {
           }
           color="amber"
         >
-          <span className="text-sm text-muted">coupon bills vs the rest</span>
+          <span className="text-sm text-muted">how much larger coupon bills are vs non-coupon bills</span>
         </StatCard>
       </section>
       <section className="card">
@@ -136,10 +136,16 @@ export default function CouponAnalytics({ data, loading, error }) {
                   <th>Code</th>
                   <th>Uses</th>
                   <th>Customers</th>
-                  <th>Sales (before discount)</th>
+                  <th>
+                    Sales (before discount)
+                    <div className="text-sm text-muted" style={{ fontWeight: 400 }}>Gross item total</div>
+                  </th>
                   <th>Discount</th>
                   <th>Net after refunds</th>
-                  <th>Discount share</th>
+                  <th>
+                    Discount share
+                    <div className="text-sm text-muted" style={{ fontWeight: 400 }}>% of gross sales</div>
+                  </th>
                   <th>Average bill</th>
                   <th>Refunded bills</th>
                   <th />

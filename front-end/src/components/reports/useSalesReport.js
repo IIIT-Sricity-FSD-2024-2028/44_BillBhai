@@ -8,7 +8,7 @@ import {
   selectReportsError,
   selectReportsLoading,
   selectReturnsReport,
-  selectSalesReport,
+  selectSalesReportFor,
 } from '../../store/slices/reportsSlice.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { addDays, dayKey, scopedCompanyId } from '../orders/orderFormat.js';
@@ -17,7 +17,7 @@ const REPORT_CONFIG = {
   '/reports/sales': {
     key: 'sales',
     thunk: fetchSalesReportThunk,
-    selector: selectSalesReport,
+    selector: (state, from, to) => selectSalesReportFor(state, from, to),
   },
   '/reports/inventory': {
     key: 'inventory',
@@ -43,8 +43,9 @@ export function useReport(path, range, { enabled = true } = {}) {
   const from = range && range.from;
   const to = range && range.to;
 
-  const config = REPORT_CONFIG[path] || REPORT_CONFIG['/reports/sales'];
-  const data = useSelector(config.selector);
+  const config = REPORT_CONFIG[path];
+  if (!config) throw new Error(`useReport: unknown report ${path}`);
+  const data = useSelector((reduxState) => config.selector(reduxState, from, to));
   const loadingMap = useSelector(selectReportsLoading);
   const loading = Boolean(loadingMap?.[config.key]);
   const error = useSelector(selectReportsError) || '';

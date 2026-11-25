@@ -45,6 +45,9 @@ function validate(v) {
   if (!(value > 0)) e.value = 'Must be more than 0';
   else if (v.type === 'percent' && value > 90) e.value = 'At most 90% off';
   if (!(Number(v.minOrder) >= 0)) e.minOrder = 'Must be 0 or more';
+  else if (v.type === 'flat' && value > 0 && Number(v.minOrder) < value) {
+    e.minOrder = 'Set a minimum bill at least as big as the discount';
+  }
   if (!(Number(v.maxDiscount) >= 0)) e.maxDiscount = 'Must be 0 or more';
   if (!v.validFrom) e.validFrom = 'Pick a start date';
   if (!v.validTo) e.validTo = 'Pick an end date';
@@ -141,7 +144,7 @@ export default function CouponFormModal({ coupon, onClose }) {
           </div>
           <div className="form-row">
             {field('usageLimit', 'Total uses allowed', <input id="cp_usageLimit" type="number" min="0" step="1" className={controlClass(errors.usageLimit)} value={v.usageLimit} onChange={set('usageLimit')} />, '0 = unlimited')}
-            {field('perCustomerLimit', 'Uses per customer', <input id="cp_perCustomerLimit" type="number" min="0" step="1" className={controlClass(errors.perCustomerLimit)} value={v.perCustomerLimit} onChange={set('perCustomerLimit')} />, '0 = unlimited; counted by phone number')}
+            {field('perCustomerLimit', 'Uses per customer', <input id="cp_perCustomerLimit" type="number" min="0" step="1" className={controlClass(errors.perCustomerLimit)} value={v.perCustomerLimit} onChange={set('perCustomerLimit')} />, '0 = unlimited; requires customer phone at till')}
           </div>
           <label htmlFor="cp_active" style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.9rem' }}>
             <input id="cp_active" type="checkbox" checked={v.active} onChange={set('active')} />

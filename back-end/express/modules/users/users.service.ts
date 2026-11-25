@@ -184,10 +184,14 @@ export class UsersService {
     return { message: `User ${id} deleted`, user: this.sanitise(removed) };
   }
 
-  /** Active staff count of a business (customers' self-checkout logins excluded). */
+  /** Active staff count of a business (customers' self-checkout logins and suspended staff excluded). */
   public staffCount(companyId: string): number {
     return this.users.filter(
-      (u) => u.companyId === companyId && u.role !== 'customer' && u.role !== 'superuser',
+      (u) =>
+        u.companyId === companyId &&
+        u.status === 'Active' &&
+        u.role !== 'customer' &&
+        u.role !== 'superuser',
     ).length;
   }
 

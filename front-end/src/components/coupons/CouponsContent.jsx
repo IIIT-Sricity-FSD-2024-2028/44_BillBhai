@@ -72,18 +72,15 @@ export default function CouponsContent() {
     if (key !== 'custom') setRange(key === 'all' ? { from: '', to: '' } : rangePreset(key));
   };
 
-  const switchOff = (c) => {
-    const used = Number(c.usedCount) || 0;
+  const remove = (c) => {
     openConfirm({
-      title: used ? `Switch off ${c.code}` : `Delete ${c.code}`,
-      message: used
-        ? `${c.code} is on ${used} bill(s), so it is kept for the records and switched off. The till will stop accepting it.`
-        : `Delete ${c.code}? It has never been used.`,
-      confirmLabel: used ? 'Switch off' : 'Delete',
+      title: `Delete ${c.code}`,
+      message: `Delete ${c.code}? It has never been used.`,
+      confirmLabel: 'Delete',
       onConfirm: async () => {
         try {
           const { response } = await dispatch(deleteCouponThunk(c.id)).unwrap();
-          showToast(response && response.message ? response.message : 'Done');
+          showToast(response && response.message ? response.message : `${c.code} deleted`);
         } catch (err) {
           showMutationError('Coupon', err);
           return false;
@@ -101,10 +98,10 @@ export default function CouponsContent() {
     });
   };
 
-  const switchOn = async (c) => {
+  const setActive = async (c, on) => {
     try {
-      await dispatch(updateCouponThunk({ id: c.id, body: { active: true, version: c.version } })).unwrap();
-      showToast(`${c.code} switched on`);
+      await dispatch(updateCouponThunk({ id: c.id, body: { active: on, version: c.version } })).unwrap();
+      showToast(`${c.code} switched ${on ? 'on' : 'off'}`);
       await refreshData();
       dispatch(
         fetchCouponAnalyticsThunk({
@@ -118,6 +115,7 @@ export default function CouponsContent() {
     }
   };
 
+  const needsBusiness = !companyId;
   const sorted = [...coupons].sort((a, b) => (b.usedCount || 0) - (a.usedCount || 0) || a.code.localeCompare(b.code));
 
   return (
@@ -125,7 +123,12 @@ export default function CouponsContent() {
       <PageHeader
         title="Coupons"
         actions={
-          <button className="btn btn-primary" onClick={() => setEditing(null)}>
+          <button
+            className="btn btn-primary"
+            disabled={needsBusiness}
+            title={needsBusiness ? 'Open a business first (Super User -> Open dashboard)' : undefined}
+            onClick={() => setEditing(null)}
+          >
             + New coupon
           </button>
         }
@@ -133,7 +136,7 @@ export default function CouponsContent() {
       <section className="card" style={{ marginBottom: '14px' }}>
         <div className="card-bd">
           <DataTable
-            columns={['Code', 'Offer', 'Valid', 'Used', 'Status', 'Actions']}
+            columns={['Code', 'Offer', 'Valid', 'Used (all time)', 'Status', 'Actions']}
             rows={sorted}
             emptyMessage="No coupons yet. Create one to offer discounts at the till."
             renderRow={(c) => {
@@ -164,13 +167,22 @@ export default function CouponsContent() {
                     <button className="btn btn-outline" style={BTN} disabled={!c.usedCount} onClick={() => navigate(`/orders?coupon=${encodeURIComponent(c.code)}`)}>
                       Orders
                     </button>
-                    {c.active ? (
-                      <button className="btn btn-outline" style={{ ...BTN, color: 'var(--red)', borderColor: 'var(--red)' }} onClick={() => switchOff(c)}>
-                        {c.usedCount ? 'Switch off' : 'Delete'}
+                    {s.label === 'Expired' ? (
+                      <button className="btn btn-outline" style={BTN} onClick={() => setEditing(c)}>
+                        Extend
+                      </button>
+                    ) : c.active ? (
+                      <button className="btn btn-outline" style={BTN} onClick={() => setActive(c, false)}>
+                        Switch off
                       </button>
                     ) : (
-                      <button className="btn btn-outline" style={BTN} onClick={() => switchOn(c)}>
+                      <button className="btn btn-outline" style={BTN} onClick={() => setActive(c, true)}>
                         Switch on
+                      </button>
+                    )}
+                    {!c.usedCount && (
+                      <button className="btn btn-outline" style={{ ...BTN, color: 'var(--red)', borderColor: 'var(--red)' }} onClick={() => remove(c)}>
+                        Delete
                       </button>
                     )}
                   </td>

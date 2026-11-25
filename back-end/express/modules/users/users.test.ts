@@ -336,7 +336,7 @@ describe('Users routes', () => {
     it('requires a companyId from a cross-company caller (400)', async () => {
       const res = await request(app).post('/api/users').set('Authorization', bearer(SUPER)).send(newStaff());
       expect(res.status).toBe(400);
-      expect(res.body.message).toBe('companyId is required');
+      expect(res.body.message).toBe('Pick a business first. The super user must open a business before adding records.');
     });
 
     it('refuses staff for a business that does not exist (400)', async () => {

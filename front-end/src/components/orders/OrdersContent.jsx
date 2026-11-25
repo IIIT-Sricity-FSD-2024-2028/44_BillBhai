@@ -21,7 +21,7 @@ import {
   sortOrders,
   summarise,
 } from './orderFilters.js';
-import { CHECKOUT_MODE_LABELS, dayKey, rupees } from './orderFormat.js';
+import { CHECKOUT_MODE_LABELS, dayKey, rupees, scopedCompanyId } from './orderFormat.js';
 import { useCurrency } from '../../lib/currency.js';
 import {
   fetchOrdersThunk,
@@ -75,6 +75,7 @@ export default function OrdersContent() {
   const selectedOrderId = useSelector(selectSelectedOrderId);
 
   const {
+    state,
     orders: dashboardOrders,
     inventory,
     coupons,
@@ -86,10 +87,18 @@ export default function OrdersContent() {
     refreshData,
   } = useDashboard();
   const [searchParams, setSearchParams] = useSearchParams();
+  const companyId = scopedCompanyId(state);
 
   useEffect(() => {
-    dispatch(fetchOrdersThunk());
-  }, [dispatch]);
+    dispatch(fetchOrdersThunk(companyId ? { companyId } : undefined));
+  }, [dispatch, companyId]);
+
+  const urlCoupon = searchParams.get('coupon');
+  useEffect(() => {
+    dispatch(setFilter({ key: 'coupon', value: urlCoupon ? urlCoupon.toUpperCase() : 'all' }));
+    // run when the address changes, not when the dropdown changes the filter
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlCoupon]);
 
   // Use redux orders once fetched; fallback gracefully to dashboard orders if available
   const orders = reduxOrders.length > 0 ? reduxOrders : (dashboardOrders || []);
@@ -268,7 +277,7 @@ export default function OrdersContent() {
           onCreated={(order) => {
             setCreating(false);
             dispatch(setSelectedOrder(order.id));
-            dispatch(fetchOrdersThunk());
+            dispatch(fetchOrdersThunk(companyId ? { companyId } : undefined));
           }}
         />
       )}

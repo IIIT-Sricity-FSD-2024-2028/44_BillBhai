@@ -62,6 +62,7 @@ const newCoupon = {
   description: 'Test coupon',
   type: 'flat' as const,
   value: 25,
+  minOrder: 25,
   validFrom: istDay(-1),
   validTo: istDay(10),
 };
@@ -126,7 +127,7 @@ describe('CouponsService', () => {
         code: 'LATER',
         validFrom: istDay(2),
         validTo: istDay(5),
-        minOrder: 0,
+        minOrder: 25,
         maxDiscount: 0,
         usageLimit: 0,
         perCustomerLimit: 0,
@@ -246,7 +247,7 @@ describe('Coupons routes', () => {
       expect.objectContaining({
         companyId: 'BIZ-101',
         code: 'TEST25',
-        minOrder: 0,
+        minOrder: 25,
         maxDiscount: 0,
         usageLimit: 0,
         perCustomerLimit: 0,
@@ -274,7 +275,7 @@ describe('Coupons routes', () => {
       .set('x-role', 'admin')
       .send({ ...newCoupon, companyId: undefined });
     expect(noCompany.status).toBe(400);
-    expect(noCompany.body.message).toBe('companyId is required');
+    expect(noCompany.body.message).toBe('Pick a business first. The super user must open a business before adding records.');
   });
 
   it('refuses a duplicate code (409)', async () => {

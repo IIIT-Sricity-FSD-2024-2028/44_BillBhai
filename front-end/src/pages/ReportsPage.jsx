@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../components/dashboard/DashboardLayout.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
@@ -14,7 +15,12 @@ import { CashierTable, CountTable, DayTable, LowStockTable, ProductTable } from 
 import { fillDays, useReport } from '../components/reports/useSalesReport.js';
 import { useDashboard } from '../lib/dashboard/hooks.js';
 import { downloadCsv } from '../lib/dashboard/csv.js';
-import { RANGE_PRESETS, dayKey, rangePreset, rupees } from '../components/orders/orderFormat.js';
+import { RANGE_PRESETS, dayKey, rangePreset, rupees, scopedCompanyId } from '../components/orders/orderFormat.js';
+import {
+  fetchCouponAnalyticsThunk,
+  selectCouponAnalytics,
+  selectCouponsError,
+} from '../store/slices/couponsSlice.js';
 
 const SALES_ROLES = ['superuser', 'admin', 'cashier'];
 const STOCK_ROLES = ['superuser', 'admin', 'inventorymanager'];
@@ -116,10 +122,21 @@ function SalesSection({ range }) {
 }
 
 function CouponSummary({ range }) {
-  const { data, error } = useReport('/coupons/analytics', range);
+  const dispatch = useDispatch();
+  const { state, lastSyncedAt } = useDashboard();
+  const companyId = scopedCompanyId(state);
+  const data = useSelector(selectCouponAnalytics);
+  const error = useSelector(selectCouponsError);
+  const from = range && range.from;
+  const to = range && range.to;
+
+  useEffect(() => {
+    dispatch(fetchCouponAnalyticsThunk({ companyId, from: from || undefined, to: to || undefined }));
+  }, [dispatch, companyId, from, to, lastSyncedAt]);
+
   if (error || !data) return null;
   const t = data.totals;
-  const top = data.coupons.filter((c) => c.uses).slice(0, 3);
+  const top = (data.coupons || []).filter((c) => c.uses).slice(0, 3);
   return (
     <section className="card">
       <div className="card-hd" style={{ display: 'flex', justifyContent: 'space-between' }}>

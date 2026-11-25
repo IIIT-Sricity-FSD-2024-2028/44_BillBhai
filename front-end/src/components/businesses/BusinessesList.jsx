@@ -5,6 +5,9 @@ import FilterToolbar from '../common/FilterToolbar.jsx';
 import DataTable from '../common/DataTable.jsx';
 import Badge from '../common/Badge.jsx';
 import { ICONS } from './businessIcons.jsx';
+import { formatCurrency } from '../../lib/currency.js';
+
+const num = (v) => Number(v) || 0;
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name A-Z' },
@@ -17,7 +20,6 @@ const SORT_OPTIONS = [
 const COLUMNS = ['Business', 'Plan', 'Subscription', 'Staff', 'Stores', 'Profit', 'Payment due', 'Status', 'Actions'];
 
 const ROW_BTN_STYLE = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px', marginBottom: '2px' };
-import { formatCurrency } from '../../lib/currency.js';
 
 const ROW_DELETE_STYLE = { ...ROW_BTN_STYLE, color: 'var(--red)', borderColor: 'var(--red)' };
 export const PLAN_LABEL = { starter: 'Starter', pro: 'Growth / Pro', enterprise: 'Enterprise' };

@@ -110,6 +110,13 @@ export class OrdersController {
       throw new ForbiddenError('Only an admin can cancel (void) a bill');
     }
     const updated = this.service.updateOrder(order.id, body, actorName(req));
+    if (body.customerAddress !== undefined || body.customerPhone !== undefined) {
+      this.deliveries.syncContactForOrder(
+        order.id,
+        { address: updated.customerAddress, customerPhone: updated.customerPhone },
+        actorName(req),
+      );
+    }
     if (updated.status === 'Cancelled' && order.status !== 'Cancelled') {
       this.deliveries.cancelForOrder(order.id, updated.cancelReason || 'Order cancelled', actorName(req));
     }

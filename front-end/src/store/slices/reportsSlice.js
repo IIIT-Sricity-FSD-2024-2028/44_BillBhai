@@ -2,8 +2,11 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { reportsRepo } from '../../repositories/reportsRepo.js';
 import { toThunkError } from '../thunkUtils.js';
 
+const rangeKey = (query) => `${query?.from || ''}|${query?.to || ''}`;
+
 const createInitialState = () => ({
   sales: null,
+  salesByRange: {},
   inventory: null,
   returns: null,
   loading: {
@@ -77,7 +80,9 @@ export const reportsSlice = createSlice({
       })
       .addCase(fetchSalesReportThunk.fulfilled, (state, action) => {
         state.loading.sales = false;
-        state.sales = action.payload ?? null;
+        const payload = action.payload ?? null;
+        state.sales = payload;
+        state.salesByRange[rangeKey(action.meta?.arg)] = payload;
       })
       .addCase(fetchSalesReportThunk.rejected, (state, action) => {
         state.loading.sales = false;
@@ -121,6 +126,8 @@ export const { clearReportsError, resetReports } = reportsSlice.actions;
 // -------------------------------------------------------------
 
 export const selectSalesReport = (state) => state.reports.sales;
+export const selectSalesReportFor = (state, from, to) =>
+  state.reports.salesByRange[`${from || ''}|${to || ''}`] ?? null;
 export const selectInventoryReport = (state) => state.reports.inventory;
 export const selectReturnsReport = (state) => state.reports.returns;
 export const selectReportsLoading = (state) => state.reports.loading;

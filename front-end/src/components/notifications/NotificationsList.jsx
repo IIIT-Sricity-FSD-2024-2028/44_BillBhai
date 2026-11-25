@@ -1,4 +1,4 @@
-import PageHeader from '../common/PageHeader.jsx';
+import PageHeader, { homeFor } from '../common/PageHeader.jsx';
 import { FilterSelect } from '../common/FilterToolbar.jsx';
 import NotificationRow from './NotificationRow.jsx';
 import { ROLE_LABELS } from '../../lib/dashboard/constants.js';
@@ -69,6 +69,7 @@ export default function NotificationsList({
     <>
       <PageHeader
         title="Notifications"
+        backTo={homeFor(roleKey)}
         actions={
           <button
             className="btn btn-outline"

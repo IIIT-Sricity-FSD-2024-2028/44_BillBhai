@@ -337,7 +337,7 @@ describe('Customers routes', () => {
       .set('x-role', 'cashier')
       .send({ name: 'No Company', mobileNo: '9811100001' });
     expect(res.status).toBe(400);
-    expect(res.body.message).toBe('companyId is required');
+    expect(res.body.message).toBe('Pick a business first. The super user must open a business before adding records.');
   });
 
   it("files a store user's new customer under their own business (201)", async () => {

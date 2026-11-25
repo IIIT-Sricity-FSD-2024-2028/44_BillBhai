@@ -166,8 +166,12 @@ function ProductFormBody({ request, onClose, suppliers, categories, scopeQuery, 
           if (product.price !== Number(item.price)) changes.price = product.price;
           if (product.gstRate !== Number(item.gstRate)) changes.gstRate = product.gstRate;
           if ((product.size || '') !== (item.size || '')) changes.size = product.size || '';
-          if (product.costPrice !== undefined && product.costPrice !== item.costPrice) changes.costPrice = product.costPrice;
-          if ((product.barcode || '') !== (item.barcode || '') && product.barcode) changes.barcode = product.barcode;
+          if ((product.costPrice ?? null) !== (item.costPrice ?? null)) {
+            changes.costPrice = product.costPrice ?? null;
+          }
+          if ((product.barcode || '') !== (item.barcode || '')) {
+            changes.barcode = product.barcode || null;
+          }
         }
         const shelf = {};
         if (Number(form.reorderLevel) !== Number(item.reorderLevel)) shelf.reorderLevel = Number(form.reorderLevel);
@@ -192,7 +196,7 @@ function ProductFormBody({ request, onClose, suppliers, categories, scopeQuery, 
           await dispatch(
             updateInventoryThunk({
               id: item.inventoryId,
-              body: shelf,
+              body: { ...shelf, version: item.version },
             }),
           ).unwrap();
         }

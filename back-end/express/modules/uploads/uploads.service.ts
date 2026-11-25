@@ -22,6 +22,17 @@ import {
  */
 
 const REQUIRED_COLUMNS = ['name', 'category', 'price', 'supplierId'] as const;
+const KNOWN_COLUMNS = [
+  ...REQUIRED_COLUMNS,
+  'barcode',
+  'size',
+  'description',
+  'costPrice',
+  'gstRate',
+  'openingStock',
+  'reorderLevel',
+  'location',
+] as const;
 
 export class UploadsService {
   private uploads: UploadRecord[] = [];
@@ -112,8 +123,33 @@ export class UploadsService {
       );
     }
 
-    const header = lines[0].split(',').map((column) => column.trim());
-    const missing = REQUIRED_COLUMNS.filter((column) => !header.includes(column));
+    const parseCsvLine = (line: string): string[] => {
+      const cells: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i += 1) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i += 1;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === ',' && !inQuotes) {
+          cells.push(current.trim());
+          current = '';
+        } else {
+          current += ch;
+        }
+      }
+      cells.push(current.trim());
+      return cells;
+    };
+
+    const header = parseCsvLine(lines[0]);
+    const headerLower = header.map((c) => c.toLowerCase());
+    const missing = REQUIRED_COLUMNS.filter((column) => !headerLower.includes(column.toLowerCase()));
     if (missing.length > 0) {
       throw new BadRequestError(
         `CSV is missing required column(s): ${missing.join(', ')}. Expected header: ${REQUIRED_COLUMNS.join(',')}`,
@@ -126,10 +162,11 @@ export class UploadsService {
 
     lines.slice(1).forEach((line, offset) => {
       const rowNumber = offset + 2;
-      const cells = line.split(',').map((cell) => cell.trim());
+      const cells = parseCsvLine(line);
       const row: Record<string, string> = {};
-      header.forEach((column, index) => {
-        row[column] = cells[index] ?? '';
+      headerLower.forEach((column, index) => {
+        const canonical = KNOWN_COLUMNS.find((r) => r.toLowerCase() === column) || column;
+        row[canonical] = cells[index] ?? '';
       });
 
       // Same rules as the Add Product form: the row goes through the product schema.

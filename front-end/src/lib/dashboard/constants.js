@@ -37,7 +37,7 @@ export const ROLE_ALLOWED_PAGES = {
     'notifications',
     'cashier',
   ],
-  cashier: ['cashier', 'dashboard', 'orders', 'reports', 'profile', 'notifications'],
+  cashier: ['cashier', 'profile', 'notifications'],
   returnhandler: ['dashboard', 'returns', 'orders', 'reports', 'profile', 'notifications'],
   inventorymanager: ['dashboard', 'inventory', 'reports', 'profile', 'notifications'],
   deliveryops: ['dashboard', 'delivery', 'reports', 'profile', 'notifications'],

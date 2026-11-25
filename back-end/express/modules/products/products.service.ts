@@ -58,13 +58,36 @@ export class ProductsService {
     }
   }
 
-  private assertUnique(companyId: string, name: string, barcode: string | undefined, exceptId?: string): void {
+  private assertUnique(
+    companyId: string,
+    name: string,
+    barcode: string | undefined,
+    exceptId?: string,
+    size?: string,
+  ): void {
     const needle = name.trim().toLowerCase();
-    const sameName = this.products.find(
-      (p) => p.companyId === companyId && p.id !== exceptId && p.name.trim().toLowerCase() === needle,
+    const sizeNeedle = (size || '1 unit').trim().toLowerCase();
+    const sameActive = this.products.find(
+      (p) =>
+        p.companyId === companyId &&
+        p.id !== exceptId &&
+        p.active !== false &&
+        p.name.trim().toLowerCase() === needle &&
+        (p.size || '1 unit').trim().toLowerCase() === sizeNeedle,
     );
-    if (sameName) {
-      throw new ConflictError(`A product called "${sameName.name}" already exists (${sameName.id})`);
+    if (sameActive) {
+      throw new ConflictError(`A product called "${sameActive.name}" (${sameActive.size || '1 unit'}) already exists (${sameActive.id})`);
+    }
+    const sameInactive = this.products.find(
+      (p) =>
+        p.companyId === companyId &&
+        p.id !== exceptId &&
+        p.active === false &&
+        p.name.trim().toLowerCase() === needle &&
+        (p.size || '1 unit').trim().toLowerCase() === sizeNeedle,
+    );
+    if (sameInactive) {
+      throw new ConflictError(`An inactive product "${sameInactive.name}" exists (${sameInactive.id}). Reactivate ${sameInactive.id}?`);
     }
     if (barcode) {
       const sameCode = this.products.find(
@@ -110,7 +133,7 @@ export class ProductsService {
   public create(dto: CreateProductDto & { companyId: string }, by = 'system'): Product {
     this.assertSupplier(dto.companyId, dto.supplierId);
     const barcode = dto.barcode ? dto.barcode : undefined;
-    this.assertUnique(dto.companyId, dto.name, barcode);
+    this.assertUnique(dto.companyId, dto.name, barcode, undefined, dto.size);
 
     const created: Product = {
       id: this.nextId(),
@@ -164,16 +187,24 @@ export class ProductsService {
     const current = this.products[index];
     checkVersion(current, dto.version, `Product ${current.name}`);
     if (dto.supplierId) this.assertSupplier(current.companyId, dto.supplierId);
-    this.assertUnique(current.companyId, dto.name ?? current.name, dto.barcode || undefined, id);
+    this.assertUnique(
+      current.companyId,
+      dto.name ?? current.name,
+      dto.barcode || undefined,
+      id,
+      dto.size ?? current.size,
+    );
     const nextPrice = dto.price ?? current.price;
-    const nextCost = dto.costPrice ?? current.costPrice;
+    const nextCost = dto.costPrice === null ? undefined : (dto.costPrice ?? current.costPrice);
     if (nextCost !== undefined && nextCost > nextPrice) {
       throw new BadRequestError('costPrice cannot be more than the selling price');
     }
 
     const { version: _v, ...changes } = dto;
-    if (changes.barcode === '') delete changes.barcode;
-    const updated = bumped({ ...current, ...changes }, by);
+    const updatedBase: Product = { ...current, ...changes } as Product;
+    if (changes.barcode === '' || changes.barcode === null) delete updatedBase.barcode;
+    if (changes.costPrice === null) delete updatedBase.costPrice;
+    const updated = bumped(updatedBase, by);
     this.products[index] = updated;
 
     const changed = diff(current, updated, [

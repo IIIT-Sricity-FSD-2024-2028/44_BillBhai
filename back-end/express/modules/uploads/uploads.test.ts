@@ -111,7 +111,7 @@ describe('Uploads routes', () => {
             ',Groceries,50,SUP-001,1kg,0,5,Shelf',
             'Ghost Supplier Item,Groceries,50,SUP-999,1kg,0,5,Shelf',
             'Wrong Business Item,Groceries,50,SUP-101,1kg,0,5,Shelf',
-            'Basmati Rice,Groceries,50,SUP-001,1kg,0,5,Shelf',
+            'Basmati Rice,Groceries,50,SUP-001,5kg,0,5,Shelf',
           ]),
         );
 
@@ -129,7 +129,7 @@ describe('Uploads routes', () => {
       expect(reasons[4]).toMatch(/name|category|supplierId/);
       expect(reasons[5]).toBe('Supplier SUP-999 does not exist');
       expect(reasons[6]).toBe('Supplier SUP-101 does not belong to this business');
-      expect(reasons[7]).toMatch(/A product called "Basmati Rice" already exists \(P001\)/);
+      expect(reasons[7]).toMatch(/A product called "Basmati Rice" \(5kg\) already exists \(P001\)/);
 
       const [productId] = res.body.createdProductIds as string[];
       const product = productsService.findOne(productId);
@@ -176,7 +176,7 @@ describe('Uploads routes', () => {
         .attach('file', ...csvFile(['name,category,price,supplierId', 'No Company,Groceries,10,SUP-001']));
 
       expect(res.status).toBe(400);
-      expect(res.body.message).toBe('companyId is required');
+      expect(res.body.message).toBe('Pick a business first. The super user must open a business before adding records.');
     });
 
     it('rejects a CSV that is missing a required column (400)', async () => {

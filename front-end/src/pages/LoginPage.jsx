@@ -30,7 +30,7 @@ export default function LoginPage() {
   });
 
   usePageSetup({
-    title: "BillBhai - Admin Login",
+    title: "BillBhai - Sign in",
     styles: [CSS.login],
     fonts: FONTS.auth,
   });
