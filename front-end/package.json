@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{js,jsx}\"",
-    "test:unit": "node src/repositories/__tests__/repositories.test.js && node src/repositories/__tests__/sarthakRepos.test.js && node src/store/slices/__tests__/inventorySlice.test.js && node src/store/slices/__tests__/otherSlices.test.js && node src/store/slices/__tests__/ordersSlice.test.js && node src/store/slices/__tests__/couponsAndReportsSlices.test.js && node src/lib/__tests__/currency.test.js",
+    "test:unit": "node src/repositories/__tests__/repositories.test.js && node src/store/slices/__tests__/slices.tests.js && node src/lib/__tests__/currency.test.js",
     "test:components": "vitest run",
     "test:smoke": "node src/store/__tests__/smokeLiveApi.test.js",
     "test": "npm run test:unit && npm run test:components && npm run test:smoke"

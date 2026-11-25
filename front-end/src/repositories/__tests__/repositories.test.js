@@ -3,6 +3,9 @@ import { productsRepo } from '../productsRepo.js';
 import { inventoryRepo, mapInventoryRow } from '../inventoryRepo.js';
 import { suppliersRepo } from '../suppliersRepo.js';
 import { uploadsRepo } from '../uploadsRepo.js';
+import { ordersRepo } from '../ordersRepo.js';
+import { couponsRepo } from '../couponsRepo.js';
+import { reportsRepo } from '../reportsRepo.js';
 
 console.log('🧪 Starting unit test suite for 1:1 Repositories & http.js multipart handling...\n');
 
@@ -238,6 +241,198 @@ async function captureFetch(responseFactory, run) {
   assert.equal(caught.status, 409);
   assert.equal(caught.message, 'Product P001 was modified by someone else');
   console.log('✓ Test 5: Repositories preserve HTTP status & server error message on 409/4xx failures');
+}
+
+// ============================================================================
+// PART 6: ordersRepo (12 endpoints + encodeURIComponent + array fallback)
+// ============================================================================
+{
+  const list = await captureFetch(
+    () => mockResponse([{ id: 'ORD-1' }]),
+    () => ordersRepo.getAll({ companyId: 'BIZ-101', status: 'Pending' }),
+  );
+  assert.equal(list.result.length, 1);
+  assert.equal(list.calls[0].options.method, 'GET');
+  assert.ok(list.calls[0].url.includes('/api/orders?'));
+  assert.ok(list.calls[0].url.includes('companyId=BIZ-101'));
+  assert.ok(list.calls[0].url.includes('status=Pending'));
+
+  const listFallback = await captureFetch(() => mockResponse({ unexpected: true }), () => ordersRepo.getAll());
+  assert.deepEqual(listFallback.result, []);
+
+  const byId = await captureFetch(() => mockResponse({ id: 'ORD/101' }), () => ordersRepo.getById('ORD/101'));
+  assert.equal(byId.calls[0].options.method, 'GET');
+  assert.ok(byId.calls[0].url.endsWith('/api/orders/ORD%2F101'));
+
+  const created = await captureFetch(
+    () => mockResponse({ id: 'ORD-2', total: 500 }, 201),
+    () => ordersRepo.create({ companyId: 'BIZ-101', items: [{ productId: 'P001', quantity: 2 }] }),
+  );
+  assert.equal(created.calls[0].options.method, 'POST');
+  assert.ok(created.calls[0].url.endsWith('/api/orders'));
+  assert.equal(JSON.parse(created.calls[0].options.body).companyId, 'BIZ-101');
+
+  const quoted = await captureFetch(
+    () => mockResponse({ total: 450 }),
+    () => ordersRepo.quote({ companyId: 'BIZ-101', items: [] }),
+  );
+  assert.equal(quoted.calls[0].options.method, 'POST');
+  assert.ok(quoted.calls[0].url.endsWith('/api/orders/quote'));
+  assert.equal(quoted.result.total, 450);
+
+  const promo = await captureFetch(
+    () => mockResponse({ valid: true, code: 'SAVE10' }),
+    () => ordersRepo.validatePromotions({ code: 'SAVE10', subtotal: 500 }),
+  );
+  assert.equal(promo.calls[0].options.method, 'POST');
+  assert.ok(promo.calls[0].url.endsWith('/api/orders/promotions/validate'));
+  assert.equal(promo.result.code, 'SAVE10');
+
+  const updated = await captureFetch(
+    () => mockResponse({ id: 'ORD/101', version: 2 }),
+    () => ordersRepo.update('ORD/101', { notes: 'Call on arrival', version: 1 }),
+  );
+  assert.equal(updated.calls[0].options.method, 'PUT');
+  assert.ok(updated.calls[0].url.endsWith('/api/orders/ORD%2F101'));
+  assert.equal(JSON.parse(updated.calls[0].options.body).version, 1);
+
+  const cancelled = await captureFetch(
+    () => mockResponse({ id: 'ORD/101', status: 'Cancelled', version: 3 }),
+    () => ordersRepo.cancel('ORD/101', { reason: 'Customer request', version: 2 }),
+  );
+  assert.equal(cancelled.calls[0].options.method, 'POST');
+  assert.ok(cancelled.calls[0].url.endsWith('/api/orders/ORD%2F101/cancel'));
+  assert.equal(JSON.parse(cancelled.calls[0].options.body).reason, 'Customer request');
+
+  const removed = await captureFetch(
+    () => mockResponse({ message: 'Deleted' }),
+    () => ordersRepo.remove('ORD/101'),
+  );
+  assert.equal(removed.calls[0].options.method, 'DELETE');
+  assert.ok(removed.calls[0].url.endsWith('/api/orders/ORD%2F101'));
+
+  const bills = await captureFetch(
+    () => mockResponse([{ billNo: 'BILL-1' }]),
+    () => ordersRepo.getAllBills({ companyId: 'BIZ-101' }),
+  );
+  assert.equal(bills.result.length, 1);
+  assert.ok(bills.calls[0].url.includes('/api/orders/bills/all?companyId=BIZ-101'));
+
+  const billsFallback = await captureFetch(() => mockResponse(null), () => ordersRepo.getAllBills());
+  assert.deepEqual(billsFallback.result, []);
+
+  const billByNo = await captureFetch(
+    () => mockResponse({ billNo: 'BILL/2026' }),
+    () => ordersRepo.getBillByNo('BILL/2026'),
+  );
+  assert.ok(billByNo.calls[0].url.endsWith('/api/orders/bills/BILL%2F2026'));
+
+  const payments = await captureFetch(
+    () => mockResponse([{ id: 'PAY-1' }]),
+    () => ordersRepo.getAllPayments({ companyId: 'BIZ-101' }),
+  );
+  assert.equal(payments.result.length, 1);
+  assert.ok(payments.calls[0].url.includes('/api/orders/payments/all?companyId=BIZ-101'));
+
+  const paymentsFallback = await captureFetch(() => mockResponse('bad'), () => ordersRepo.getAllPayments());
+  assert.deepEqual(paymentsFallback.result, []);
+
+  const payByNo = await captureFetch(
+    () => mockResponse({ id: 'PAY-1', billNo: 'BILL/2026' }),
+    () => ordersRepo.getPaymentByBillNo('BILL/2026'),
+  );
+  assert.ok(payByNo.calls[0].url.endsWith('/api/orders/payments/BILL%2F2026'));
+
+  console.log('✓ Test 6: ordersRepo covers all 12 endpoints, encodeURIComponent, and list fallbacks');
+}
+
+// ============================================================================
+// PART 7: couponsRepo (7 endpoints)
+// ============================================================================
+{
+  const list = await captureFetch(
+    () => mockResponse([{ id: 'CPN-1', code: 'SAVE10' }]),
+    () => couponsRepo.getAll({ companyId: 'BIZ-101' }),
+  );
+  assert.equal(list.result.length, 1);
+  assert.ok(list.calls[0].url.includes('/api/coupons?companyId=BIZ-101'));
+
+  const listFallback = await captureFetch(() => mockResponse({}), () => couponsRepo.getAll());
+  assert.deepEqual(listFallback.result, []);
+
+  const byId = await captureFetch(() => mockResponse({ id: 'CPN/1' }), () => couponsRepo.getById('CPN/1'));
+  assert.ok(byId.calls[0].url.endsWith('/api/coupons/CPN%2F1'));
+
+  const analytics = await captureFetch(
+    () => mockResponse({ totalDiscount: 1200 }),
+    () => couponsRepo.getAnalytics({ companyId: 'BIZ-101', from: '2026-11-01', to: '2026-11-25' }),
+  );
+  assert.ok(analytics.calls[0].url.includes('/api/coupons/analytics?'));
+  assert.ok(analytics.calls[0].url.includes('from=2026-11-01'));
+  assert.equal(analytics.result.totalDiscount, 1200);
+
+  const validated = await captureFetch(
+    () => mockResponse({ valid: true, discount: 50 }),
+    () => couponsRepo.validate({ code: 'SAVE10', subtotal: 500, customerPhone: '9876543210' }),
+  );
+  assert.equal(validated.calls[0].options.method, 'POST');
+  assert.ok(validated.calls[0].url.endsWith('/api/coupons/validate'));
+  assert.equal(JSON.parse(validated.calls[0].options.body).code, 'SAVE10');
+
+  const created = await captureFetch(
+    () => mockResponse({ id: 'CPN-2', code: 'FESTIVE' }, 201),
+    () => couponsRepo.create({ code: 'FESTIVE', type: 'flat', value: 100 }),
+  );
+  assert.equal(created.calls[0].options.method, 'POST');
+  assert.ok(created.calls[0].url.endsWith('/api/coupons'));
+
+  const updated = await captureFetch(
+    () => mockResponse({ id: 'CPN/1', active: false, version: 2 }),
+    () => couponsRepo.update('CPN/1', { active: false, version: 1 }),
+  );
+  assert.equal(updated.calls[0].options.method, 'PUT');
+  assert.ok(updated.calls[0].url.endsWith('/api/coupons/CPN%2F1'));
+
+  const removed = await captureFetch(
+    () => mockResponse({ message: 'Coupon deleted' }),
+    () => couponsRepo.remove('CPN/1'),
+  );
+  assert.equal(removed.calls[0].options.method, 'DELETE');
+  assert.ok(removed.calls[0].url.endsWith('/api/coupons/CPN%2F1'));
+
+  console.log('✓ Test 7: couponsRepo covers all 7 endpoints & encodeURIComponent');
+}
+
+// ============================================================================
+// PART 8: reportsRepo (3 endpoints)
+// ============================================================================
+{
+  const sales = await captureFetch(
+    () => mockResponse({ totals: { net: 5000 } }),
+    () => reportsRepo.getSales({ companyId: 'BIZ-101', from: '2026-11-01', to: '2026-11-25' }),
+  );
+  assert.equal(sales.calls[0].options.method, 'GET');
+  assert.ok(sales.calls[0].url.includes('/api/reports/sales?'));
+  assert.ok(sales.calls[0].url.includes('companyId=BIZ-101'));
+  assert.equal(sales.result.totals.net, 5000);
+
+  const inventory = await captureFetch(
+    () => mockResponse({ totalSkus: 40 }),
+    () => reportsRepo.getInventory({ companyId: 'BIZ-101' }),
+  );
+  assert.equal(inventory.calls[0].options.method, 'GET');
+  assert.ok(inventory.calls[0].url.includes('/api/reports/inventory?companyId=BIZ-101'));
+  assert.equal(inventory.result.totalSkus, 40);
+
+  const returns = await captureFetch(
+    () => mockResponse({ totalRefunds: 300 }),
+    () => reportsRepo.getReturns({ companyId: 'BIZ-101', from: '2026-11-01' }),
+  );
+  assert.equal(returns.calls[0].options.method, 'GET');
+  assert.ok(returns.calls[0].url.includes('/api/reports/returns?'));
+  assert.equal(returns.result.totalRefunds, 300);
+
+  console.log('✓ Test 8: reportsRepo covers all 3 endpoints');
 }
 
 console.log('\n========================================================================');
