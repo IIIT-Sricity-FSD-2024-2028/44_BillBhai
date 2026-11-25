@@ -1,6 +1,12 @@
-import { api, errorText } from '../../lib/http.js';
-import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { roleLabel } from '../../lib/dashboard/credentials.js';
+import { errorText } from "../../lib/http.js";
+import { useDispatch } from "react-redux";
+import {
+  deleteUserThunk,
+  resetUserPasswordThunk,
+  updateUserThunk,
+} from "../../store/slices/usersSlice.js";
+import { useDashboard } from "../../lib/dashboard/hooks.js";
+import { roleLabel } from "../../lib/dashboard/credentials.js";
 
 /**
  * Staff account actions. Every action names the user by id and sends the
@@ -8,8 +14,17 @@ import { roleLabel } from '../../lib/dashboard/credentials.js';
  * delete, last admin kept, super users untouchable for store admins).
  */
 export default function useUserActions() {
-  const { hasActionAccess, denyAction, openConfirm, showCredentialsModal, showToast, refreshData } = useDashboard();
-  const canManage = hasActionAccess('users');
+  const {
+    hasActionAccess,
+    denyAction,
+    openConfirm,
+    showCredentialsModal,
+    showToast,
+    refreshData,
+  } = useDashboard();
+  const canManage = hasActionAccess("users");
+  const dispatch = useDispatch();
+  const errMsg = (err) => (typeof err === "string" ? err : errorText(err));
 
   const guard = (label) => {
     if (canManage) return true;
@@ -18,16 +33,16 @@ export default function useUserActions() {
   };
 
   const deleteUser = (user, after) => {
-    if (!guard('User delete')) return;
+    if (!guard("User delete")) return;
     openConfirm({
-      title: 'Delete User',
+      title: "Delete User",
       message: `Delete ${user.name} (${user.username})? They will be signed out and cannot sign in again. To keep their history but block sign-in, suspend them instead.`,
-      confirmLabel: 'Delete',
+      confirmLabel: "Delete",
       onConfirm: async () => {
         try {
-          await api(`/users/${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+          await dispatch(deleteUserThunk(user.id)).unwrap();
         } catch (err) {
-          showToast(`Delete failed: ${errorText(err)}`);
+          showToast(`Delete failed: ${errMsg(err)}`);
           return false;
         }
         await refreshData();
@@ -39,24 +54,24 @@ export default function useUserActions() {
   };
 
   const resetPassword = (user) => {
-    if (!guard('Password reset')) return;
+    if (!guard("Password reset")) return;
     openConfirm({
-      title: 'Reset Password',
+      title: "Reset Password",
       message: `Give ${user.name} a new temporary password? Their old password stops working at once.`,
-      confirmLabel: 'Reset password',
+      confirmLabel: "Reset password",
       onConfirm: async () => {
         let result;
         try {
-          result = await api(`/users/${encodeURIComponent(user.id)}/reset-password`, { method: 'POST', body: {} });
+          result = await dispatch(resetUserPasswordThunk(user.id)).unwrap();
         } catch (err) {
-          showToast(`Reset failed: ${errorText(err)}`);
+          showToast(`Reset failed: ${errMsg(err)}`);
           return false;
         }
         await refreshData();
         // Shown after this dialog closes.
         setTimeout(
           () =>
-            showCredentialsModal('New Temporary Password', {
+            showCredentialsModal("New Temporary Password", {
               name: result.name,
               username: result.username,
               password: result.temporaryPassword,
@@ -70,17 +85,26 @@ export default function useUserActions() {
   };
 
   const toggleSuspension = async (user) => {
-    if (!guard('User status update')) return;
-    const next = String(user.status).toLowerCase() === 'suspended' ? 'Active' : 'Suspended';
+    if (!guard("User status update")) return;
+    const next =
+      String(user.status).toLowerCase() === "suspended"
+        ? "Active"
+        : "Suspended";
     try {
-      await api(`/users/${encodeURIComponent(user.id)}`, {
-        method: 'PUT',
-        body: { status: next, version: user.version },
-      });
+      await dispatch(
+        updateUserThunk({
+          id: user.id,
+          body: { status: next, version: user.version },
+        }),
+      ).unwrap();
       await refreshData();
-      showToast(next === 'Active' ? `${user.name} can sign in again` : `${user.name} is suspended and signed out`);
+      showToast(
+        next === "Active"
+          ? `${user.name} can sign in again`
+          : `${user.name} is suspended and signed out`,
+      );
     } catch (err) {
-      showToast(`Status change failed: ${errorText(err)}`);
+      showToast(`Status change failed: ${errMsg(err)}`);
     }
   };
 

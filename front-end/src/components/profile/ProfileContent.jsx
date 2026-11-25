@@ -1,22 +1,32 @@
-import { useEffect, useState } from 'react';
-import { setActiveCurrency } from '../../lib/currency.js';
-import PageHeader from '../common/PageHeader.jsx';
-import ProfileIdentityCard from './ProfileIdentityCard.jsx';
-import ProfileDetailsCard from './ProfileDetailsCard.jsx';
-import SecurityCard from './SecurityCard.jsx';
-import SubscriptionPlanCard from './SubscriptionPlanCard.jsx';
-import RecentActivityCard from './RecentActivityCard.jsx';
-import AccountPreferencesForm from './AccountPreferencesForm.jsx';
-import { api } from '../../lib/http.js';
-import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { ROLE_LABELS } from '../../lib/dashboard/constants.js';
+import { useEffect, useState } from "react";
+import { setActiveCurrency } from "../../lib/currency.js";
+import PageHeader from "../common/PageHeader.jsx";
+import ProfileIdentityCard from "./ProfileIdentityCard.jsx";
+import ProfileDetailsCard from "./ProfileDetailsCard.jsx";
+import SecurityCard from "./SecurityCard.jsx";
+import SubscriptionPlanCard from "./SubscriptionPlanCard.jsx";
+import RecentActivityCard from "./RecentActivityCard.jsx";
+import AccountPreferencesForm from "./AccountPreferencesForm.jsx";
+import { api } from "../../lib/http.js";
+import { useDashboard } from "../../lib/dashboard/hooks.js";
+import { ROLE_LABELS } from "../../lib/dashboard/constants.js";
 import {
   getNotificationPreferenceConfig,
   normalizeNotificationPreferences,
-} from '../../lib/dashboard/notifications.js';
+} from "../../lib/dashboard/notifications.js";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchMeThunk } from "../../store/slices/usersSlice.js";
+import { fetchActivityThunk } from "../../store/slices/activitySlice.js";
 
-const COLUMN_STYLE = { display: 'flex', flexDirection: 'column', gap: '16px' };
-const ACTIVITY_ROLES = ['superuser', 'admin', 'cashier', 'inventorymanager', 'deliveryops', 'returnhandler'];
+const COLUMN_STYLE = { display: "flex", flexDirection: "column", gap: "16px" };
+const ACTIVITY_ROLES = [
+  "superuser",
+  "admin",
+  "cashier",
+  "inventorymanager",
+  "deliveryops",
+  "returnhandler",
+];
 
 function pickOption(value, options) {
   return options.includes(value) ? value : options[0];
@@ -25,8 +35,13 @@ function pickOption(value, options) {
 function when(iso) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
-    ? ''
-    : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    ? ""
+    : d.toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 }
 
 /**
@@ -50,59 +65,63 @@ export default function ProfileContent() {
     refreshData,
   } = useDashboard();
 
-  const [me, setMe] = useState(null);
-  const [businessName, setBusinessName] = useState('');
-  const [activity, setActivity] = useState([]);
-  const [error, setError] = useState('');
+  const dispatch = useDispatch();
+  const me = useSelector((state) => state.users.me);
+  const error = useSelector((state) => state.users.error);
+  const activityRows = useSelector((state) => state.activity.items);
+  const [businessName, setBusinessName] = useState("");
+  const activity = me
+    ? activityRows.filter((r) => r.by === me.username).slice(0, 8)
+    : [];
   const [prefs, setPrefs] = useState(() => {
     const record = loadProfileSettingsRecord();
     return {
-      language: pickOption(record.language, ['English (India)', 'Hindi', 'Tamil']),
-      currency: pickOption(record.currency, ['INR', 'USD']),
-      timezone: pickOption(record.timezone, ['Asia/Kolkata', 'UTC']),
-      dateFormat: pickOption(record.dateFormat, ['DD/MM/YYYY', 'MM/DD/YYYY']),
+      language: pickOption(record.language, [
+        "English (India)",
+        "Hindi",
+        "Tamil",
+      ]),
+      currency: pickOption(record.currency, ["INR", "USD"]),
+      timezone: pickOption(record.timezone, ["Asia/Kolkata", "UTC"]),
+      dateFormat: pickOption(record.dateFormat, ["DD/MM/YYYY", "MM/DD/YYYY"]),
       notifications: { ...record.notifications },
     };
   });
 
   useEffect(() => {
     let alive = true;
-    api('/users/me')
-      .then((u) => {
-        if (!alive) return;
-        setMe(u);
-        if (!ACTIVITY_ROLES.includes(roleKey)) return;
-        api('/activity', { query: { limit: 300 } })
-          .then((rows) => {
-            if (!alive || !Array.isArray(rows)) return;
-            setActivity(rows.filter((r) => r.by === u.username).slice(0, 8));
-          })
-          .catch(() => {});
-      })
-      .catch((err) => alive && setError(err.message));
-    if (roleKey !== 'superuser') {
-      api('/companies/me/profile')
-        .then((c) => alive && setBusinessName(c ? c.name : ''))
+    dispatch(fetchMeThunk());
+    if (ACTIVITY_ROLES.includes(roleKey)) {
+      dispatch(fetchActivityThunk({ limit: 300 }));
+    }
+    if (roleKey !== "superuser") {
+      api("/companies/me/profile")
+        .then((c) => alive && setBusinessName(c ? c.name : ""))
         .catch(() => {});
     }
     return () => {
       alive = false;
     };
-  }, [roleKey]);
+  }, [dispatch, roleKey]);
 
   const notificationOptions = getNotificationPreferenceConfig(roleKey);
   // The plan belongs to a business: the platform super user has none of their own.
-  const showPlanCard = roleKey === 'admin' || (roleKey === 'superuser' && Boolean(localStorage.getItem('activeBusinessId')));
-  const staffCount = users.filter((u) => u.roleKey !== 'customer' && u.roleKey !== 'superuser').length;
+  const showPlanCard =
+    roleKey === "admin" ||
+    (roleKey === "superuser" &&
+      Boolean(localStorage.getItem("activeBusinessId")));
+  const staffCount = users.filter(
+    (u) => u.roleKey !== "customer" && u.roleKey !== "superuser",
+  ).length;
 
   const savePreferences = () => {
     saveProfileSettings({
       key: loadProfileSettingsRecord().key,
       fullName: me ? me.name : loadProfileSettingsRecord().fullName,
-      email: me ? me.email : '',
-      phone: me ? me.mobileNo : '',
-      location: '',
-      bio: '',
+      email: me ? me.email : "",
+      phone: me ? me.mobileNo : "",
+      location: "",
+      bio: "",
       language: prefs.language,
       currency: prefs.currency,
       timezone: prefs.timezone,
@@ -117,30 +136,48 @@ export default function ProfileContent() {
     });
     setActiveCurrency(prefs.currency);
     refreshData();
-    showToast('Preferences saved.');
+    showToast("Preferences saved.");
   };
 
   const onDetailsSaved = (saved) => {
-    setMe(saved);
+    dispatch(fetchMeThunk());
     // Keep the header name in step with the server.
-    saveProfileSettings({ ...loadProfileSettingsRecord(), fullName: saved.name, email: saved.email, phone: saved.mobileNo, location: '' });
+    saveProfileSettings({
+      ...loadProfileSettingsRecord(),
+      fullName: saved.name,
+      email: saved.email,
+      phone: saved.mobileNo,
+      location: "",
+    });
     refreshData();
   };
 
-  const activityItems = activity.map((a) => ({ time: when(a.at), before: '', strong: a.entityId, after: ` · ${a.summary}` }));
+  const activityItems = activity.map((a) => ({
+    time: when(a.at),
+    before: "",
+    strong: a.entityId,
+    after: ` · ${a.summary}`,
+  }));
 
   return (
     <>
       <PageHeader title="Profile & Settings" />
-      {error && <p className="text-muted">Could not load your account: {error}</p>}
+      {error && (
+        <p className="text-muted">Could not load your account: {error}</p>
+      )}
       <section className="grid-2">
         <div style={COLUMN_STYLE}>
           <ProfileIdentityCard
             fullName={me ? me.name : loadProfileSettingsRecord().fullName}
-            roleLabel={ROLE_LABELS[roleKey] || 'Team Member'}
-            email={me ? me.email : ''}
+            roleLabel={ROLE_LABELS[roleKey] || "Team Member"}
+            email={me ? me.email : ""}
           />
-          <ProfileDetailsCard me={me} canEdit={roleKey === 'admin' || roleKey === 'superuser'} businessName={businessName} onSaved={onDetailsSaved} />
+          <ProfileDetailsCard
+            me={me}
+            canEdit={roleKey === "admin" || roleKey === "superuser"}
+            businessName={businessName}
+            onSaved={onDetailsSaved}
+          />
           <SecurityCard />
         </div>
         <div style={COLUMN_STYLE}>
@@ -160,9 +197,14 @@ export default function ProfileContent() {
       <AccountPreferencesForm
         values={prefs}
         notificationOptions={notificationOptions}
-        onFieldChange={(key, value) => setPrefs((prev) => ({ ...prev, [key]: value }))}
+        onFieldChange={(key, value) =>
+          setPrefs((prev) => ({ ...prev, [key]: value }))
+        }
         onToggleChange={(key, checked) =>
-          setPrefs((prev) => ({ ...prev, notifications: { ...prev.notifications, [key]: checked } }))
+          setPrefs((prev) => ({
+            ...prev,
+            notifications: { ...prev.notifications, [key]: checked },
+          }))
         }
         onSubmit={savePreferences}
       />

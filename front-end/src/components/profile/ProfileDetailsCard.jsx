@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import FormField, { controlClass } from '../common/FormField.jsx';
-import { api, errorText } from '../../lib/http.js';
+import { errorText } from '../../lib/http.js';
+import { updateUserThunk } from '../../store/slices/usersSlice.js';
 
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 const ROW_STYLE = { display: 'flex', flexDirection: 'column', gap: '8px' };
@@ -14,7 +16,8 @@ export default function ProfileDetailsCard({ me, canEdit, businessName, onSaved 
   const [values, setValues] = useState({ name: '', email: '', phone: '' });
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState({ text: '', ok: false });
-  const [saving, setSaving] = useState(false);
+  const dispatch = useDispatch();
+  const saving = useSelector((state) => state.users.saving);
 
   useEffect(() => {
     if (me) setValues({ name: me.name || '', email: me.email || '', phone: me.mobileNo || '' });
@@ -38,18 +41,17 @@ export default function ProfileDetailsCard({ me, canEdit, businessName, onSaved 
     if (!/^[6-9]\d{9}$/.test(phone)) next.phone = true;
     setErrors(next);
     if (Object.keys(next).length) return;
-    setSaving(true);
     try {
-      const saved = await api(`/users/${encodeURIComponent(me.id)}`, {
-        method: 'PUT',
-        body: { name: values.name.trim(), email: values.email.trim(), mobileNo: phone, version: me.version },
-      });
+      const saved = await dispatch(
+        updateUserThunk({
+          id: me.id,
+          body: { name: values.name.trim(), email: values.email.trim(), mobileNo: phone, version: me.version },
+        }),
+      ).unwrap();
       setMessage({ text: 'Your details are saved.', ok: true });
       onSaved(saved);
     } catch (err) {
-      setMessage({ text: errorText(err, 'Could not save'), ok: false });
-    } finally {
-      setSaving(false);
+      setMessage({ text: typeof err === 'string' ? err : errorText(err, 'Could not save'), ok: false });
     }
   };
 

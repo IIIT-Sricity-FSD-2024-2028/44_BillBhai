@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { BellIcon, LogoutMenuIcon, MenuToggleIcon, ProfileMenuIcon } from './icons.jsx';
 import NotificationIcon from './NotificationIcon.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
+import { useDispatch, useSelector } from 'react-redux';
+import { logoutAction } from '../../store/slices/authSlice.js';
 
 export default function TopHeader({
   title,
@@ -17,6 +19,19 @@ export default function TopHeader({
   legacyMenu,
 }) {
   const [openMenu, setOpenMenu] = useState(null); // 'notif' | 'user' | null
+  const dispatch = useDispatch();
+const auth = useSelector((state) => state.auth) || {};
+const me = useSelector((state) => state.users?.me);
+
+const rawUser = user?.name ? user : me || auth.user || {};
+const displayName = rawUser.name || rawUser.username || 'User';
+const displayUser = {
+  name: displayName,
+  email: rawUser.email || '',
+  roleLabel: user?.roleLabel || rawUser.roleLabel || auth.roleKey || '',
+  avatar: user?.avatar || displayName.slice(0, 2).toUpperCase(),
+};
+const displayBusinessName = businessName ?? auth.activeBusinessName;
 
   useEffect(() => {
     const close = () => setOpenMenu(null);
@@ -44,7 +59,7 @@ export default function TopHeader({
           {MenuToggleIcon}
         </button>
         <div className="breadcrumb">
-          <span className="bc-app">{businessName ? `BillBhai / ${businessName}` : 'BillBhai'}</span>
+          <span className="bc-app">{displayBusinessName ? `BillBhai / ${displayBusinessName}` : 'BillBhai'}</span>
           <span className="bc-sep">/</span>
           <span className="bc-page" id="bcPage">
             {title}
@@ -132,10 +147,10 @@ export default function TopHeader({
 
         <div className="dropdown-container" id="userContainer">
           <div className="header-user" id="userMenuBtn" onClick={toggle('user')}>
-            <div className="user-avatar">{user.avatar}</div>
+            <div className="user-avatar">{displayUser.avatar}</div>
             <div className="user-info">
-              <span className="user-name">{user.name}</span>
-              <span className="user-role">{user.roleLabel}</span>
+              <span className="user-name">{displayUser.name}</span>
+              <span className="user-role">{displayUser.roleLabel}</span>
             </div>
           </div>
           <div
@@ -143,8 +158,8 @@ export default function TopHeader({
             id="userDropdown"
           >
             <div className="dropdown-header">
-              <strong>{user.name}</strong>
-              <div className="text-sm text-muted">{user.email}</div>
+              <strong>{displayUser.name}</strong>
+              <div className="text-sm text-muted">{displayUser.email}</div>
             </div>
             {legacyMenu ? (
               <Link to="/profile" className="dropdown-item" onClick={() => setOpenMenu(null)}>
@@ -173,6 +188,7 @@ export default function TopHeader({
                 className="dropdown-item text-danger"
                 onClick={(e) => {
                   setOpenMenu(null);
+                  dispatch(logoutAction());
                   if (onLogout) onLogout(e);
                 }}
               >
@@ -184,6 +200,7 @@ export default function TopHeader({
                 className="dropdown-item text-danger"
                 onClick={(e) => {
                   setOpenMenu(null);
+                  dispatch(logoutAction());
                   if (onLogout) onLogout(e);
                 }}
               >

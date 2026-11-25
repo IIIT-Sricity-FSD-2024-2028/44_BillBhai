@@ -1,23 +1,26 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api, storeLoginSession } from '../lib/http.js';
-import usePageSetup from '../hooks/usePageSetup.js';
-import { CSS, FONTS } from '../lib/pageAssets.js';
-import AmbientGlow from '../components/login/AmbientGlow.jsx';
-import LoginCard from '../components/login/LoginCard.jsx';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { loginThunk } from "../store/slices/authSlice.js";
+import usePageSetup from "../hooks/usePageSetup.js";
+import { CSS, FONTS } from "../lib/pageAssets.js";
+import AmbientGlow from "../components/login/AmbientGlow.jsx";
+import LoginCard from "../components/login/LoginCard.jsx";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState(() =>
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('expired')
-      ? 'Your session ended. Please sign in again.'
-      : '',
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("expired")
+      ? "Your session ended. Please sign in again."
+      : "",
   );
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -26,7 +29,11 @@ export default function LoginPage() {
     password: { error: false, shake: false },
   });
 
-  usePageSetup({ title: 'BillBhai - Admin Login', styles: [CSS.login], fonts: FONTS.auth });
+  usePageSetup({
+    title: "BillBhai - Admin Login",
+    styles: [CSS.login],
+    fonts: FONTS.auth,
+  });
 
   const handleFieldFocus = (fieldName) => {
     setFieldStatus((prev) => ({
@@ -44,7 +51,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorMessage("");
 
     if (!username.trim()) {
       setFieldStatus({
@@ -66,11 +73,9 @@ export default function LoginPage() {
     try {
       let userData;
       try {
-        userData = await api('/auth/login', {
-          method: 'POST',
-          anonymous: true,
-          body: { username: username.trim(), password: password.trim() },
-        });
+        userData = await dispatch(
+          loginThunk({ username: username.trim(), password: password.trim() }),
+        ).unwrap();
       } catch (err) {
         setFieldStatus((prev) => ({
           ...prev,
@@ -80,32 +85,32 @@ export default function LoginPage() {
           err.status === 401
             ? err.message && !/invalid username/i.test(err.message)
               ? err.message
-              : 'Incorrect username or password.'
+              : "Incorrect username or password."
             : err.status === 0
-              ? 'Cannot reach the BillBhai server. Start the backend and try again.'
-              : err.message || 'Sign-in failed. Please try again.',
+              ? "Cannot reach the BillBhai server. Start the backend and try again."
+              : err.message || "Sign-in failed. Please try again.",
         );
         setIsLoading(false);
         return;
       }
 
-      storeLoginSession(userData);
-      const role = String(userData.role || '').toLowerCase();
+      const role = String(userData.role || "").toLowerCase();
 
       setIsLoading(false);
       setIsSuccess(true);
 
       setTimeout(() => {
-        if (role === 'superuser') navigate('/superuser');
-        else if (role === 'cashier' || role === 'customer') navigate('/cashier');
-        else if (role === 'returnhandler') navigate('/returns');
-        else if (role === 'inventorymanager') navigate('/inventory');
-        else if (role === 'deliveryops') navigate('/delivery');
-        else navigate('/dashboard');
+        if (role === "superuser") navigate("/superuser");
+        else if (role === "cashier" || role === "customer")
+          navigate("/cashier");
+        else if (role === "returnhandler") navigate("/returns");
+        else if (role === "inventorymanager") navigate("/inventory");
+        else if (role === "deliveryops") navigate("/delivery");
+        else navigate("/dashboard");
       }, 600);
     } catch (err) {
-      console.error('Login error:', err);
-      setErrorMessage('Sign-in failed. Please try again.');
+      console.error("Login error:", err);
+      setErrorMessage("Sign-in failed. Please try again.");
       setIsLoading(false);
     }
   };
@@ -127,7 +132,9 @@ export default function LoginPage() {
         onTogglePassword={() => setShowPassword(!showPassword)}
         onToggleRemember={() => setRememberMe(!rememberMe)}
         onForgotClick={() =>
-          setErrorMessage('Password reset is backend-managed. Please contact system admin.')
+          setErrorMessage(
+            "Password reset is backend-managed. Please contact system admin.",
+          )
         }
         onFieldFocus={handleFieldFocus}
         onShakeEnd={handleShakeEnd}
