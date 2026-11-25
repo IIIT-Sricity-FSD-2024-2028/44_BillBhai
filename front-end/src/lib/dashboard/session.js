@@ -6,8 +6,11 @@ import {
 } from './constants.js';
 import { loadObject } from './storage.js';
 import { getAuthToken, clearStoredSession } from '../http.js';
-import { getAppStore } from '../../store/storeBridge.js';
+import { getAppStore, registerUnauthorizedHandler } from '../../store/storeBridge.js';
+import { resetProducts } from '../../store/slices/productsSlice.js';
 import { resetInventory } from '../../store/slices/inventorySlice.js';
+import { resetSuppliers } from '../../store/slices/suppliersSlice.js';
+import { resetUploads } from '../../store/slices/uploadsSlice.js';
 
 export function normalizeRole(role) {
   return String(role || '')
@@ -28,19 +31,40 @@ export function roleFromStorage(value) {
   return '';
 }
 
+export function resetAllDomainSlices() {
+  try {
+    const store = getAppStore();
+    if (!store) return;
+    store.dispatch(resetProducts());
+    store.dispatch(resetInventory());
+    store.dispatch(resetSuppliers());
+    store.dispatch(resetUploads());
+  } catch {
+    /* store may not be injected in isolated utilities */
+  }
+}
+
 export function clearSession() {
   clearStoredSession();
+  resetAllDomainSlices();
   try {
-    getAppStore()?.dispatch(resetInventory());
-  } catch {}
-  localStorage.removeItem('userRole');
-  localStorage.removeItem('userName');
-  localStorage.removeItem('currentUser');
-  localStorage.removeItem('activeBusinessId');
-  localStorage.removeItem('activeBusinessName');
-  sessionStorage.removeItem('bb_customer_session_id');
-  sessionStorage.removeItem('bb_customer_session_notifications');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('activeBusinessId');
+    localStorage.removeItem('activeBusinessName');
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem('bb_customer_session_id');
+    sessionStorage.removeItem('bb_customer_session_notifications');
+  } catch {
+    /* ignore */
+  }
 }
+
+registerUnauthorizedHandler(() => clearSession());
 
 export function setActiveBusiness(id, name) {
   localStorage.setItem('activeBusinessId', id);
@@ -167,14 +191,17 @@ export function computeBootContext(page) {
 }
 
 export function applyBootStorageWrites(boot) {
+  if (!boot) return;
   if (boot.clearSession) clearSession();
-  boot.writes.forEach(([op, key, value]) => {
+  (boot.writes || []).forEach(([op, key, value]) => {
     if (op === 'set') localStorage.setItem(key, value);
     else localStorage.removeItem(key);
   });
   OPERATIONAL_STORAGE_KEYS.forEach((key) => {
     try {
       localStorage.removeItem(key);
-    } catch (err) {}
+    } catch {
+      /* ignore */
+    }
   });
 }

@@ -1,38 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import DataTable from '../common/DataTable.jsx';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
-import { api } from '../../lib/http.js';
+import {
+  createSupplierThunk,
+  updateSupplierThunk,
+  deleteSupplierThunk,
+} from '../../store/slices/suppliersSlice.js';
+import { extractErrorMessage } from '../../store/thunkUtils.js';
 import { DANGER_BTN, EMAIL, GSTIN, SMALL_BTN, WHOLE, formatMobile, mobileDigits } from './inventoryUtils.js';
 
 const BLANK = { name: '', contactPerson: '', mobileNo: '', email: '', address: '', gstNo: '', leadTimeDays: '2', moq: '0' };
 
-function SupplierFormModal({ supplier, open, onClose, onSaved }) {
-  const [form, setForm] = useState(BLANK);
+function initialSupplierForm(supplier) {
+  if (!supplier) return BLANK;
+  return {
+    name: supplier.name || '',
+    contactPerson: supplier.contactPerson || '',
+    mobileNo: supplier.mobileNo || '',
+    email: supplier.email || '',
+    address: supplier.address || '',
+    gstNo: supplier.gstNo || '',
+    leadTimeDays: String(supplier.leadTimeDays ?? 2),
+    moq: String(supplier.moq ?? 0),
+  };
+}
+
+function SupplierFormBody({ supplier, scopeQuery, onClose, onSaved }) {
+  const dispatch = useDispatch();
+  const [form, setForm] = useState(() => initialSupplierForm(supplier));
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setForm(
-      supplier
-        ? {
-            name: supplier.name || '',
-            contactPerson: supplier.contactPerson || '',
-            mobileNo: supplier.mobileNo || '',
-            email: supplier.email || '',
-            address: supplier.address || '',
-            gstNo: supplier.gstNo || '',
-            leadTimeDays: String(supplier.leadTimeDays ?? 2),
-            moq: String(supplier.moq ?? 0),
-          }
-        : BLANK,
-    );
-    setErrors({});
-    setServerError('');
-    setSaving(false);
-  }, [open, supplier]);
 
   const set = (key) => (e) => {
     const value = e.target.value;
@@ -65,14 +65,24 @@ function SupplierFormModal({ supplier, open, onClose, onSaved }) {
     setServerError('');
     try {
       if (supplier) {
-        await api(`/suppliers/${encodeURIComponent(supplier.id)}`, { method: 'PUT', body: { ...body, version: supplier.version } });
+        await dispatch(
+          updateSupplierThunk({
+            id: supplier.id,
+            body: { ...body, version: supplier.version },
+          }),
+        ).unwrap();
         onSaved(`${body.name} updated.`);
       } else {
-        const created = await api('/suppliers', { method: 'POST', body });
+        const created = await dispatch(
+          createSupplierThunk({
+            ...body,
+            companyId: scopeQuery?.companyId,
+          }),
+        ).unwrap();
         onSaved(`${created.name} added (${created.id}).`);
       }
     } catch (err) {
-      setServerError(err.message || 'Could not save the supplier.');
+      setServerError(extractErrorMessage(err, 'Could not save the supplier.'));
       setSaving(false);
     }
   };
@@ -84,40 +94,48 @@ function SupplierFormModal({ supplier, open, onClose, onSaved }) {
   );
 
   return (
+    <form noValidate onSubmit={submit}>
+      <div className="modal-body">
+        {serverError && <div className="form-error" style={{ display: 'block', marginBottom: '12px' }}>{serverError}</div>}
+        <div className="form-row">
+          {field('name', 'Supplier name *', { maxLength: 80 })}
+          {field('contactPerson', 'Contact person', { maxLength: 60 })}
+        </div>
+        <div className="form-row">
+          {field('mobileNo', 'Mobile *', { inputMode: 'numeric', placeholder: '10-digit mobile' })}
+          {field('email', 'Email', { maxLength: 120 })}
+        </div>
+        {field('address', 'Address', { maxLength: 200 })}
+        <div className="form-row">
+          {field('gstNo', 'GSTIN', { maxLength: 15, placeholder: '07AABCF1234K1Z5' })}
+          {field('leadTimeDays', 'Lead time (days) *', { inputMode: 'numeric', hint: 'Days from order to delivery.' })}
+        </div>
+        {field('moq', 'Minimum order quantity *', { inputMode: 'numeric' })}
+      </div>
+      <div className="modal-footer">
+        <button type="button" className="btn btn-outline" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? 'Saving…' : supplier ? 'Save changes' : 'Add supplier'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function SupplierFormModal({ supplier, open, scopeQuery, onClose, onSaved }) {
+  const modalKey = open ? `${supplier?.id || 'new'}:${supplier?.version || 0}` : 'closed';
+  return (
     <Modal open={open} id="supplierFormModal" title={supplier ? `Edit ${supplier.name}` : 'Add supplier'} onClose={onClose} maxWidth="600px">
-      <form noValidate onSubmit={submit}>
-        <div className="modal-body">
-          {serverError && <div className="form-error" style={{ display: 'block', marginBottom: '12px' }}>{serverError}</div>}
-          <div className="form-row">
-            {field('name', 'Supplier name *', { maxLength: 80 })}
-            {field('contactPerson', 'Contact person', { maxLength: 60 })}
-          </div>
-          <div className="form-row">
-            {field('mobileNo', 'Mobile *', { inputMode: 'numeric', placeholder: '10-digit mobile' })}
-            {field('email', 'Email', { maxLength: 120 })}
-          </div>
-          {field('address', 'Address', { maxLength: 200 })}
-          <div className="form-row">
-            {field('gstNo', 'GSTIN', { maxLength: 15, placeholder: '07AABCF1234K1Z5' })}
-            {field('leadTimeDays', 'Lead time (days) *', { inputMode: 'numeric', hint: 'Days from order to delivery.' })}
-          </div>
-          {field('moq', 'Minimum order quantity *', { inputMode: 'numeric' })}
-        </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-outline" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : supplier ? 'Save changes' : 'Add supplier'}
-          </button>
-        </div>
-      </form>
+      {open && <SupplierFormBody key={modalKey} supplier={supplier} scopeQuery={scopeQuery} onClose={onClose} onSaved={onSaved} />}
     </Modal>
   );
 }
 
 /** The business's real supplier records, with how many products each supplies. */
-export default function SupplierDirectory({ suppliers, canManage, onSaved, onError, openConfirm }) {
+export default function SupplierDirectory({ suppliers, canManage, scopeQuery, onSaved, onError, openConfirm }) {
+  const dispatch = useDispatch();
   const [editing, setEditing] = useState({ open: false, supplier: null });
   const [search, setSearch] = useState('');
   const q = search.trim().toLowerCase();
@@ -132,9 +150,9 @@ export default function SupplierDirectory({ suppliers, canManage, onSaved, onErr
       confirmLabel: 'Delete',
       onConfirm: async () => {
         try {
-          await api(`/suppliers/${encodeURIComponent(s.id)}`, { method: 'DELETE' });
+          await dispatch(deleteSupplierThunk(s.id)).unwrap();
         } catch (err) {
-          onError(err.message || 'Could not delete the supplier.');
+          onError(extractErrorMessage(err, 'Could not delete the supplier.'));
           return true;
         }
         onSaved(`${s.name} deleted.`);
@@ -196,6 +214,7 @@ export default function SupplierDirectory({ suppliers, canManage, onSaved, onErr
       <SupplierFormModal
         open={editing.open}
         supplier={editing.supplier}
+        scopeQuery={scopeQuery}
         onClose={() => setEditing({ open: false, supplier: null })}
         onSaved={(msg) => {
           setEditing({ open: false, supplier: null });

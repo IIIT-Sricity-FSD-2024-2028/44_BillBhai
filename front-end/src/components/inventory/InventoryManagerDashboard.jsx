@@ -1,7 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { selectActiveProducts, selectAllSuppliers } from '../../store/slices/inventorySlice.js';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchInventoryThunk,
+  fetchMovementsThunk,
+  selectActiveCatalog,
+  selectInventoryStatus,
+  selectInventoryValuation,
+  selectMovements,
+} from '../../store/slices/inventorySlice.js';
+import {
+  fetchSuppliersThunk,
+  selectSortedSuppliers,
+} from '../../store/slices/suppliersSlice.js';
 import PageHeader from '../common/PageHeader.jsx';
 import StatCard from '../common/StatCard.jsx';
 import DataTable from '../common/DataTable.jsx';
@@ -9,7 +20,6 @@ import Badge from '../common/Badge.jsx';
 import ChartCanvas from '../common/ChartCanvas.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { getInventoryMetrics } from '../../lib/dashboard/helpers.js';
-import { api } from '../../lib/http.js';
 import StockActionModal from './StockActionModal.jsx';
 import { SMALL_BTN, isBelowReorder, money, suggestedOrderQty } from './inventoryUtils.js';
 import {
@@ -60,33 +70,51 @@ const CHART_BODY_STYLE = { position: 'relative', height: '220px' };
 /** Inventory manager's start page: what is running out, what stock is worth, what moved. */
 export default function InventoryManagerDashboard() {
   const navigate = useNavigate();
-  const { inventory, suppliers, scopedBusinessName, hasActionAccess, refreshData, lastSyncedAt } = useDashboard();
+  const dispatch = useDispatch();
+  const { state: dashState, scopedBusinessName, hasActionAccess, refreshData } = useDashboard();
   const canManage = hasActionAccess('inventory');
-  const [report, setReport] = useState(null);
   const [stockRequest, setStockRequest] = useState(null);
   const [notice, setNotice] = useState('');
 
-  useEffect(() => {
-    let alive = true;
-    api('/reports/inventory')
-      .then((r) => alive && setReport(r))
-      .catch(() => alive && setReport(null));
-    return () => {
-      alive = false;
-    };
-  }, [lastSyncedAt]);
+  const active = useSelector(selectActiveCatalog);
+  const effectiveSuppliers = useSelector(selectSortedSuppliers);
+  const inventoryStatus = useSelector(selectInventoryStatus);
+  const valuation = useSelector(selectInventoryValuation);
+  const movements = useSelector(selectMovements);
 
-  const reduxActive = useSelector(selectActiveProducts);
-  const reduxSuppliers = useSelector(selectAllSuppliers);
-  const active = reduxActive.length ? reduxActive : inventory.filter((i) => i.active);
-  const effectiveSuppliers = reduxSuppliers.length ? reduxSuppliers : suppliers;
-  const metrics = getInventoryMetrics(active);
+  const scopeQuery = useMemo(() => {
+    const bizId = String(dashState.activeBusinessId || '').trim();
+    return dashState.roleKey === 'superuser' && bizId && bizId !== 'PLATFORM' ? { companyId: bizId } : undefined;
+  }, [dashState.roleKey, dashState.activeBusinessId]);
+
+  useEffect(() => {
+    dispatch(fetchInventoryThunk(scopeQuery));
+    if (canManage) {
+      dispatch(fetchSuppliersThunk(scopeQuery));
+      dispatch(fetchMovementsThunk({ ...scopeQuery, limit: 300 }));
+    }
+  }, [dispatch, canManage, scopeQuery]);
+
+  const metrics = useMemo(() => getInventoryMetrics(active), [active]);
   const lowCritical = metrics.lowStock + metrics.critical;
-  const needing = active.filter(isBelowReorder);
-  const reorderRows = needing
-    .slice()
-    .sort((a, b) => a.stock / Math.max(1, a.reorderLevel) - b.stock / Math.max(1, b.reorderLevel))
-    .slice(0, 10);
+  const needing = useMemo(() => active.filter(isBelowReorder), [active]);
+  const reorderRows = useMemo(
+    () =>
+      needing
+        .slice()
+        .sort((a, b) => a.stock / Math.max(1, a.reorderLevel) - b.stock / Math.max(1, b.reorderLevel))
+        .slice(0, 10),
+    [needing],
+  );
+  const movementsByType = useMemo(
+    () =>
+      movements.reduce((acc, m) => {
+        const key = m?.type || 'other';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {}),
+    [movements],
+  );
   const signature = active.map((i) => `${i.productId}:${i.stock}`).join('|');
 
   return (
@@ -119,12 +147,12 @@ export default function InventoryManagerDashboard() {
         <StatCard
           icon={ICONS.units}
           label="Stock value (at cost)"
-          value={report ? money(Math.round(report.stockValueAtCost)) : '…'}
+          value={inventoryStatus === 'succeeded' ? money(Math.round(valuation.costValue)) : '…'}
           color="green"
         >
           <span className="text-sm text-muted">
             {metrics.totalUnits.toLocaleString('en-IN')} units
-            {report ? ` · ${money(Math.round(report.stockValueAtPrice))} at selling price` : ''}
+            {inventoryStatus === 'succeeded' ? ` · ${money(Math.round(valuation.retailValue))} at selling price` : ''}
           </span>
         </StatCard>
         <StatCard icon={ICONS.low} label="Low + Critical" value={lowCritical} color="amber" />
@@ -202,17 +230,17 @@ export default function InventoryManagerDashboard() {
           />
         </div>
       </section>
-      {report && (
+      {movements.length > 0 && (
         <section className="card">
           <div className="card-hd">
             <h3>Stock movements by type</h3>
           </div>
           <div className="card-bd" style={CHART_BODY_STYLE}>
             <ChartCanvas
-              key={JSON.stringify(report.movementsByType)}
+              key={JSON.stringify(movementsByType)}
               id="invMgrMovesChart"
               type="bar"
-              data={() => buildMovementTypeData(report.movementsByType)}
+              data={() => buildMovementTypeData(movementsByType)}
             />
           </div>
         </section>
@@ -224,6 +252,8 @@ export default function InventoryManagerDashboard() {
         onSaved={(message) => {
           setStockRequest(null);
           setNotice(message);
+          dispatch(fetchInventoryThunk(scopeQuery));
+          if (canManage) dispatch(fetchMovementsThunk({ ...scopeQuery, limit: 300 }));
           refreshData();
         }}
       />

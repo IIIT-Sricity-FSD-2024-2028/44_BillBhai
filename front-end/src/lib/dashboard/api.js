@@ -1,6 +1,7 @@
 import { api, errorText } from '../http.js';
 import { formatBackendDate, normalizeBusinessRecord, cloneRows } from './helpers.js';
 import { normalizeRole } from './session.js';
+import { mapInventoryRow } from '../../repositories/inventoryRepo.js';
 
 export function normalizeBackendRole(role) {
   const key = normalizeRole(role);
@@ -118,36 +119,7 @@ export function mapOrderRow(order) {
   };
 }
 
-export function mapInventoryRow(row) {
-  return {
-    sku: String(row.productId || ''),
-    inventoryId: String(row.id || ''),
-    productId: String(row.productId || ''),
-    version: row.version,
-    productVersion: row.productVersion,
-    name: String(row.productName || row.productId || ''),
-    cat: String(row.category || 'Uncategorized'),
-    supplier: String(row.supplierName || ''),
-    supplierId: String(row.supplierId || ''),
-    supplierContact: String(row.supplierContact || ''),
-    supplierPhone: String(row.supplierPhone || ''),
-    supplierEmail: String(row.supplierEmail || ''),
-    leadTimeDays: row.leadTimeDays,
-    moq: row.moq,
-    stock: Math.max(0, Number(row.stockAvailable) || 0),
-    price: Number(row.price) || 0,
-    costPrice: row.costPrice,
-    gstRate: Number(row.gstRate) || 0,
-    barcode: String(row.barcode || ''),
-    size: String(row.size || ''),
-    active: row.active !== false,
-    status: String(row.status || 'In Stock'),
-    reorderLevel: Math.max(0, Number(row.reorderLevel) || 0),
-    location: String(row.location || ''),
-    lastUpdated: row.lastUpdated,
-    updatedBy: row.updatedBy,
-  };
-}
+export { mapInventoryRow };
 
 export function mapDeliveryRow(d) {
   const history = Array.isArray(d.history) ? d.history : [];

@@ -1,40 +1,60 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import DataTable from '../common/DataTable.jsx';
-import { api } from '../../lib/http.js';
+import {
+  fetchMovementsThunk,
+  selectMovements,
+  selectMovementsStatus,
+} from '../../store/slices/inventorySlice.js';
+import {
+  fetchProductActivityThunk,
+  selectActivityByProduct,
+} from '../../store/slices/productsSlice.js';
+import { extractErrorMessage } from '../../store/thunkUtils.js';
 import { MOVEMENT_LABELS, dateTime } from './inventoryUtils.js';
 
-/** Stock ledger and change history (price, supplier, …) of one product. */
-export default function StockHistoryModal({ item, onClose }) {
+function StockHistoryBody({ item, canManage, scopeQuery, onClose }) {
+  const dispatch = useDispatch();
+  const allMovements = useSelector(selectMovements);
+  const movementsStatus = useSelector(selectMovementsStatus);
+  const activityByProduct = useSelector(selectActivityByProduct);
   const [tab, setTab] = useState('stock');
-  const [moves, setMoves] = useState(null);
-  const [activity, setActivity] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!item) return undefined;
-    let alive = true;
-    setTab('stock');
-    setMoves(null);
-    setActivity(null);
-    setError('');
-    Promise.all([
-      api('/inventory/movements', { query: { productId: item.productId, limit: 100 } }),
-      api('/activity', { query: { entity: 'product', entityId: item.productId, limit: 50 } }).catch(() => []),
-    ])
-      .then(([m, a]) => {
-        if (!alive) return;
-        setMoves(Array.isArray(m) ? m : []);
-        setActivity(Array.isArray(a) ? a : []);
-      })
-      .catch((err) => alive && setError(err.message || 'Could not load the history.'));
+    let active = true;
+    const jobs = [
+      dispatch(fetchProductActivityThunk({ productId: item.productId, query: scopeQuery }))
+        .unwrap()
+        .catch(() => []),
+    ];
+    if (canManage) {
+      jobs.push(
+        dispatch(fetchMovementsThunk({ ...scopeQuery, productId: item.productId, limit: 100 }))
+          .unwrap()
+          .then(() => {
+            if (active) setError('');
+          })
+          .catch((err) => {
+            if (active) setError(extractErrorMessage(err, 'Could not load the history.'));
+          }),
+      );
+    }
+    Promise.all(jobs);
     return () => {
-      alive = false;
+      active = false;
     };
-  }, [item]);
+  }, [dispatch, item, canManage, scopeQuery]);
+
+  const moves = useMemo(
+    () => allMovements.filter((m) => String(m.productId) === String(item.productId)),
+    [allMovements, item.productId],
+  );
+  const activity = activityByProduct[item.productId] || [];
 
   return (
-    <Modal open={Boolean(item)} id="stockHistoryModal" title={item ? `History — ${item.name} (${item.productId})` : ''} onClose={onClose} maxWidth="860px">
+    <>
       <div className="modal-body">
         <div className="chart-tabs" style={{ marginBottom: '12px' }}>
           <button type="button" className={tab === 'stock' ? 'chart-tab active' : 'chart-tab'} onClick={() => setTab('stock')}>
@@ -45,8 +65,8 @@ export default function StockHistoryModal({ item, onClose }) {
           </button>
         </div>
         {error && <div className="form-error" style={{ display: 'block' }}>{error}</div>}
-        {!error && moves === null && <p className="text-muted">Loading…</p>}
-        {tab === 'stock' && moves && (
+        {!error && movementsStatus === 'loading' && <p className="text-muted">Loading…</p>}
+        {tab === 'stock' && (!canManage || movementsStatus !== 'loading') && (
           <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
             <DataTable
               columns={[
@@ -66,11 +86,11 @@ export default function StockHistoryModal({ item, onClose }) {
               ]}
               rows={moves}
               getRowKey={(m) => m.id}
-              emptyMessage="No stock movements yet."
+              emptyMessage={canManage ? 'No stock movements yet.' : 'Stock movement logs require manager access.'}
             />
           </div>
         )}
-        {tab === 'changes' && activity && (
+        {tab === 'changes' && (
           <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
             <DataTable
               columns={[
@@ -90,6 +110,15 @@ export default function StockHistoryModal({ item, onClose }) {
           Close
         </button>
       </div>
+    </>
+  );
+}
+
+/** Stock ledger and change history (price, supplier, …) of one product. */
+export default function StockHistoryModal({ item, canManage = true, scopeQuery, onClose }) {
+  return (
+    <Modal open={Boolean(item)} id="stockHistoryModal" title={item ? `History — ${item.name} (${item.productId})` : ''} onClose={onClose} maxWidth="860px">
+      {item && <StockHistoryBody key={item.productId} item={item} canManage={canManage} scopeQuery={scopeQuery} onClose={onClose} />}
     </Modal>
   );
 }

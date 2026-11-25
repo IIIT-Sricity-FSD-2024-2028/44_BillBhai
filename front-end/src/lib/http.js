@@ -13,7 +13,13 @@
  * http://localhost:4000/api.
  */
 
-export const API_BASE_URL = String(import.meta.env?.VITE_API_URL || 'http://localhost:4000/api').replace(/\/$/, '');
+import { notifyUnauthorized } from '../store/storeBridge.js';
+
+export const API_BASE_URL = String(
+  import.meta.env?.VITE_API_URL ||
+    (typeof process !== 'undefined' ? process.env?.VITE_API_URL : '') ||
+    'http://localhost:4000/api',
+).replace(/\/$/, '');
 
 const TOKEN_KEY = 'bb_auth_token';
 
@@ -55,8 +61,16 @@ export function clearStoredSession() {
   });
 }
 
+let redirecting = false;
+
+/** Resets the 401 redirect guard (called on new sign-in and in isolated tests). */
+export function resetRedirectGuard() {
+  redirecting = false;
+}
+
 /** Saves what POST /auth/login returned. */
 export function storeLoginSession(session) {
+  resetRedirectGuard();
   const role = String(session.role || '').toLowerCase();
   setAuthToken(session.accessToken);
   localStorage.setItem('userRole', role);
@@ -93,16 +107,15 @@ function toQuery(query) {
   return text ? `?${text}` : '';
 }
 
-let redirecting = false;
-
 /**
  * api('/orders', { method: 'POST', body, query })
  * Resolves with the parsed JSON body. Rejects with Error { status, details }.
  */
 export async function api(path, options = {}) {
   const method = String(options.method || 'GET').toUpperCase();
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = { Accept: 'application/json' };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (options.body !== undefined && !isFormData) headers['Content-Type'] = 'application/json';
   const token = getAuthToken();
   if (token && !options.anonymous) headers.Authorization = `Bearer ${token}`;
 
@@ -112,7 +125,7 @@ export async function api(path, options = {}) {
       method,
       headers,
       cache: 'no-store',
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      body: options.body !== undefined ? (isFormData ? options.body : JSON.stringify(options.body)) : undefined,
     });
   } catch (cause) {
     const error = new Error(`Cannot reach the BillBhai server at ${API_BASE_URL}. Is the backend running?`);
@@ -130,11 +143,16 @@ export async function api(path, options = {}) {
     const error = new Error(message);
     error.status = response.status;
     error.details = payload && typeof payload === 'object' ? payload.details : undefined;
-    if (response.status === 401 && !options.anonymous && !redirecting && typeof window !== 'undefined') {
+    if (response.status === 401 && !options.anonymous && !redirecting) {
       redirecting = true;
       clearStoredSession();
-      if (!window.location.pathname.startsWith('/login')) {
-        window.location.assign(`/login?expired=1`);
+      notifyUnauthorized();
+      if (typeof window !== 'undefined' && window.location && !String(window.location.pathname || '').startsWith('/login')) {
+        try {
+          window.location.assign('/login?expired=1');
+        } catch {
+          /* jsdom test environments do not implement window.location.assign */
+        }
       }
     }
     throw error;

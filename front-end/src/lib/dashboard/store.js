@@ -4,7 +4,9 @@ import { apiRequest, fetchOperationalData, mutationErrorMessage, setApiActiveRol
 import { API_BASE_URL } from '../http.js';
 import { formatCurrency } from '../currency.js';
 import { getAppStore } from '../../store/storeBridge.js';
-import { fetchInventoryThunk } from '../../store/slices/inventorySlice.js';
+import { fetchInventoryThunk, fetchLowStockThunk } from '../../store/slices/inventorySlice.js';
+import { fetchProductsThunk } from '../../store/slices/productsSlice.js';
+import { fetchSuppliersThunk } from '../../store/slices/suppliersSlice.js';
 import { setCurrency } from '../../store/slices/uiSlice.js';
 import {
   writeNotificationReadState,
@@ -519,6 +521,31 @@ async function loadOperationalDataFromBackend(gen) {
   }
 }
 
+const INVENTORY_READERS = ['superuser', 'admin', 'inventorymanager', 'cashier', 'returnhandler'];
+const INVENTORY_MANAGERS = ['superuser', 'admin', 'inventorymanager'];
+
+function syncReduxCatalogSlices() {
+  try {
+    const store = getAppStore();
+    if (!store) return;
+    const companyId = String(state.activeBusinessId || '').trim();
+    const scopeQuery =
+      state.roleKey === 'superuser' && companyId && companyId !== 'PLATFORM'
+        ? { companyId }
+        : undefined;
+    if (INVENTORY_READERS.includes(state.roleKey)) {
+      store.dispatch(fetchInventoryThunk(scopeQuery));
+      store.dispatch(fetchProductsThunk({ includeInactive: 'true', ...scopeQuery }));
+    }
+    if (INVENTORY_MANAGERS.includes(state.roleKey)) {
+      store.dispatch(fetchSuppliersThunk(scopeQuery));
+      store.dispatch(fetchLowStockThunk(scopeQuery));
+    }
+  } catch {
+    /* store optional in isolated tests */
+  }
+}
+
 let refreshing = null;
 
 /**
@@ -528,9 +555,7 @@ let refreshing = null;
  * reports a change.
  */
 export function refreshData() {
-  try {
-    getAppStore()?.dispatch(fetchInventoryThunk());
-  } catch { }
+  syncReduxCatalogSlices();
   if (state.status !== 'ready') return Promise.resolve(false);
   if (refreshing) return refreshing;
   const gen = generation;
@@ -595,9 +620,7 @@ export function beginPageSession(boot, { onReady } = {}) {
     state = { ...state, status: 'ready' };
     emit();
     if (onReady) onReady();
-    try {
-      getAppStore()?.dispatch(fetchInventoryThunk());
-    } catch { }
+    syncReduxCatalogSlices();
   })();
 
   return () => {

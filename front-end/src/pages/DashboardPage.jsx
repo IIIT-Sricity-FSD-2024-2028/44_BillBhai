@@ -51,7 +51,7 @@ const OPEN_DELIVERY = ['Pending', 'Assigned', 'Dispatched', 'Out for Delivery', 
 const OPEN_RETURN = ['Pending', 'Approved'];
 
 function AdminDashboard() {
-  const { orders, returns, inventory, deliveries, scopedBusinessName, syncError } = useDashboard();
+  const { orders, returns, deliveries, scopedBusinessName, syncError } = useDashboard();
   const [trendDays, setTrendDays] = useState(7);
   const today = useMemo(() => rangePreset('today'), []);
   const month = useMemo(() => rangePreset('30d'), []);

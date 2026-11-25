@@ -1,41 +1,58 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import DataTable from '../common/DataTable.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
-import { api } from '../../lib/http.js';
+import {
+  fetchMovementsThunk,
+  selectMovements,
+  selectMovementsStatus,
+} from '../../store/slices/inventorySlice.js';
+import { extractErrorMessage } from '../../store/thunkUtils.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { MOVEMENT_LABELS, dateTime } from './inventoryUtils.js';
 
 const TYPE_OPTIONS = [{ value: 'all', label: 'All types' }, ...Object.entries(MOVEMENT_LABELS).map(([value, label]) => ({ value, label }))];
 
 /** Every stock change in the business: sales, returns, deliveries received, adjustments. */
-export default function MovementsPanel({ inventory }) {
+export default function MovementsPanel({ inventory, canManage = true, scopeQuery }) {
+  const dispatch = useDispatch();
   const { lastSyncedAt } = useDashboard();
+  const rows = useSelector(selectMovements);
+  const status = useSelector(selectMovementsStatus);
   const [type, setType] = useState('all');
   const [search, setSearch] = useState('');
-  const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let alive = true;
-    api('/inventory/movements', { query: { type: type === 'all' ? undefined : type, limit: 300 } })
-      .then((data) => {
-        if (alive) {
-          setRows(Array.isArray(data) ? data : []);
-          setError('');
-        }
+    if (!canManage) return undefined;
+    let active = true;
+    dispatch(
+      fetchMovementsThunk({
+        ...scopeQuery,
+        type: type === 'all' ? undefined : type,
+        limit: 300,
+      }),
+    )
+      .unwrap()
+      .then(() => {
+        if (active) setError('');
       })
-      .catch((err) => alive && setError(err.message || 'Could not load stock movements.'));
+      .catch((err) => {
+        if (active) setError(extractErrorMessage(err, 'Could not load stock movements.'));
+      });
     return () => {
-      alive = false;
+      active = false;
     };
-  }, [type, lastSyncedAt]);
+  }, [dispatch, canManage, scopeQuery, type, lastSyncedAt]);
 
-  const nameOf = new Map(inventory.map((i) => [i.productId, i.name]));
-  const q = search.trim().toLowerCase();
-  const visible = (rows || []).filter((m) => {
-    if (!q) return true;
-    return `${m.productId} ${nameOf.get(m.productId) || ''} ${m.reason} ${m.by} ${m.refId || ''}`.toLowerCase().includes(q);
-  });
+  const nameOf = useMemo(() => new Map(inventory.map((i) => [i.productId, i.name])), [inventory]);
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((m) => {
+      if (!q) return true;
+      return `${m.productId} ${nameOf.get(m.productId) || ''} ${m.reason} ${m.by} ${m.refId || ''}`.toLowerCase().includes(q);
+    });
+  }, [rows, search, nameOf]);
 
   return (
     <section className="card">
@@ -52,10 +69,11 @@ export default function MovementsPanel({ inventory }) {
         </div>
       </FilterToolbar>
       <div className="card-bd">
-        {error && <div className="form-error" style={{ display: 'block' }}>{error}</div>}
-        {!error && rows === null ? (
+        {!canManage && <p className="text-muted">Stock movement logs require manager access.</p>}
+        {canManage && error && <div className="form-error" style={{ display: 'block' }}>{error}</div>}
+        {canManage && !error && status === 'loading' ? (
           <p className="text-muted">Loading…</p>
-        ) : (
+        ) : canManage ? (
           <div>
             <DataTable
               columns={[
@@ -78,7 +96,7 @@ export default function MovementsPanel({ inventory }) {
               emptyMessage="No stock movements match."
             />
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   );

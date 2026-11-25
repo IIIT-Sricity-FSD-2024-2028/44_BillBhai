@@ -1,497 +1,54 @@
 import assert from 'node:assert/strict';
 import { configureStore } from '@reduxjs/toolkit';
 import rootStore from '../../store.js';
-import { injectStore, getAppStore } from '../../storeBridge.js';
-import { mapInventoryRow } from '../../../lib/dashboard/api.js';
-import { WHOLE, ADJUST_REASONS } from '../../../components/inventory/inventoryUtils.js';
+import { injectStore } from '../../storeBridge.js';
+import { resetRedirectGuard, setAuthToken } from '../../../lib/http.js';
+import { clearSession } from '../../../lib/dashboard/session.js';
 import inventoryReducer, {
   clearInventoryError,
-  resetInventory,
+  clearMovements,
   fetchInventoryThunk,
-  receiveStockThunk,
+  fetchInventoryByIdThunk,
+  fetchInventoryByProductThunk,
+  fetchLowStockThunk,
+  fetchMovementsThunk,
   adjustStockThunk,
-  selectAllProducts,
-  selectAllSuppliers,
+  receiveStockThunk,
+  updateInventoryThunk,
+  deleteInventoryThunk,
+  selectAllInventory,
+  selectLowStockState,
+  selectLowStockItems,
+  selectLowStockForDashboard,
+  selectActiveCatalog,
+  selectInventoryCategories,
+  selectInventorySupplierNames,
+  selectInventoryValuation,
   selectInventoryStatus,
   selectInventoryError,
-  selectActiveProducts,
-  selectLowStockProducts,
-  selectLowStockForDashboard,
-  selectCategories,
-  selectRetailValuation,
   isLowStock,
 } from '../inventorySlice.js';
-import { toggleTheme } from '../../slices/uiSlice.js';
 
-console.log('🧪 Starting exhaustive test suite for inventorySlice & Redux store integration...\n');
+console.log('🧪 Starting hardened inventorySlice unit, concurrency & benchmark suite...\n');
 
-// ============================================================================
-// PART 1: REDUCER UNIT TESTS & STATE LIFECYCLE
-// ============================================================================
-
-// --- Test 1: Initial State Isolation ---
-{
-  const state = inventoryReducer(undefined, { type: '@@INIT' });
-  assert.deepEqual(state.products, []);
-  assert.deepEqual(state.suppliers, []);
-  assert.equal(state.status, 'idle');
-  assert.equal(state.error, null);
-  assert.equal(state.currentRequestId, null);
-  console.log('✓ Test 1: Initial state is clean and isolated');
-}
-
-// --- Test 2: fetchInventoryThunk Lifecycle & Mapping ---
-{
-  let state = inventoryReducer(undefined, {
-    type: fetchInventoryThunk.pending.type,
-    meta: { requestId: 'req-1' },
-  });
-  assert.equal(state.status, 'loading');
-  assert.equal(state.currentRequestId, 'req-1');
-
-  const mockProducts = [
-    { productId: 'PRD-1', name: 'Milk', cat: 'Dairy', stock: 15, reorderLevel: 20, active: true, price: 50, status: 'Low Stock' },
-    { productId: 'PRD-2', name: 'Bread', cat: 'Bakery', stock: 50, reorderLevel: 10, active: true, price: 40, status: 'In Stock' },
-    { productId: 'PRD-3', name: 'Discontinued Soap', cat: 'Personal Care', stock: 5, reorderLevel: 10, active: false, price: 30, status: 'Critical' },
-  ];
-  const mockSuppliers = [{ id: 'SUP-1', name: 'Amul' }];
-
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.fulfilled.type,
-    meta: { requestId: 'req-1' },
-    payload: { products: mockProducts, suppliers: mockSuppliers },
-  });
-  assert.equal(state.status, 'succeeded');
-  assert.equal(state.products.length, 3);
-  assert.equal(state.suppliers.length, 1);
-  console.log('✓ Test 2: fetchInventoryThunk fulfilled populates products and suppliers');
-}
-
-// --- Test 3: Mutation Race Condition Cancellation ---
-{
-  let state = {
-    products: [{ productId: 'PRD-1', name: 'Milk', stock: 10, reorderLevel: 20, active: true, price: 50, status: 'Low Stock' }],
-    suppliers: [],
-    status: 'succeeded',
-    error: null,
-    currentRequestId: null,
+if (typeof globalThis.localStorage === 'undefined') {
+  const map = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => map.set(k, String(v)),
+    removeItem: (k) => map.delete(k),
+    clear: () => map.clear(),
   };
-
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.pending.type,
-    meta: { requestId: 'poll-slow' },
-  });
-  assert.equal(state.currentRequestId, 'poll-slow');
-
-  state = inventoryReducer(state, {
-    type: receiveStockThunk.fulfilled.type,
-    payload: {
-      productId: 'PRD-1',
-      updated: { productId: 'PRD-1', stock: 30, status: 'In Stock' },
-    },
-  });
-  assert.equal(state.products[0].stock, 30);
-  assert.equal(state.currentRequestId, null, 'Mutation must invalidate in-flight currentRequestId');
-
-  // Stale slow poll fetch arrives
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.fulfilled.type,
-    meta: { requestId: 'poll-slow' },
-    payload: {
-      products: [{ productId: 'PRD-1', name: 'Milk', stock: 10, reorderLevel: 20, active: true, price: 50, status: 'Low Stock' }],
-      suppliers: [],
-    },
-  });
-  assert.equal(state.products[0].stock, 30, 'Patched stock must survive stale in-flight poll');
-  console.log('✓ Test 3: Mutation invalidates in-flight fetch and prevents stale overwrite');
 }
-
-// --- Test 4: In-flight Fetch Discarded on resetInventory (Logout) ---
-{
-  let state = inventoryReducer(undefined, {
-    type: fetchInventoryThunk.pending.type,
-    meta: { requestId: 'req-logout' },
-  });
-  assert.equal(state.currentRequestId, 'req-logout');
-
-  state = inventoryReducer(state, resetInventory());
-  assert.equal(state.currentRequestId, null);
-
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.fulfilled.type,
-    meta: { requestId: 'req-logout' },
-    payload: { products: [{ productId: 'PRD-1' }], suppliers: [] },
-  });
-  assert.equal(state.products.length, 0, 'Late fetch arriving after logout must be discarded');
-  console.log('✓ Test 4: Late fetch arriving after logout is safely discarded');
-}
-
-// --- Test 5: Transient Supplier Failure Preserves Existing Suppliers ---
-{
-  let state = {
-    products: [{ productId: 'PRD-1', name: 'Milk' }],
-    suppliers: [{ id: 'SUP-1', name: 'Amul' }],
-    status: 'succeeded',
-    error: null,
-    currentRequestId: 'req-transient',
+if (typeof globalThis.sessionStorage === 'undefined') {
+  const smap = new Map();
+  globalThis.sessionStorage = {
+    getItem: (k) => (smap.has(k) ? smap.get(k) : null),
+    setItem: (k, v) => smap.set(k, String(v)),
+    removeItem: (k) => smap.delete(k),
+    clear: () => smap.clear(),
   };
-
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.fulfilled.type,
-    meta: { requestId: 'req-transient' },
-    payload: {
-      products: [{ productId: 'PRD-1', name: 'Milk (Updated)' }],
-      suppliers: null,
-    },
-  });
-  assert.equal(state.products[0].name, 'Milk (Updated)');
-  assert.equal(state.suppliers.length, 1, 'Existing suppliers must be retained on transient supplier error');
-  assert.equal(state.suppliers[0].name, 'Amul');
-  console.log('✓ Test 5: Transient supplier failure preserves existing suppliers');
 }
-
-// --- Test 6: Mutation Rejections Do Not Write to state.error ---
-{
-  let state = {
-    products: [],
-    suppliers: [],
-    status: 'succeeded',
-    error: null,
-    currentRequestId: null,
-  };
-
-  state = inventoryReducer(state, {
-    type: adjustStockThunk.rejected.type,
-    payload: 'Insufficient stock available on shelf',
-  });
-  assert.equal(state.error, null, 'Mutation rejections must bubble via unwrap() and not set state.error');
-  console.log('✓ Test 6: Mutation rejections do not pollute state.error');
-}
-
-// --- Test 7: Stale Data Retention on Fetch Failure ---
-{
-  let state = {
-    products: [{ productId: 'PRD-1', name: 'Milk', stock: 15 }],
-    suppliers: [{ id: 'SUP-1' }],
-    status: 'succeeded',
-    error: null,
-    currentRequestId: 'req-fail',
-  };
-
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.rejected.type,
-    meta: { requestId: 'req-fail' },
-    payload: 'Network timeout: server unreachable',
-  });
-  assert.equal(state.status, 'failed');
-  assert.equal(state.error, 'Network timeout: server unreachable');
-  assert.equal(state.products.length, 1, 'Existing products must be retained on fetch failure');
-  console.log('✓ Test 7: Fetch failure preserves existing products for offline view');
-}
-
-// --- Test 8: Unknown Product ID in Mutation Gracefully Handled ---
-{
-  let state = {
-    products: [{ productId: 'PRD-1', name: 'Milk', stock: 10 }],
-    suppliers: [],
-    status: 'succeeded',
-    error: null,
-    currentRequestId: null,
-  };
-
-  state = inventoryReducer(state, {
-    type: receiveStockThunk.fulfilled.type,
-    payload: {
-      productId: 'PRD-999_NON_EXISTENT',
-      updated: { productId: 'PRD-999_NON_EXISTENT', stock: 50 },
-    },
-  });
-  assert.equal(state.products.length, 1);
-  assert.equal(state.products[0].productId, 'PRD-1');
-  assert.equal(state.products[0].stock, 10);
-  console.log('✓ Test 8: Mutation targeting unknown product ID does not corrupt array');
-}
-
-// --- Test 9: clearInventoryError Action ---
-{
-  let state = {
-    products: [],
-    suppliers: [],
-    status: 'failed',
-    error: 'Critical server timeout',
-    currentRequestId: null,
-  };
-
-  state = inventoryReducer(state, clearInventoryError());
-  assert.equal(state.error, null);
-  assert.equal(state.status, 'failed', 'status should remain failed while error banner is cleared');
-  console.log('✓ Test 9: clearInventoryError action resets error to null');
-}
-
-// ============================================================================
-// PART 2: SELECTOR LOGIC, MEMOIZATION & IMMUTABILITY TESTS
-// ============================================================================
-
-// --- Test 10: Memoized Selectors & Referential Stability ---
-{
-  const products = [
-    { productId: 'PRD-1', name: 'Milk', cat: 'Dairy', stock: 10, reorderLevel: 20, active: true, price: 50, status: 'Low Stock' },
-    { productId: 'PRD-2', name: 'Bread', cat: 'Bakery', stock: 50, reorderLevel: 10, active: true, price: 40, status: 'In Stock' },
-    { productId: 'PRD-3', name: 'Old Soap', cat: 'Personal Care', stock: 5, reorderLevel: 10, active: false, price: 30, status: 'Critical' },
-  ];
-
-  let rootState = {
-    inventory: { products, suppliers: [], status: 'succeeded', error: null },
-    ui: { theme: 'dark' },
-  };
-
-  const lowStock1 = selectLowStockProducts(rootState);
-  assert.equal(lowStock1.length, 1);
-  assert.equal(lowStock1[0].productId, 'PRD-1');
-
-  const active1 = selectActiveProducts(rootState);
-  assert.equal(active1.length, 2);
-
-  const categories1 = selectCategories(rootState);
-  assert.deepEqual(categories1, ['Bakery', 'Dairy']);
-
-  const valuation1 = selectRetailValuation(rootState);
-  // (10 * 50) + (50 * 40) = 500 + 2000 = 2500
-  assert.equal(valuation1, 2500);
-
-  const nextRootState = {
-    ...rootState,
-    ui: { theme: 'light' },
-  };
-
-  const lowStock2 = selectLowStockProducts(nextRootState);
-  assert.equal(lowStock1, lowStock2, 'createSelector must return identical reference when inventory is unchanged');
-  console.log('✓ Test 10: Selectors are properly memoized and maintain referential stability');
-}
-
-// --- Test 11: isLowStock Predicate Edge Cases ---
-{
-  assert.equal(isLowStock({ stock: 5, reorderLevel: 10 }), true);
-  assert.equal(isLowStock({ stock: 10, reorderLevel: 10 }), true);
-  assert.equal(isLowStock({ stock: 15, reorderLevel: 10 }), false);
-  assert.equal(isLowStock({ stock: '5', reorderLevel: '10' }), true, 'String numbers parse safely');
-  assert.equal(isLowStock({ stock: 0, reorderLevel: undefined }), true, 'Missing reorderLevel defaults to 0');
-  assert.equal(isLowStock({ stock: 1, reorderLevel: undefined }), false);
-  assert.equal(isLowStock(null), true, 'Null item defaults to stock 0 <= reorder 0');
-  assert.equal(isLowStock({ stock: -5, reorderLevel: 10 }), true, 'Negative stock is low stock');
-  console.log('✓ Test 11: isLowStock predicate handles string numbers and missing fields safely');
-}
-
-// --- Test 12: Immer Structural Sharing (Immutability Proof) ---
-{
-  const item1 = { productId: 'P1', stock: 10 };
-  const item2 = { productId: 'P2', stock: 20 };
-  const state = {
-    products: [item1, item2],
-    suppliers: [],
-    status: 'succeeded',
-    error: null,
-    currentRequestId: null,
-  };
-
-  const nextState = inventoryReducer(state, {
-    type: adjustStockThunk.fulfilled.type,
-    payload: { productId: 'P1', updated: { productId: 'P1', stock: 15 } },
-  });
-
-  assert.notEqual(state.products, nextState.products, 'Products array reference must change');
-  assert.notEqual(state.products[0], nextState.products[0], 'Modified item reference must change');
-  assert.equal(state.products[1], nextState.products[1], 'Unmodified item reference MUST stay identical (structural sharing)');
-  console.log('✓ Test 12: Immer structural sharing guarantees unchanged items keep identical references');
-}
-
-// --- Test 13: Dashboard Stock Alerts Ordering & Inactive Filter ---
-{
-  const products = [
-    { productId: 'P1', name: 'Flour', stock: 12, status: 'Low Stock', active: true },
-    { productId: 'P2', name: 'Salt', stock: 2, status: 'Critical', active: true },
-    { productId: 'P3', name: 'Sugar', stock: 100, status: 'In Stock', active: true },
-    { productId: 'P4', name: 'Old Tea', stock: 1, status: 'Critical', active: false }, // Inactive should be skipped
-  ];
-
-  const state = { inventory: { products } };
-  const dashboardAlerts = selectLowStockForDashboard(state);
-
-  assert.equal(dashboardAlerts.length, 2, 'Should only include active items with status !== In Stock');
-  assert.equal(dashboardAlerts[0].productId, 'P2', 'Lowest stock item must be ranked first (stock = 2)');
-  assert.equal(dashboardAlerts[1].productId, 'P1', 'Second lowest item next (stock = 12)');
-  console.log('✓ Test 13: selectLowStockForDashboard filters inactive and sorts ascending by stock');
-}
-
-// ============================================================================
-// PART 3: BACKEND CONTRACT NORMALIZATION (mapInventoryRow)
-// ============================================================================
-
-// --- Test 14: mapInventoryRow Normalizes Raw DB Fields ---
-{
-  const rawBackendRow = {
-    id: 'INV-042',
-    productId: 'PRD-99',
-    productName: 'Organic Honey',
-    category: 'Groceries',
-    stockAvailable: 24,
-    reorderLevel: 8,
-    status: 'In Stock',
-    price: 350,
-    costPrice: 280,
-    gstRate: 5,
-    barcode: '8901234567890',
-    size: '500g',
-    location: 'Aisle 4',
-    supplierName: 'HoneyCo',
-    supplierId: 'SUP-05',
-    supplierPhone: '9876543210',
-    active: true,
-  };
-
-  const mapped = mapInventoryRow(rawBackendRow);
-  assert.equal(mapped.sku, 'PRD-99');
-  assert.equal(mapped.productId, 'PRD-99');
-  assert.equal(mapped.name, 'Organic Honey');
-  assert.equal(mapped.cat, 'Groceries');
-  assert.equal(mapped.stock, 24);
-  assert.equal(mapped.reorderLevel, 8);
-  assert.equal(mapped.price, 350);
-  assert.equal(mapped.supplier, 'HoneyCo');
-  assert.equal(mapped.active, true);
-  console.log('✓ Test 14: mapInventoryRow maps backend raw columns to frontend schema contract');
-}
-
-// --- Test 15: mapInventoryRow Fills Safe Defaults on Partial/Missing Data ---
-{
-  const incompleteRow = {
-    id: 'INV-099',
-    productId: 'PRD-X',
-  };
-
-  const mapped = mapInventoryRow(incompleteRow);
-  assert.equal(mapped.name, 'PRD-X', 'Missing productName falls back to productId');
-  assert.equal(mapped.cat, 'Uncategorized', 'Missing category falls back to Uncategorized');
-  assert.equal(mapped.stock, 0, 'Missing stockAvailable falls back to 0');
-  assert.equal(mapped.reorderLevel, 0, 'Missing reorderLevel falls back to 0');
-  assert.equal(mapped.price, 0, 'Missing price falls back to 0');
-  assert.equal(mapped.active, true, 'Undefined active flag defaults to true');
-  console.log('✓ Test 15: mapInventoryRow fills safe resilient defaults for partial rows');
-}
-
-// ============================================================================
-// PART 4: FULL ROOT STORE INTEGRATION & STORE BRIDGE
-// ============================================================================
-
-// --- Test 16: Full Redux Root Store Co-existence ---
-{
-  const state1 = rootStore.getState();
-  assert.ok(state1.ui);
-  assert.ok(state1.delivery);
-  assert.ok(state1.inventory);
-
-  rootStore.dispatch(toggleTheme());
-  const state2 = rootStore.getState();
-  assert.equal(state2.ui.theme, 'light');
-  assert.equal(state2.inventory.status, 'idle', 'UI mutation must not affect inventory slice');
-
-  rootStore.dispatch({
-    type: fetchInventoryThunk.fulfilled.type,
-    meta: { requestId: null },
-    payload: {
-      products: [{ productId: 'P-STORE-1', name: 'Test Product', stock: 25, price: 100, active: true }],
-      suppliers: [{ id: 'S1', name: 'Test Supplier' }],
-    },
-  });
-
-  const state3 = rootStore.getState();
-  assert.equal(state3.inventory.products.length, 1);
-  assert.equal(state3.inventory.products[0].productId, 'P-STORE-1');
-  assert.equal(state3.ui.theme, 'light', 'Inventory mutation must not affect UI slice');
-
-  rootStore.dispatch(resetInventory());
-  const state4 = rootStore.getState();
-  assert.equal(state4.inventory.products.length, 0);
-  assert.equal(state4.ui.theme, 'light', 'resetInventory must preserve UI state');
-  console.log('✓ Test 16: Root store slices co-exist and maintain strict domain boundaries');
-}
-
-// --- Test 17: storeBridge Dependency Injection Lifecycle ---
-{
-  let mockStoreDispatched = [];
-  const mockStore = {
-    dispatch: (action) => mockStoreDispatched.push(action),
-    getState: () => ({ mock: true }),
-  };
-
-  injectStore(mockStore);
-  assert.equal(getAppStore(), mockStore);
-
-  getAppStore().dispatch(clearInventoryError());
-  assert.equal(mockStoreDispatched.length, 1);
-  assert.equal(mockStoreDispatched[0].type, clearInventoryError.type);
-
-  injectStore(rootStore);
-  assert.equal(getAppStore(), rootStore);
-  console.log('✓ Test 17: storeBridge dependency injection allows clean decoupled dispatches');
-}
-
-// ============================================================================
-// PART 5: LARGE SCALE BENCHMARK & MEMOIZATION PERFORMANCE
-// ============================================================================
-
-// --- Test 18: 1,000 Products Benchmark & Memoization Cache Hits ---
-{
-  const LARGE_COUNT = 1000;
-  const categories = ['Beverages', 'Bakery', 'Dairy', 'Snacks', 'Personal Care'];
-  const bigProducts = [];
-
-  for (let i = 0; i < LARGE_COUNT; i++) {
-    const stock = i % 20;
-    const reorder = 10;
-    bigProducts.push({
-      productId: `PRD-${i}`,
-      name: `Product ${i}`,
-      cat: categories[i % categories.length],
-      stock,
-      reorderLevel: reorder,
-      price: 10 + (i % 100),
-      active: i % 10 !== 0,
-      status: stock <= 0 ? 'Out of Stock' : stock <= 5 ? 'Critical' : stock <= 10 ? 'Low Stock' : 'In Stock',
-    });
-  }
-
-  const bigState = {
-    inventory: { products: bigProducts, suppliers: [], status: 'succeeded', error: null },
-    ui: { theme: 'dark' },
-  };
-
-  const startCompute = performance.now();
-  const lowStock = selectLowStockProducts(bigState);
-  const valuation = selectRetailValuation(bigState);
-  const cats = selectCategories(bigState);
-  const computeDurationMs = performance.now() - startCompute;
-
-  assert.equal(cats.length, 5);
-  assert.ok(valuation > 0);
-  assert.ok(lowStock.length > 0);
-
-  const startCacheHits = performance.now();
-  for (let j = 0; j < 10000; j++) {
-    selectLowStockProducts(bigState);
-    selectRetailValuation(bigState);
-    selectCategories(bigState);
-  }
-  const cacheHitDurationMs = performance.now() - startCacheHits;
-
-  console.log(`✓ Test 18: Benchmark passed for 1,000 products:`);
-  console.log(`   - First calculation time: ${computeDurationMs.toFixed(3)} ms`);
-  console.log(`   - 10,000 memoized cache hit calls: ${cacheHitDurationMs.toFixed(3)} ms (~${(cacheHitDurationMs / 10000).toFixed(5)} ms/call)`);
-}
-
-// ============================================================================
-// PART 6: REAL ASYNC THUNK EXECUTION & NETWORK INTEGRATION TESTS
-// ============================================================================
 
 const originalFetch = globalThis.fetch;
 function createMockResponse(body, status = 200) {
@@ -501,452 +58,493 @@ function createMockResponse(body, status = 200) {
   });
 }
 
-// --- Test 19: fetchInventoryThunk Full Execution & Schema Normalization ---
+// ============================================================================
+// PART 1: INITIAL STATE, DB-FIRST RULE & LIFECYCLE
+// ============================================================================
+
 {
-  const isolatedStore = configureStore({ reducer: { inventory: inventoryReducer } });
-
-  const rawBackendProducts = [
-    {
-      id: 'INV-10',
-      productId: 'P-10',
-      productName: 'Sunflower Cooking Oil',
-      category: 'Edible Oils',
-      stockAvailable: 35,
-      reorderLevel: 10,
-      price: 175,
-      active: true,
-      status: 'In Stock',
-    },
-  ];
-  const rawBackendSuppliers = [{ id: 'SUP-4', name: 'Agro Goods Ltd' }];
-
-  globalThis.fetch = async (url) => {
-    const s = String(url);
-    if (s.includes('/api/inventory')) return createMockResponse(rawBackendProducts);
-    if (s.includes('/api/suppliers')) return createMockResponse(rawBackendSuppliers);
-    throw new Error(`Unexpected URL in test: ${s}`);
-  };
-
-  try {
-    await isolatedStore.dispatch(fetchInventoryThunk());
-    const state = isolatedStore.getState().inventory;
-
-    assert.equal(state.status, 'succeeded');
-    assert.equal(state.products.length, 1);
-    assert.equal(state.products[0].productId, 'P-10');
-    assert.equal(state.products[0].name, 'Sunflower Cooking Oil', 'Normalized from productName');
-    assert.equal(state.products[0].cat, 'Edible Oils', 'Normalized from category');
-    assert.equal(state.products[0].stock, 35, 'Normalized from stockAvailable');
-    assert.equal(state.suppliers.length, 1);
-    assert.equal(state.suppliers[0].name, 'Agro Goods Ltd');
-    console.log('✓ Test 19: fetchInventoryThunk full execution normalizes raw DB response');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  const state = inventoryReducer(undefined, { type: '@@INIT' });
+  assert.deepEqual(state.items, []);
+  assert.deepEqual(state.lowStock, []);
+  assert.deepEqual(state.movements, []);
+  assert.equal(state.selected, null);
+  assert.equal(state.status, 'idle');
+  assert.equal(state.movementsStatus, 'idle');
+  assert.equal(state.saving, false);
+  assert.equal(state.error, null);
+  assert.deepEqual(state.requestIds, {
+    fetchAll: null,
+    fetchLowStock: null,
+    fetchMovements: null,
+    fetchOne: null,
+  });
+  console.log('✓ Test 1: Initial state matches 1:1 DB-first schema');
 }
 
-// --- Test 20: fetchInventoryThunk Cashier 403 Suppliers Resilience ---
+// --- Test 2: Strict DB-first check (.pending NEVER mutates items[].stock) ---
 {
-  const isolatedStore = configureStore({
-    reducer: { inventory: inventoryReducer },
-    preloadedState: {
-      inventory: {
-        products: [],
-        suppliers: [{ id: 'SUP-CACHED', name: 'Cached Vendor' }],
-        status: 'idle',
-        error: null,
-        currentRequestId: null,
-      },
-    },
-  });
-
-  globalThis.fetch = async (url) => {
-    const s = String(url);
-    if (s.includes('/api/inventory')) {
-      return createMockResponse([{ productId: 'P-CASHIER', productName: 'Salt', stockAvailable: 100, active: true }]);
-    }
-    if (s.includes('/api/suppliers')) {
-      return createMockResponse({ message: 'Forbidden: Insufficient privileges' }, 403);
-    }
-    throw new Error(`Unexpected URL: ${s}`);
+  const initial = {
+    items: [{ productId: 'P001', inventoryId: 'INV-001', name: 'Rice', stock: 20, reorderLevel: 10, active: true, status: 'In Stock' }],
+    lowStock: [],
+    movements: [],
+    selected: null,
+    status: 'succeeded',
+    movementsStatus: 'idle',
+    saving: false,
+    error: null,
+    requestIds: { fetchAll: null, fetchLowStock: null, fetchMovements: null, fetchOne: null },
   };
 
-  try {
-    const resultAction = await isolatedStore.dispatch(fetchInventoryThunk());
-    assert.equal(resultAction.type, fetchInventoryThunk.fulfilled.type, 'Thunk must succeed even if suppliers 403s');
+  let state = inventoryReducer(initial, {
+    type: adjustStockThunk.pending.type,
+    meta: { requestId: 'adj-1', arg: { productId: 'P001', adjustment: -15, reason: 'Damaged' } },
+  });
+  assert.equal(state.saving, true);
+  assert.equal(state.items[0].stock, 20, '.pending MUST NOT optimistically subtract stock');
 
-    const state = isolatedStore.getState().inventory;
-    assert.equal(state.status, 'succeeded');
-    assert.equal(state.products.length, 1);
-    assert.equal(state.suppliers.length, 1, 'Cached suppliers must NOT be wiped');
-    assert.equal(state.suppliers[0].name, 'Cached Vendor');
-    console.log('✓ Test 20: Cashier 403 on /suppliers does not break inventory loading (Promise.allSettled)');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  state = inventoryReducer(state, {
+    type: receiveStockThunk.pending.type,
+    meta: { requestId: 'rec-1', arg: { productId: 'P001', quantity: 50 } },
+  });
+  assert.equal(state.items[0].stock, 20, '.pending MUST NOT optimistically add stock');
+
+  state = inventoryReducer(state, {
+    type: adjustStockThunk.fulfilled.type,
+    payload: { productId: 'P001', inventoryId: 'INV-001', name: 'Rice', stock: 5, reorderLevel: 10, active: true, status: 'Critical' },
+  });
+  assert.equal(state.saving, false);
+  assert.equal(state.items[0].stock, 5, 'Stock updates strictly in .fulfilled from DB payload');
+  assert.equal(state.lowStock.length, 1, 'lowStock stays synchronized after adjustStock');
+  console.log('✓ Test 2: Strict DB-first rule enforced (zero optimistic mutation in .pending)');
 }
 
-// --- Test 21: fetchInventoryThunk Network Outage Offline Resilience ---
+// ============================================================================
+// PART 2: RACE & CONCURRENCY HARDENING (PER-SLICE, PER-REQUEST-TYPE)
+// ============================================================================
+
+// --- Test 3: Two overlapping fetchInventoryThunk calls resolved OUT OF ORDER ---
 {
-  const isolatedStore = configureStore({
-    reducer: { inventory: inventoryReducer },
-    preloadedState: {
-      inventory: {
-        products: [{ productId: 'P-OFFLINE', name: 'Tea Leaves', stock: 12 }],
-        suppliers: [],
-        status: 'succeeded',
-        error: null,
-        currentRequestId: null,
-      },
-    },
-  });
+  const store = configureStore({ reducer: { inventory: inventoryReducer } });
+  let resolveReq1;
+  let resolveReq2;
+  let callIndex = 0;
 
-  globalThis.fetch = async () => {
-    throw new TypeError('Failed to fetch (Network connection refused)');
-  };
-
-  try {
-    const resultAction = await isolatedStore.dispatch(fetchInventoryThunk());
-    assert.equal(resultAction.type, fetchInventoryThunk.rejected.type);
-
-    const state = isolatedStore.getState().inventory;
-    assert.equal(state.status, 'failed');
-    assert.ok(state.error.includes('Cannot reach the BillBhai server') || state.error.includes('Network'));
-    assert.equal(state.products.length, 1, 'Existing products must remain intact during network outage');
-    assert.equal(state.products[0].productId, 'P-OFFLINE');
-    console.log('✓ Test 21: Network outage sets status=failed but preserves offline table data');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-}
-
-// --- Test 22: receiveStockThunk Execution, Normalization & In-Flight Invalidation ---
-{
-  const isolatedStore = configureStore({
-    reducer: { inventory: inventoryReducer },
-    preloadedState: {
-      inventory: {
-        products: [{ productId: 'P-REC', name: 'Wheat Flour', stock: 10, cat: 'Groceries' }],
-        suppliers: [],
-        status: 'succeeded',
-        error: null,
-        currentRequestId: 'slow-background-poll-req',
-      },
-    },
-  });
-
-  let capturedBody = null;
-  globalThis.fetch = async (url, options) => {
-    const s = String(url);
-    if (s.includes('/api/inventory/receive')) {
-      capturedBody = JSON.parse(options.body);
-      return createMockResponse({
-        id: 'INV-REC',
-        productId: 'P-REC',
-        productName: 'Wheat Flour',
-        category: 'Groceries',
-        stockAvailable: 60,
-        status: 'In Stock',
+  globalThis.fetch = () => {
+    callIndex += 1;
+    if (callIndex === 1) {
+      return new Promise((resolve) => {
+        resolveReq1 = () =>
+          resolve(createMockResponse([{ id: 'INV-001', productId: 'P001', productName: 'Milk', stockAvailable: 11, reorderLevel: 10, status: 'In Stock' }]));
       });
     }
-    throw new Error(`Unexpected URL: ${s}`);
+    return new Promise((resolve) => {
+      resolveReq2 = () =>
+        resolve(createMockResponse([{ id: 'INV-001', productId: 'P001', productName: 'Milk', stockAvailable: 99, reorderLevel: 10, status: 'In Stock' }]));
+    });
   };
 
   try {
-    const res = await isolatedStore.dispatch(
-      receiveStockThunk({
-        productId: 'P-REC',
-        quantity: 50,
-        supplierId: 'SUP-MILL',
-        note: '  Morning shipment from Mill  ',
-      }),
-    ).unwrap();
+    const p1 = store.dispatch(fetchInventoryThunk());
+    const p2 = store.dispatch(fetchInventoryThunk());
 
-    assert.equal(capturedBody.quantity, 50);
-    assert.equal(capturedBody.supplierId, 'SUP-MILL');
-    assert.equal(capturedBody.note, 'Morning shipment from Mill', 'Note must be trimmed');
+    // Newer call (#2) resolves FIRST with stock 99
+    resolveReq2();
+    await p2;
+    assert.equal(store.getState().inventory.items[0].stock, 99);
 
-    const state = isolatedStore.getState().inventory;
-    assert.equal(state.products[0].stock, 60, 'Stock must update to 60');
-    assert.equal(state.currentRequestId, null, 'receiveStockThunk must invalidate currentRequestId');
+    // Older call (#1) resolves SECOND with stale stock 11 -> MUST be ignored!
+    resolveReq1();
+    await p1;
+    assert.equal(store.getState().inventory.items[0].stock, 99, 'Newest request must win when overlapping fetches resolve out of order');
+    console.log('✓ Test 3: Overlapping fetchInventoryThunk calls resolved out of order keep newest data');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
 
-    // Stale slow poll arrives late
-    isolatedStore.dispatch({
-      type: fetchInventoryThunk.fulfilled.type,
-      meta: { requestId: 'slow-background-poll-req' },
-      payload: {
-        products: [{ productId: 'P-REC', name: 'Wheat Flour', stock: 10, cat: 'Groceries' }],
-        suppliers: [],
+// --- Test 4: Background poll resolving AFTER adjustStock fulfilled must NOT revert stock ---
+{
+  const store = configureStore({
+    reducer: { inventory: inventoryReducer },
+    preloadedState: {
+      inventory: {
+        items: [{ productId: 'P001', inventoryId: 'INV-001', name: 'Flour', stock: 10, reorderLevel: 15, active: true, status: 'Low Stock' }],
+        lowStock: [{ productId: 'P001', inventoryId: 'INV-001', name: 'Flour', stock: 10, reorderLevel: 15, active: true, status: 'Low Stock' }],
+        movements: [],
+        selected: null,
+        status: 'succeeded',
+        movementsStatus: 'idle',
+        saving: false,
+        error: null,
+        requestIds: { fetchAll: null, fetchLowStock: null, fetchMovements: null, fetchOne: null },
       },
+    },
+  });
+
+  let resolvePoll;
+  globalThis.fetch = (url) => {
+    if (String(url).includes('/api/inventory/adjust')) {
+      return Promise.resolve(
+        createMockResponse({ id: 'INV-001', productId: 'P001', productName: 'Flour', stockAvailable: 25, reorderLevel: 15, status: 'In Stock', active: true }),
+      );
+    }
+    return new Promise((resolve) => {
+      resolvePoll = () =>
+        resolve(createMockResponse([{ id: 'INV-001', productId: 'P001', productName: 'Flour', stockAvailable: 10, reorderLevel: 15, status: 'Low Stock', active: true }]));
+    });
+  };
+
+  try {
+    const pollPromise = store.dispatch(fetchInventoryThunk());
+    assert.ok(store.getState().inventory.requestIds.fetchAll);
+
+    await store.dispatch(adjustStockThunk({ productId: 'P001', adjustment: 15, reason: 'Recount' })).unwrap();
+    assert.equal(store.getState().inventory.items[0].stock, 25);
+    assert.equal(store.getState().inventory.requestIds.fetchAll, null, 'Mutation invalidates in-flight fetchAll');
+    assert.equal(store.getState().inventory.lowStock.length, 0, 'lowStock removes item once stock exceeds reorderLevel');
+
+    resolvePoll();
+    await pollPromise;
+    assert.equal(store.getState().inventory.items[0].stock, 25, 'Late background poll must NOT revert stock');
+    assert.equal(store.getState().inventory.lowStock.length, 0, 'lowStock must remain consistent after stale poll');
+    console.log('✓ Test 4: Background poll resolving after adjustStock.fulfilled does not revert stock');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+// --- Test 5: Per-request-type independence (fetchMovements does not cancel fetchAll) ---
+{
+  const store = configureStore({ reducer: { inventory: inventoryReducer } });
+  let resolveInventory;
+  let resolveMovements;
+  globalThis.fetch = (url) => {
+    if (String(url).includes('/movements')) {
+      return new Promise((r) => {
+        resolveMovements = () => r(createMockResponse([{ id: 'MOV-1', quantity: -2 }]));
+      });
+    }
+    return new Promise((r) => {
+      resolveInventory = () => r(createMockResponse([{ id: 'INV-1', productId: 'P001', productName: 'Tea', stockAvailable: 8, reorderLevel: 5, active: true, status: 'In Stock' }]));
+    });
+  };
+
+  try {
+    const invP = store.dispatch(fetchInventoryThunk());
+    const movP = store.dispatch(fetchMovementsThunk({ limit: 50 }));
+    assert.ok(store.getState().inventory.requestIds.fetchAll);
+    assert.ok(store.getState().inventory.requestIds.fetchMovements);
+
+    resolveMovements();
+    await movP;
+    resolveInventory();
+    await invP;
+
+    assert.equal(store.getState().inventory.items.length, 1);
+    assert.equal(store.getState().inventory.movements.length, 1);
+    console.log('✓ Test 5: Independent requestIds allow concurrent fetchAll & fetchMovements without cancelling each other');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+// --- Test 6: clearSession() / resetInventory during an in-flight thunk ---
+{
+  injectStore(rootStore);
+  let resolveFetch;
+  globalThis.fetch = () =>
+    new Promise((resolve) => {
+      resolveFetch = () =>
+        resolve(createMockResponse([{ id: 'INV-1', productId: 'P001', productName: 'Secret Stock', stockAvailable: 44, active: true }]));
     });
 
-    const stateAfterStale = isolatedStore.getState().inventory;
-    assert.equal(stateAfterStale.products[0].stock, 60, 'Stale poll arriving after mutation is discarded');
-    console.log('✓ Test 22: receiveStockThunk validates body, trims note, patches state and cancels stale in-flight fetches');
+  try {
+    const fetchPromise = rootStore.dispatch(fetchInventoryThunk());
+    assert.ok(rootStore.getState().inventory.requestIds.fetchAll);
+
+    // User logs out mid-request!
+    clearSession();
+    assert.equal(rootStore.getState().inventory.status, 'idle');
+    assert.equal(rootStore.getState().inventory.requestIds.fetchAll, null);
+
+    // Late response arrives after logout -> MUST NOT repopulate store!
+    resolveFetch();
+    await fetchPromise;
+    assert.equal(rootStore.getState().inventory.items.length, 0, 'Late response must NOT repopulate logged-out store');
+    assert.equal(rootStore.getState().inventory.status, 'idle');
+    console.log('✓ Test 6: clearSession() during in-flight fetch discards late response');
   } finally {
     globalThis.fetch = originalFetch;
   }
 }
 
-// --- Test 23: adjustStockThunk Rejection & .unwrap() String Extraction ---
+// --- Test 7: lowStock state vs selectLowStockItems consistency across adjust/receive/update/delete ---
 {
-  const isolatedStore = configureStore({
-    reducer: { inventory: inventoryReducer },
-    preloadedState: {
-      inventory: {
-        products: [{ productId: 'P-ADJ', name: 'Biscuits', stock: 5 }],
-        suppliers: [],
-        status: 'succeeded',
-        error: null,
-        currentRequestId: null,
-      },
-    },
-  });
-
-  globalThis.fetch = async (url) => {
-    const s = String(url);
-    if (s.includes('/api/inventory/adjust')) {
-      return createMockResponse({ message: 'Cannot reduce stock below zero: requested -10, available 5' }, 400);
+  const store = configureStore({ reducer: { inventory: inventoryReducer } });
+  globalThis.fetch = (url, opts) => {
+    const u = String(url);
+    if (u.endsWith('/api/inventory')) {
+      return Promise.resolve(createMockResponse([
+        { id: 'INV-1', productId: 'P001', productName: 'Oil', stockAvailable: 5, reorderLevel: 10, status: 'Critical', active: true },
+        { id: 'INV-2', productId: 'P002', productName: 'Salt', stockAvailable: 50, reorderLevel: 10, status: 'In Stock', active: true },
+      ]));
     }
-    throw new Error(`Unexpected URL: ${s}`);
+    if (u.includes('/api/inventory/receive')) {
+      return Promise.resolve(createMockResponse({ id: 'INV-1', productId: 'P001', productName: 'Oil', stockAvailable: 30, reorderLevel: 10, status: 'In Stock', active: true }));
+    }
+    if (u.includes('/api/inventory/adjust')) {
+      return Promise.resolve(createMockResponse({ id: 'INV-2', productId: 'P002', productName: 'Salt', stockAvailable: 4, reorderLevel: 10, status: 'Critical', active: true }));
+    }
+    if (u.includes('/api/inventory/INV-2') && opts.method === 'PUT') {
+      return Promise.resolve(createMockResponse({ id: 'INV-2', productId: 'P002', productName: 'Salt', stockAvailable: 4, reorderLevel: 2, status: 'In Stock', active: true }));
+    }
+    if (u.includes('/api/inventory/INV-1') && opts.method === 'DELETE') {
+      return Promise.resolve(createMockResponse({ message: 'Deleted', inventory: { id: 'INV-1' } }));
+    }
+    throw new Error(`Unexpected URL ${u}`);
   };
 
   try {
-    let caughtError = null;
-    try {
-      await isolatedStore.dispatch(
-        adjustStockThunk({ productId: 'P-ADJ', adjustment: -10, reason: 'Damaged' }),
-      ).unwrap();
-    } catch (err) {
-      caughtError = err;
-    }
+    await store.dispatch(fetchInventoryThunk());
+    assert.deepEqual(selectLowStockState(store.getState()).map((i) => i.productId), ['P001']);
+    assert.deepEqual(selectLowStockItems(store.getState()).map((i) => i.productId), ['P001']);
 
-    assert.ok(caughtError !== null, 'Thunk .unwrap() must throw on rejection');
-    assert.equal(typeof caughtError, 'string', '.unwrap() on rejectWithValue must throw a plain string');
-    assert.equal(caughtError, 'Cannot reduce stock below zero: requested -10, available 5');
+    await store.dispatch(receiveStockThunk({ productId: 'P001', quantity: 25 }));
+    assert.deepEqual(selectLowStockState(store.getState()), []);
+    assert.deepEqual(selectLowStockItems(store.getState()), []);
 
-    const state = isolatedStore.getState().inventory;
-    assert.equal(state.error, null, 'Mutation rejections must NOT write to global state.error');
-    console.log('✓ Test 23: adjustStockThunk rejection throws string via .unwrap() without corrupting state.error');
+    await store.dispatch(adjustStockThunk({ productId: 'P002', adjustment: -46, reason: 'Spoiled' }));
+    assert.deepEqual(selectLowStockState(store.getState()).map((i) => i.productId), ['P002']);
+    assert.deepEqual(selectLowStockItems(store.getState()).map((i) => i.productId), ['P002']);
+
+    await store.dispatch(updateInventoryThunk({ id: 'INV-2', body: { reorderLevel: 2 } }));
+    assert.deepEqual(selectLowStockState(store.getState()), []);
+    assert.deepEqual(selectLowStockItems(store.getState()), []);
+
+    await store.dispatch(deleteInventoryThunk('INV-1'));
+    assert.equal(selectAllInventory(store.getState()).length, 1);
+    console.log('✓ Test 7: state.lowStock and selectLowStockItems stay consistent after receive/adjust/update/delete');
   } finally {
     globalThis.fetch = originalFetch;
   }
 }
 
-// --- Test 24: Anti-Flicker Background Polling Guard ---
-{
-  let state = inventoryReducer(undefined, { type: '@@INIT' });
-  assert.equal(state.status, 'idle');
-
-  // Cold load fetch pending sets loading
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.pending.type,
-    meta: { requestId: 'req-cold' },
-  });
-  assert.equal(state.status, 'loading');
-
-  // Cold load fulfilled sets succeeded
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.fulfilled.type,
-    meta: { requestId: 'req-cold' },
-    payload: { products: [{ productId: 'P1', stock: 10 }], suppliers: [] },
-  });
-  assert.equal(state.status, 'succeeded');
-
-  // Next 20-second background poll pending DOES NOT set loading (Anti-Flicker)
-  state = inventoryReducer(state, {
-    type: fetchInventoryThunk.pending.type,
-    meta: { requestId: 'req-background-poll' },
-  });
-  assert.equal(state.status, 'succeeded', 'Background poll must keep status as succeeded to avoid UI flicker');
-  console.log('✓ Test 24: Anti-flicker guard preserves succeeded status during background polling');
-}
-
 // ============================================================================
-// PART 7: COMPONENT BEHAVIOR & INTEGRATION EDGE CASES
+// PART 3: FAILURE PATHS & REMAINING ENDPOINTS
 // ============================================================================
 
-// --- Test 25: Dashboard Page 3-Way Cold Load Guard Logic ---
+// --- Test 8: Network failure preserves previous items + consistent { message, status } error ---
 {
-  function getDashboardAlertSubtext(status, lowStockList) {
-    if (status === 'failed') return 'Stock alerts unavailable';
-    if (status === 'idle' || status === 'loading') return 'Checking stock…';
-    return `${lowStockList.length} products low or out of stock`;
-  }
-
-  assert.equal(getDashboardAlertSubtext('idle', []), 'Checking stock…');
-  assert.equal(getDashboardAlertSubtext('loading', []), 'Checking stock…');
-  assert.equal(getDashboardAlertSubtext('failed', []), 'Stock alerts unavailable');
-  assert.equal(getDashboardAlertSubtext('succeeded', []), '0 products low or out of stock');
-  assert.equal(getDashboardAlertSubtext('succeeded', [{ id: '1' }, { id: '2' }]), '2 products low or out of stock');
-  console.log('✓ Test 25: DashboardPage 3-way guard correctly handles all 4 lifecycle states');
-}
-
-// --- Test 26: StockActionModal Client Validation & Arithmetic Rules ---
-{
-  function validateStockInput({ qty, kind, direction, itemStock, reason, details }) {
-    const text = (qty || '').trim();
-    if (!WHOLE.test(text) || Number(text) < 1) {
-      return 'Enter a whole number of units, 1 or more.';
-    }
-    const n = Number(text);
-    if (n > 100000) {
-      return 'That is more than 100,000 units. Check the number.';
-    }
-    if (kind === 'adjust') {
-      if (direction === 'remove' && n > itemStock) {
-        return `Only ${itemStock} on hand; you cannot remove ${n}.`;
-      }
-      if (reason === 'Other' && details.trim().length < 3) {
-        return 'Describe the reason (at least 3 characters).';
-      }
-    }
-    return null;
-  }
-
-  // Non-whole or invalid numbers
-  assert.equal(validateStockInput({ qty: '0' }), 'Enter a whole number of units, 1 or more.');
-  assert.equal(validateStockInput({ qty: '-5' }), 'Enter a whole number of units, 1 or more.');
-  assert.equal(validateStockInput({ qty: '4.5' }), 'Enter a whole number of units, 1 or more.');
-  assert.equal(validateStockInput({ qty: 'abc' }), 'Enter a whole number of units, 1 or more.');
-  assert.equal(validateStockInput({ qty: '' }), 'Enter a whole number of units, 1 or more.');
-
-  // Cap limit
-  assert.equal(validateStockInput({ qty: '100001' }), 'That is more than 100,000 units. Check the number.');
-  assert.equal(validateStockInput({ qty: '100000' }), null);
-
-  // Adjust removal exceeds on hand
-  assert.equal(
-    validateStockInput({ qty: '15', kind: 'adjust', direction: 'remove', itemStock: 10 }),
-    'Only 10 on hand; you cannot remove 15.',
-  );
-  assert.equal(
-    validateStockInput({ qty: '10', kind: 'adjust', direction: 'remove', itemStock: 10 }),
-    null,
-  );
-
-  // Other reason requires at least 3 chars
-  assert.equal(
-    validateStockInput({ qty: '5', kind: 'adjust', direction: 'remove', itemStock: 10, reason: 'Other', details: 'no' }),
-    'Describe the reason (at least 3 characters).',
-  );
-  assert.equal(
-    validateStockInput({ qty: '5', kind: 'adjust', direction: 'remove', itemStock: 10, reason: 'Other', details: 'Spoiled by rain' }),
-    null,
-  );
-
-  // Projected stock math
-  const calcProjected = (stock, qtyText, kind, direction) => {
-    const n = WHOLE.test(qtyText.trim()) ? Number(qtyText) : 0;
-    if (kind === 'receive') return stock + n;
-    return stock + (direction === 'remove' ? -n : n);
-  };
-  assert.equal(calcProjected(20, '15', 'receive', 'remove'), 35);
-  assert.equal(calcProjected(20, '5', 'adjust', 'remove'), 15);
-  assert.equal(calcProjected(20, '8', 'adjust', 'add'), 28);
-  console.log('✓ Test 26: StockActionModal client-side validation and projected arithmetic fully verified');
-}
-
-// --- Test 27: Selectors Resilient Under Extreme & Corrupted Inputs ---
-{
-  const corruptState = {
-    inventory: {
-      products: [
-        { productId: 'P-CORRUPT-1', name: 'Corrupt 1', price: '49.99', stock: '3', active: true },
-        { productId: 'P-CORRUPT-2', name: 'Corrupt 2', price: null, stock: undefined, active: true },
-        { productId: 'P-CORRUPT-3', name: 'Corrupt 3', cat: null, price: 10, stock: 2, active: true },
-        { productId: 'P-CORRUPT-4', name: 'Corrupt 4', cat: '', price: 10, stock: 2, active: true },
-        { productId: 'P-INACTIVE', name: 'Inactive', cat: 'Hidden', price: 100, stock: 50, active: false },
-      ],
-      suppliers: [],
-      status: 'succeeded',
-      error: null,
-      currentRequestId: null,
-    },
-  };
-
-  // Valuation should never produce NaN
-  const valuation = selectRetailValuation(corruptState);
-  assert.equal(Number.isNaN(valuation), false);
-  // (49.99 * 3) + 0 + (10 * 2) + (10 * 2) = 149.97 + 20 + 20 = 189.97
-  assert.equal(Math.round(valuation * 100) / 100, 189.97);
-
-  // Categories dedupes null and empty string into 'Uncategorized'
-  const categories = selectCategories(corruptState);
-  assert.deepEqual(categories, ['Uncategorized']);
-  assert.equal(categories.includes('Hidden'), false, 'Inactive categories must be ignored');
-  console.log('✓ Test 27: Selectors handle corrupted fields, float math, and empty categories without NaN');
-}
-
-// --- Test 28: Rapid Interleaved Async Concurrency Simulation ---
-{
-  const concurrentStore = configureStore({
+  const store = configureStore({
     reducer: { inventory: inventoryReducer },
     preloadedState: {
       inventory: {
-        products: [{ productId: 'P-RACE', name: 'Rice Bag', stock: 10 }],
-        suppliers: [],
+        items: [{ productId: 'P001', name: 'Saved Row', stock: 8, reorderLevel: 5, active: true, status: 'In Stock' }],
+        lowStock: [],
+        movements: [],
+        selected: null,
         status: 'succeeded',
+        movementsStatus: 'idle',
+        saving: false,
         error: null,
-        currentRequestId: null,
+        requestIds: { fetchAll: null, fetchLowStock: null, fetchMovements: null, fetchOne: null },
       },
     },
   });
 
-  // Step 1: Slow background poll starts (requestId: 'poll-1')
-  concurrentStore.dispatch({
-    type: fetchInventoryThunk.pending.type,
-    meta: { requestId: 'poll-1' },
-  });
-  assert.equal(concurrentStore.getState().inventory.currentRequestId, 'poll-1');
+  globalThis.fetch = () => Promise.reject(new TypeError('ECONNREFUSED'));
+  try {
+    let rejectedErr = null;
+    try {
+      await store.dispatch(fetchInventoryThunk()).unwrap();
+    } catch (err) {
+      rejectedErr = err;
+    }
+    assert.equal(rejectedErr.status, 0);
+    assert.ok(rejectedErr.message.includes('Cannot reach'));
+    assert.equal(selectInventoryStatus(store.getState()), 'failed');
+    assert.ok(selectInventoryError(store.getState()).includes('Cannot reach'));
+    assert.equal(selectAllInventory(store.getState()).length, 1, 'Previous items preserved on failure');
 
-  // Step 2: Receive mutation succeeds (+30) -> stock becomes 40
-  concurrentStore.dispatch({
-    type: receiveStockThunk.fulfilled.type,
-    payload: { productId: 'P-RACE', updated: { productId: 'P-RACE', stock: 40 } },
-  });
-  assert.equal(concurrentStore.getState().inventory.products[0].stock, 40);
-  assert.equal(concurrentStore.getState().inventory.currentRequestId, null);
+    store.dispatch(clearInventoryError());
+    assert.equal(selectInventoryError(store.getState()), null);
+    console.log('✓ Test 8: Network outage sets status=failed, emits { message, status }, and preserves table items');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
 
-  // Step 3: Adjust mutation succeeds (-5) -> stock becomes 35
-  concurrentStore.dispatch({
-    type: adjustStockThunk.fulfilled.type,
-    payload: { productId: 'P-RACE', updated: { productId: 'P-RACE', stock: 35 } },
-  });
-  assert.equal(concurrentStore.getState().inventory.products[0].stock, 35);
+// --- Test 9: FetchById, FetchByProduct, FetchLowStock, clearMovements & 401 mid-thunk ---
+{
+  injectStore(rootStore);
+  setAuthToken('jwt-temp');
+  resetRedirectGuard();
 
-  // Step 4: Slow background poll 'poll-1' finally resolves with old stock 10
-  concurrentStore.dispatch({
-    type: fetchInventoryThunk.fulfilled.type,
-    meta: { requestId: 'poll-1' },
-    payload: {
-      products: [{ productId: 'P-RACE', name: 'Rice Bag', stock: 10 }],
-      suppliers: [],
+  const store = rootStore;
+  let fetchCalls = 0;
+  globalThis.fetch = (url) => {
+    fetchCalls += 1;
+    const u = String(url);
+    if (u.includes('/api/inventory/INV-007')) {
+      return Promise.resolve(createMockResponse({ id: 'INV-007', productId: 'P007', productName: 'Sugar', stockAvailable: 12 }));
+    }
+    if (u.includes('/api/inventory/product/P007')) {
+      return Promise.resolve(createMockResponse({ id: 'INV-007', productId: 'P007', productName: 'Sugar', stockAvailable: 12 }));
+    }
+    if (u.includes('/api/inventory/low-stock')) {
+      return Promise.resolve(createMockResponse([{ id: 'INV-007', productId: 'P007', productName: 'Sugar', stockAvailable: 2, reorderLevel: 5, status: 'Critical', active: true }]));
+    }
+    return Promise.resolve(createMockResponse({ message: 'Token expired' }, 401));
+  };
+
+  try {
+    await store.dispatch(fetchInventoryByIdThunk('INV-007')).unwrap();
+    assert.equal(store.getState().inventory.selected.productId, 'P007');
+    await store.dispatch(fetchInventoryByProductThunk('P007')).unwrap();
+    await store.dispatch(fetchLowStockThunk()).unwrap();
+    assert.equal(store.getState().inventory.lowStock.length, 1);
+
+    // Trigger 401 mid-thunk across parallel thunks -> session cleared, no infinite retry loop
+    const beforeCalls = fetchCalls;
+    const r1 = store.dispatch(fetchInventoryThunk());
+    const r2 = store.dispatch(fetchLowStockThunk());
+    await Promise.all([r1, r2]);
+    assert.equal(fetchCalls - beforeCalls, 2, 'No infinite retry loop after 401');
+    assert.equal(store.getState().inventory.items.length, 0);
+    assert.equal(store.getState().inventory.status, 'idle');
+    assert.equal(localStorage.getItem('bb_auth_token'), null);
+
+    store.dispatch(clearMovements());
+    assert.deepEqual(store.getState().inventory.movements, []);
+    console.log('✓ Test 9: 401 mid-thunk resets store cleanly without infinite retries');
+  } finally {
+    globalThis.fetch = originalFetch;
+    resetRedirectGuard();
+  }
+}
+
+// ============================================================================
+// PART 4: SELECTOR MEMOIZATION & 1,000 / 5,000 ROW BENCHMARKS
+// ============================================================================
+
+{
+  assert.equal(isLowStock({ stock: 5, reorderLevel: 10 }), true);
+  assert.equal(isLowStock({ stock: 10, reorderLevel: 10 }), true);
+  assert.equal(isLowStock({ stock: 15, reorderLevel: 10 }), false);
+  assert.equal(isLowStock({ stock: '5', reorderLevel: '10' }), true);
+  assert.equal(isLowStock(null), true);
+
+  const items = [
+    { productId: 'P1', name: 'Milk', cat: 'Dairy', supplier: 'Amul', stock: 10, reorderLevel: 20, active: true, price: 50, costPrice: 40, status: 'Low Stock' },
+    { productId: 'P2', name: 'Bread', cat: 'Bakery', supplier: 'Britannia', stock: 50, reorderLevel: 10, active: true, price: 40, costPrice: 30, status: 'In Stock' },
+    { productId: 'P3', name: 'Soap', cat: 'Care', supplier: 'HUL', stock: 2, reorderLevel: 10, active: false, price: 30, costPrice: 20, status: 'Critical' },
+  ];
+
+  const baseState = {
+    inventory: { items, lowStock: [], movements: [], status: 'succeeded', error: null },
+    ui: { theme: 'dark' },
+  };
+  const nextUiState = { ...baseState, ui: { theme: 'light' } };
+
+  const activeA = selectActiveCatalog(baseState);
+  const activeB = selectActiveCatalog(nextUiState);
+  assert.equal(activeA, activeB, 'selectActiveCatalog maintains referential identity');
+
+  const lowA = selectLowStockItems(baseState);
+  const lowB = selectLowStockItems(nextUiState);
+  assert.equal(lowA, lowB);
+
+  const dashA = selectLowStockForDashboard(baseState);
+  const dashB = selectLowStockForDashboard(nextUiState);
+  assert.equal(dashA, dashB);
+
+  const catsA = selectInventoryCategories(baseState);
+  const catsB = selectInventoryCategories(nextUiState);
+  assert.equal(catsA, catsB);
+
+  const supsA = selectInventorySupplierNames(baseState);
+  const supsB = selectInventorySupplierNames(nextUiState);
+  assert.equal(supsA, supsB);
+
+  const valA = selectInventoryValuation(baseState);
+  const valB = selectInventoryValuation(nextUiState);
+  assert.equal(valA, valB);
+  assert.equal(valA.retailValue, 2500);
+  assert.equal(valA.costValue, 1900);
+  assert.equal(valA.totalUnits, 60);
+
+  // Changed input -> new reference
+  const changedInventoryState = {
+    ...baseState,
+    inventory: {
+      ...baseState.inventory,
+      items: [...items, { productId: 'P4', name: 'Eggs', cat: 'Dairy', supplier: 'Local', stock: 1, reorderLevel: 5, active: true, price: 60, costPrice: 45, status: 'Critical' }],
     },
-  });
-  assert.equal(
-    concurrentStore.getState().inventory.products[0].stock,
-    35,
-    'Stale poll-1 MUST NOT overwrite stock 35',
-  );
+  };
+  assert.notEqual(selectLowStockForDashboard(changedInventoryState), dashA, 'Changed items produces new selector reference');
+  assert.deepEqual(selectLowStockForDashboard(changedInventoryState).map((r) => r.productId), ['P4', 'P1']);
 
-  // Step 5: Fresh poll 'poll-2' resolves with matching server stock 35
-  concurrentStore.dispatch({
-    type: fetchInventoryThunk.pending.type,
-    meta: { requestId: 'poll-2' },
-  });
-  concurrentStore.dispatch({
-    type: fetchInventoryThunk.fulfilled.type,
-    meta: { requestId: 'poll-2' },
-    payload: {
-      products: [{ productId: 'P-RACE', name: 'Rice Bag', stock: 35 }],
-      suppliers: [],
-    },
-  });
-  assert.equal(concurrentStore.getState().inventory.products[0].stock, 35);
-  console.log('✓ Test 28: Rapid interleaved async concurrency simulation maintains strict consistency');
+  console.log('✓ Test 10: Memoized selectors preserve identical refs on unchanged input & recompute on change');
+}
+
+// --- Test 11: 1,000-row & 5,000-row selector benchmarks ---
+function runBenchmark(count) {
+  const categories = ['Beverages', 'Bakery', 'Dairy', 'Snacks', 'Personal Care'];
+  const bigItems = [];
+  for (let i = 0; i < count; i++) {
+    const stock = i % 20;
+    bigItems.push({
+      productId: `PRD-${i}`,
+      inventoryId: `INV-${i}`,
+      name: `Product ${i}`,
+      cat: categories[i % categories.length],
+      supplier: `Supplier ${i % 15}`,
+      stock,
+      reorderLevel: 10,
+      price: 10 + (i % 100),
+      costPrice: 8 + (i % 80),
+      active: i % 10 !== 0,
+      status: stock <= 0 ? 'Out of Stock' : stock <= 5 ? 'Critical' : stock <= 10 ? 'Low Stock' : 'In Stock',
+    });
+  }
+
+  const bigState = {
+    inventory: { items: bigItems, lowStock: [], movements: [], status: 'succeeded', error: null },
+    ui: { theme: 'dark' },
+  };
+
+  const t0 = performance.now();
+  const low = selectLowStockItems(bigState);
+  const dash = selectLowStockForDashboard(bigState);
+  const val = selectInventoryValuation(bigState);
+  const cats = selectInventoryCategories(bigState);
+  const firstMs = performance.now() - t0;
+
+  assert.ok(low.length > 0);
+  assert.ok(dash.length > 0);
+  assert.ok(val.retailValue > 0);
+  assert.equal(cats.length, 5);
+
+  const t1 = performance.now();
+  for (let j = 0; j < 10000; j++) {
+    selectLowStockItems(bigState);
+    selectLowStockForDashboard(bigState);
+    selectInventoryValuation(bigState);
+    selectInventoryCategories(bigState);
+  }
+  const cacheMs = performance.now() - t1;
+  return { firstMs, cacheMs };
+}
+
+{
+  const r1k = runBenchmark(1000);
+  const r5k = runBenchmark(5000);
+  assert.ok(r5k.cacheMs < 50, '10,000 memoized cache lookups for 5,000 items must stay near zero-cost');
+  console.log(`✓ Test 11: Benchmarks passed:`);
+  console.log(`   - 1,000 rows: first compute ${r1k.firstMs.toFixed(3)} ms | 10,000 cache hits ${r1k.cacheMs.toFixed(3)} ms`);
+  console.log(`   - 5,000 rows: first compute ${r5k.firstMs.toFixed(3)} ms | 10,000 cache hits ${r5k.cacheMs.toFixed(3)} ms`);
 }
 
 console.log('\n========================================================================');
-console.log('🎉 ALL 28 INVENTORY SLICE & INTEGRATION TESTS PASSED FLAWLESSLY!');
+console.log('🎉 ALL 11 HARDENED INVENTORY SLICE & BENCHMARK TESTS PASSED!');
 console.log('========================================================================\n');

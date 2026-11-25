@@ -24,7 +24,7 @@ export default function ReorderList({ inventory, canManage, onReceive }) {
       <section className="card">
         <div className="card-hd">
           <h3>Reorder list ({rows.length})</h3>
-          <span className="text-sm text-muted">Suggested quantity brings stock back to twice the reorder level, never below the supplier's minimum order.</span>
+          <span className="text-sm text-muted">Suggested quantity brings stock back to twice the reorder level, never below the supplier&apos;s minimum order.</span>
         </div>
         <div className="card-bd">
           <DataTable
