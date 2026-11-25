@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../common/PageHeader.jsx';
 import DataTable from '../common/DataTable.jsx';
@@ -6,7 +7,14 @@ import Badge from '../common/Badge.jsx';
 import CouponFormModal from './CouponFormModal.jsx';
 import CouponAnalytics from './CouponAnalytics.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { apiRequest } from '../../lib/dashboard/api.js';
+import {
+  deleteCouponThunk,
+  fetchCouponAnalyticsThunk,
+  selectCouponAnalytics,
+  selectCouponAnalyticsStatus,
+  selectCouponsError,
+  updateCouponThunk,
+} from '../../store/slices/couponsSlice.js';
 import { RANGE_PRESETS, rangePreset, rupees, scopedCompanyId, todayKey } from '../orders/orderFormat.js';
 
 const BTN = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px' };
@@ -37,33 +45,27 @@ function shortDate(iso) {
 }
 
 export default function CouponsContent() {
+  const dispatch = useDispatch();
   const { coupons, state, lastSyncedAt, openConfirm, showToast, showMutationError, refreshData } = useDashboard();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(undefined);
   const [rangeKey, setRangeKey] = useState('30d');
   const [range, setRange] = useState(() => rangePreset('30d'));
-  const [analytics, setAnalytics] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const analytics = useSelector(selectCouponAnalytics);
+  const analyticsStatus = useSelector(selectCouponAnalyticsStatus);
+  const loading = analyticsStatus === 'loading';
+  const error = useSelector(selectCouponsError) || '';
+  const companyId = scopedCompanyId(state);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    apiRequest('/coupons/analytics', {
-      query: { companyId: scopedCompanyId(state), from: range.from || undefined, to: range.to || undefined },
-    })
-      .then((d) => {
-        if (cancelled) return;
-        setAnalytics(d);
-        setError('');
-      })
-      .catch((err) => !cancelled && setError(err.message))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range.from, range.to, lastSyncedAt]);
+    dispatch(
+      fetchCouponAnalyticsThunk({
+        companyId,
+        from: range.from || undefined,
+        to: range.to || undefined,
+      }),
+    );
+  }, [dispatch, companyId, range.from, range.to, lastSyncedAt]);
 
   const pickPreset = (key) => {
     setRangeKey(key);
@@ -80,13 +82,20 @@ export default function CouponsContent() {
       confirmLabel: used ? 'Switch off' : 'Delete',
       onConfirm: async () => {
         try {
-          const res = await apiRequest(`/coupons/${encodeURIComponent(c.id)}`, { method: 'DELETE' });
-          showToast(res && res.message ? res.message : 'Done');
+          const { response } = await dispatch(deleteCouponThunk(c.id)).unwrap();
+          showToast(response && response.message ? response.message : 'Done');
         } catch (err) {
           showMutationError('Coupon', err);
           return false;
         }
         await refreshData();
+        dispatch(
+          fetchCouponAnalyticsThunk({
+            companyId,
+            from: range.from || undefined,
+            to: range.to || undefined,
+          }),
+        );
         return true;
       },
     });
@@ -94,9 +103,16 @@ export default function CouponsContent() {
 
   const switchOn = async (c) => {
     try {
-      await apiRequest(`/coupons/${encodeURIComponent(c.id)}`, { method: 'PUT', body: { active: true, version: c.version } });
+      await dispatch(updateCouponThunk({ id: c.id, body: { active: true, version: c.version } })).unwrap();
       showToast(`${c.code} switched on`);
       await refreshData();
+      dispatch(
+        fetchCouponAnalyticsThunk({
+          companyId,
+          from: range.from || undefined,
+          to: range.to || undefined,
+        }),
+      );
     } catch (err) {
       showMutationError('Coupon', err);
     }

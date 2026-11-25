@@ -8,6 +8,11 @@ import ordersReducer, {
   clearSelectedOrder,
   setOrders,
   fetchOrdersThunk,
+  fetchOrderByIdThunk,
+  fetchBillByNoThunk,
+  quoteOrderThunk,
+  placeOrderThunk,
+  updateOrderThunk,
   cancelOrderThunk,
   deleteOrderThunk,
   selectAllOrders,
@@ -18,6 +23,7 @@ import ordersReducer, {
   selectSelectedOrder,
   selectFilteredOrders,
   selectOrderMetrics,
+  selectOrdersSummary,
 } from '../ordersSlice.js';
 
 console.log('🧪 Starting exhaustive test suite for ordersSlice & Redux store integration...\n');
@@ -92,27 +98,29 @@ console.log('🧪 Starting exhaustive test suite for ordersSlice & Redux store i
   console.log('✓ Test 4: fetchOrdersThunk pending/fulfilled/rejected lifecycle transitions verified');
 }
 
-// --- Test 5: cancelOrderThunk Immer Mutation ---
+// --- Test 5: cancelOrderThunk DB-First Replacement ---
 {
   const initialStateWithOrders = {
     orders: [
-      { id: 'ORD-A', status: 'Pending', total: 300 },
-      { id: 'ORD-B', status: 'Completed', total: 600 },
+      { id: 'ORD-A', status: 'Pending', total: 300, version: 1 },
+      { id: 'ORD-B', status: 'Completed', total: 600, version: 1 },
     ],
     selectedOrderId: null,
     filters: initialFilters,
     loading: false,
+    saving: false,
     error: null,
   };
 
   const state = ordersReducer(initialStateWithOrders, {
     type: cancelOrderThunk.fulfilled.type,
-    payload: { orderId: 'ORD-A' },
+    payload: { id: 'ORD-A', status: 'Cancelled', total: 300, version: 2 },
   });
 
   assert.equal(state.orders[0].status, 'Cancelled');
+  assert.equal(state.orders[0].version, 2);
   assert.equal(state.orders[1].status, 'Completed');
-  console.log('✓ Test 5: cancelOrderThunk marks order Cancelled without affecting other items');
+  console.log('✓ Test 5: cancelOrderThunk replaces order with DB response without affecting other items');
 }
 
 // --- Test 6: deleteOrderThunk State Pruning ---
@@ -246,6 +254,47 @@ console.log('🧪 Starting exhaustive test suite for ordersSlice & Redux store i
   console.log('✓ Test 10: Root store co-exists cleanly with ui, delivery, and inventory domains');
 }
 
+// --- Test 11: New DB-First Thunks & selectOrdersSummary ---
+{
+  let state = ordersReducer(undefined, { type: quoteOrderThunk.fulfilled.type, payload: { total: 850 } });
+  assert.equal(state.quote.total, 850);
+
+  state = ordersReducer(state, { type: placeOrderThunk.pending.type });
+  assert.equal(state.saving, true);
+  state = ordersReducer(state, {
+    type: placeOrderThunk.fulfilled.type,
+    payload: { id: 'ORD-NEW', status: 'Completed', total: 850, version: 1 },
+  });
+  assert.equal(state.saving, false);
+  assert.equal(state.orders[0].id, 'ORD-NEW');
+  assert.equal(state.lastPlacedOrder.id, 'ORD-NEW');
+
+  state = ordersReducer(state, {
+    type: updateOrderThunk.fulfilled.type,
+    payload: { id: 'ORD-NEW', status: 'Completed', total: 850, customer: 'Updated Name', version: 2 },
+  });
+  assert.equal(state.orders[0].customer, 'Updated Name');
+  assert.equal(state.orders[0].version, 2);
+
+  state = ordersReducer(state, {
+    type: fetchOrderByIdThunk.fulfilled.type,
+    payload: { id: 'ORD-NEW', bill: { billNo: 'BILL-9' }, items: [] },
+  });
+  assert.equal(state.selectedOrder.bill.billNo, 'BILL-9');
+
+  state = ordersReducer(state, {
+    type: fetchBillByNoThunk.fulfilled.type,
+    payload: { billNo: 'BILL-9', total: 850 },
+  });
+  assert.equal(state.selectedBill.billNo, 'BILL-9');
+
+  const summary = selectOrdersSummary({ orders: state });
+  assert.equal(summary.totalCount, 1);
+  assert.equal(summary.totalRevenue, 850);
+  assert.equal(summary.completedCount, 1);
+  console.log('✓ Test 11: placeOrderThunk, updateOrderThunk, fetchOrderByIdThunk, fetchBillByNoThunk, quoteOrderThunk, and selectOrdersSummary verified');
+}
+
 console.log('\n========================================================================');
-console.log('🎉 ALL 10 ORDERS SLICE & ROOT STORE TESTS PASSED FLAWLESSLY!');
+console.log('🎉 ALL 11 ORDERS SLICE & ROOT STORE TESTS PASSED FLAWLESSLY!');
 console.log('========================================================================\n');

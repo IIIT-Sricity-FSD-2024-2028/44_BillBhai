@@ -15,6 +15,8 @@ import companiesReducer from './slices/companiesSlice.js';
 import customersReducer from './slices/customersSlice.js';
 import paymentsReducer from './slices/paymentsSlice.js';
 import posCartReducer from './slices/posCartSlice.js';
+import couponsReducer from './slices/couponsSlice.js';
+import reportsReducer from './slices/reportsSlice.js';
 
 const store = configureStore({
   reducer: {
@@ -34,6 +36,8 @@ const store = configureStore({
     customers: customersReducer,
     payments: paymentsReducer,
     posCart: posCartReducer,
+    coupons: couponsReducer,
+    reports: reportsReducer,
   },
 });
 

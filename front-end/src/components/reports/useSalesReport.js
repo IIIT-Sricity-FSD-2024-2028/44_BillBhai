@@ -1,7 +1,35 @@
-import { useEffect, useState } from 'react';
-import { apiRequest } from '../../lib/dashboard/api.js';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchInventoryReportThunk,
+  fetchReturnsReportThunk,
+  fetchSalesReportThunk,
+  selectInventoryReport,
+  selectReportsError,
+  selectReportsLoading,
+  selectReturnsReport,
+  selectSalesReport,
+} from '../../store/slices/reportsSlice.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { addDays, dayKey, scopedCompanyId } from '../orders/orderFormat.js';
+
+const REPORT_CONFIG = {
+  '/reports/sales': {
+    key: 'sales',
+    thunk: fetchSalesReportThunk,
+    selector: selectSalesReport,
+  },
+  '/reports/inventory': {
+    key: 'inventory',
+    thunk: fetchInventoryReportThunk,
+    selector: selectInventoryReport,
+  },
+  '/reports/returns': {
+    key: 'returns',
+    thunk: fetchReturnsReportThunk,
+    selector: selectReturnsReport,
+  },
+};
 
 /**
  * Loads a server report (/reports/sales, /reports/inventory, /reports/returns)
@@ -9,30 +37,25 @@ import { addDays, dayKey, scopedCompanyId } from '../orders/orderFormat.js';
  * figures follow new sales without a page reload.
  */
 export function useReport(path, range, { enabled = true } = {}) {
+  const dispatch = useDispatch();
   const { state, lastSyncedAt } = useDashboard();
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const companyId = scopedCompanyId(state);
   const from = range && range.from;
   const to = range && range.to;
 
+  const config = REPORT_CONFIG[path] || REPORT_CONFIG['/reports/sales'];
+  const data = useSelector(config.selector);
+  const loadingMap = useSelector(selectReportsLoading);
+  const loading = Boolean(loadingMap?.[config.key]);
+  const error = useSelector(selectReportsError) || '';
+
   useEffect(() => {
     if (!enabled) return undefined;
-    let cancelled = false;
-    setLoading(true);
-    apiRequest(path, { query: { companyId, from: from || undefined, to: to || undefined } })
-      .then((d) => {
-        if (cancelled) return;
-        setData(d);
-        setError('');
-      })
-      .catch((err) => !cancelled && setError(err.message))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [path, companyId, from, to, enabled, lastSyncedAt]);
+    const target = REPORT_CONFIG[path];
+    if (!target) return undefined;
+    dispatch(target.thunk({ companyId, from: from || undefined, to: to || undefined }));
+    return undefined;
+  }, [dispatch, path, companyId, from, to, enabled, lastSyncedAt]);
 
   return { data, error, loading };
 }

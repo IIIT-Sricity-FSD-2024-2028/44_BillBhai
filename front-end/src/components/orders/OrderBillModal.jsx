@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import Badge from '../common/Badge.jsx';
 import printReceipt from '../../lib/printReceipt.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { apiRequest } from '../../lib/dashboard/api.js';
+import {
+  clearSelectedOrder,
+  fetchOrderByIdThunk,
+  selectOrdersError,
+  selectSelectedOrderDetail,
+} from '../../store/slices/ordersSlice.js';
 import { CHECKOUT_MODE_LABELS, formatDateTime, rupees, statusColour } from './orderFormat.js';
 import { canCancelOrder } from './OrderRow.jsx';
 
@@ -20,17 +27,25 @@ function money2(n) {
 
 /** The printed bill: GST-inclusive lines, discount, delivery, tax and payment. */
 function PrintedBill({ order, shop }) {
+  const items = Array.isArray(order.items) ? order.items : order.lines || [];
+  const billNo = order.bill ? order.bill.billNo : order.billNo || '—';
+  const customerName = order.customerName || order.customer || 'Walk-in Customer';
+  const discountAmount = order.discountAmount ?? order.discount ?? 0;
+  const taxAmount = order.taxAmount ?? order.tax ?? 0;
+  const paymentMethod = order.paymentMethod || order.payment;
+  const refundedAmount = order.refundedAmount ?? order.refunded ?? 0;
+
   return (
     <div className="receipt" id="printReceipt">
       <h2>{shop.name || 'BillBhai Store'}</h2>
       {shop.address && <p>{shop.address}</p>}
       {shop.gstNo && <p>GSTIN: {shop.gstNo}</p>}
       <p>
-        Bill: {order.bill ? order.bill.billNo : '—'} · {order.id}
+        Bill: {billNo} · {order.id}
       </p>
       <p>{formatDateTime(order.orderDate)}</p>
       <p>
-        Customer: {order.customerName || 'Walk-in Customer'}
+        Customer: {customerName}
         {order.customerPhone ? ` (${order.customerPhone})` : ''}
       </p>
       <p>Billed by: {order.staffName || order.staffId}</p>
@@ -43,7 +58,7 @@ function PrintedBill({ order, shop }) {
           </tr>
         </thead>
         <tbody>
-          {order.items.map((item) => (
+          {items.map((item) => (
             <tr key={item.id || item.productId}>
               <td>
                 {item.productName || item.productId}
@@ -61,10 +76,10 @@ function PrintedBill({ order, shop }) {
         <span>Subtotal</span>
         <span>{money2(order.subtotal)}</span>
       </p>
-      {order.discountAmount > 0 && (
+      {discountAmount > 0 && (
         <p className="receipt-row">
           <span>Discount{order.promoCode ? ` (${order.promoCode})` : ''}</span>
-          <span>− {money2(order.discountAmount)}</span>
+          <span>− {money2(discountAmount)}</span>
         </p>
       )}
       {order.deliveryCharge > 0 && (
@@ -79,16 +94,16 @@ function PrintedBill({ order, shop }) {
       </p>
       <p className="receipt-row">
         <span>GST included</span>
-        <span>{money2(order.taxAmount)}</span>
+        <span>{money2(taxAmount)}</span>
       </p>
       <p>
-        Paid by: {order.paymentMethod}
+        Paid by: {paymentMethod}
         {order.paymentStatus && order.paymentStatus !== 'Paid' ? ` (${order.paymentStatus})` : ''}
       </p>
-      {order.refundedAmount > 0 && (
+      {refundedAmount > 0 && (
         <p className="receipt-row">
           <span>Refunded</span>
-          <span>− {money2(order.refundedAmount)}</span>
+          <span>− {money2(refundedAmount)}</span>
         </p>
       )}
       <p className="receipt-foot">Prices include GST. Thank you, visit again!</p>
@@ -97,31 +112,32 @@ function PrintedBill({ order, shop }) {
 }
 
 export default function OrderBillModal({ orderId, onClose, canEdit, isManager, onEdit, onCancel }) {
+  const dispatch = useDispatch();
   const { businesses, state, returns } = useDashboard();
-  const [order, setOrder] = useState(null);
+  const selectedOrder = useSelector(selectSelectedOrderDetail);
+  const ordersError = useSelector(selectOrdersError);
+  const order = selectedOrder && String(selectedOrder.id) === String(orderId) ? selectedOrder : null;
+  const error = !order && ordersError ? ordersError : '';
   const [history, setHistory] = useState([]);
   const [delivery, setDelivery] = useState(null);
   const [shop, setShop] = useState({});
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!orderId) return undefined;
     let cancelled = false;
-    setOrder(null);
     setHistory([]);
     setDelivery(null);
-    setError('');
-    apiRequest(`/orders/${encodeURIComponent(orderId)}`)
+    dispatch(fetchOrderByIdThunk(orderId))
+      .unwrap()
       .then((o) => {
-        if (cancelled) return;
-        setOrder(o);
+        if (cancelled || !o) return;
         if (o.orderType === 'delivery') {
           apiRequest(`/deliveries/order/${encodeURIComponent(o.id)}`)
             .then((d) => !cancelled && setDelivery(d))
             .catch(() => {});
         }
       })
-      .catch((err) => !cancelled && setError(err.message || 'Could not load this order.'));
+      .catch(() => {});
     apiRequest('/activity', { query: { entity: 'order', entityId: orderId, limit: 50 } })
       .then((rows) => !cancelled && setHistory(Array.isArray(rows) ? rows : []))
       .catch(() => {});
@@ -133,9 +149,10 @@ export default function OrderBillModal({ orderId, onClose, canEdit, isManager, o
       });
     return () => {
       cancelled = true;
+      dispatch(clearSelectedOrder());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId]);
+  }, [dispatch, orderId]);
 
   if (!orderId) return null;
   const orderReturns = (returns || []).filter((r) => r.orderId === orderId);

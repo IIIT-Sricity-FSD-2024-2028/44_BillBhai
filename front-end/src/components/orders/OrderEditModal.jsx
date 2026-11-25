@@ -1,14 +1,17 @@
 import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { apiRequest } from '../../lib/dashboard/api.js';
+import { selectOrdersSaving, updateOrderThunk } from '../../store/slices/ordersSlice.js';
+import { extractErrorMessage } from '../../store/thunkUtils.js';
 
 /**
  * Edits only what may change on a saved bill: the customer's contact details
  * and a note. Items, total and payment stay as they were billed.
  */
 export default function OrderEditModal({ order, onClose }) {
+  const dispatch = useDispatch();
   const { refreshData, showToast } = useDashboard();
   const [name, setName] = useState(order.customer || '');
   const [phone, setPhone] = useState(order.customerPhone || '');
@@ -16,7 +19,7 @@ export default function OrderEditModal({ order, onClose }) {
   const [notes, setNotes] = useState(order.notes || '');
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const saving = useSelector(selectOrdersSaving);
   const isDelivery = order.orderType === 'delivery';
   const addressLocked = ['Shipped', 'Delivered', 'Partially Returned', 'Returned'].includes(order.status);
 
@@ -39,17 +42,14 @@ export default function OrderEditModal({ order, onClose }) {
       onClose();
       return;
     }
-    setSaving(true);
     setServerError('');
     try {
-      await apiRequest(`/orders/${encodeURIComponent(order.id)}`, { method: 'PUT', body });
+      await dispatch(updateOrderThunk({ id: order.id, body })).unwrap();
       await refreshData();
       showToast(`Order ${order.id} updated`);
       onClose();
     } catch (err) {
-      setServerError(err.message);
-    } finally {
-      setSaving(false);
+      setServerError(extractErrorMessage(err, 'Failed to update order'));
     }
   };
 

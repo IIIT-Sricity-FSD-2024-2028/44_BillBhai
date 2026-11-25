@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { apiRequest } from '../../lib/dashboard/api.js';
+import { createCouponThunk, selectCouponsSaving, updateCouponThunk } from '../../store/slices/couponsSlice.js';
+import { extractErrorMessage } from '../../store/thunkUtils.js';
 import { addDays, dayKey, scopedCompanyId, currencySymbol } from '../orders/orderFormat.js';
 
 function initialValues(coupon) {
@@ -53,11 +55,12 @@ function validate(v) {
 }
 
 export default function CouponFormModal({ coupon, onClose }) {
+  const dispatch = useDispatch();
   const { refreshData, showToast, state } = useDashboard();
   const [v, setV] = useState(() => initialValues(coupon));
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const saving = useSelector(selectCouponsSaving);
   const used = coupon ? Number(coupon.usedCount) || 0 : 0;
   const set = (key) => (e) => setV((cur) => ({ ...cur, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
@@ -79,23 +82,20 @@ export default function CouponFormModal({ coupon, onClose }) {
       perCustomerLimit: Number(v.perCustomerLimit),
       active: v.active,
     };
-    setSaving(true);
     setServerError('');
     try {
       if (coupon) {
         if (used > 0) delete body.code;
-        await apiRequest(`/coupons/${encodeURIComponent(coupon.id)}`, { method: 'PUT', body: { ...body, version: coupon.version } });
+        await dispatch(updateCouponThunk({ id: coupon.id, body: { ...body, version: coupon.version } })).unwrap();
         showToast(`Coupon ${coupon.code} saved`);
       } else {
-        await apiRequest('/coupons', { method: 'POST', body: { ...body, companyId: scopedCompanyId(state) } });
+        await dispatch(createCouponThunk({ ...body, companyId: scopedCompanyId(state) })).unwrap();
         showToast(`Coupon ${body.code} created`);
       }
       await refreshData();
       onClose(true);
     } catch (err) {
-      setServerError(err.message);
-    } finally {
-      setSaving(false);
+      setServerError(extractErrorMessage(err, 'Failed to save coupon'));
     }
   };
 

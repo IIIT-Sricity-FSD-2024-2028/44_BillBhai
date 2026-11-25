@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
 import Badge from '../common/Badge.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
-import { apiRequest } from '../../lib/dashboard/api.js';
+import { ordersRepo } from '../../repositories/ordersRepo.js';
+import {
+  placeOrderThunk,
+  quoteOrderThunk,
+  selectOrderQuote,
+  selectOrdersSaving,
+} from '../../store/slices/ordersSlice.js';
+import { extractErrorMessage } from '../../store/thunkUtils.js';
 import { rupees, scopedCompanyId, currencySymbol } from './orderFormat.js';
 
 const MODES = [
@@ -54,6 +62,7 @@ function validPhone(value) {
  * saving and its exact message if anything is refused.
  */
 export default function OrderFormModal({ onClose, onCreated }) {
+  const dispatch = useDispatch();
   const { inventory, refreshData, showToast, state } = useDashboard();
   const companyId = scopedCompanyId(state);
   const [search, setSearch] = useState('');
@@ -69,11 +78,12 @@ export default function OrderFormModal({ onClose, onCreated }) {
   const [couponError, setCouponError] = useState('');
   const [tendered, setTendered] = useState('');
   const [notes, setNotes] = useState('');
-  const [quote, setQuote] = useState(null);
+  const rawQuote = useSelector(selectOrderQuote);
+  const quote = lines.length ? rawQuote : null;
   const [quoteError, setQuoteError] = useState('');
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const saving = useSelector(selectOrdersSaving);
   const quoteSeq = useRef(0);
 
   const isDelivery = mode !== 'takeaway_now';
@@ -123,27 +133,25 @@ export default function OrderFormModal({ onClose, onCreated }) {
   // Ask the server for the real total whenever the cart changes.
   useEffect(() => {
     if (!lines.length) {
-      setQuote(null);
       setQuoteError('');
       return undefined;
     }
     const seq = ++quoteSeq.current;
     const timer = setTimeout(() => {
-      apiRequest('/orders/quote', { method: 'POST', body: buildBody() })
-        .then((q) => {
+      dispatch(quoteOrderThunk(buildBody()))
+        .unwrap()
+        .then(() => {
           if (seq !== quoteSeq.current) return;
-          setQuote(q);
           setQuoteError('');
         })
         .catch((err) => {
           if (seq !== quoteSeq.current) return;
-          setQuote(null);
-          setQuoteError(err.message);
+          setQuoteError(extractErrorMessage(err, 'Could not calculate quote'));
         });
     }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, mode, deliveryCharge, coupon, phoneDigits]);
+  }, [dispatch, lines, mode, deliveryCharge, coupon, phoneDigits]);
 
   const applyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
@@ -154,9 +162,11 @@ export default function OrderFormModal({ onClose, onCreated }) {
       return;
     }
     try {
-      const result = await apiRequest('/orders/promotions/validate', {
-        method: 'POST',
-        body: { companyId, code, subtotal: localSubtotal, customerPhone: phoneDigits || undefined },
+      const result = await ordersRepo.validatePromotions({
+        companyId,
+        code,
+        subtotal: localSubtotal,
+        customerPhone: phoneDigits || undefined,
       });
       setCoupon(result);
     } catch (err) {
@@ -180,7 +190,6 @@ export default function OrderFormModal({ onClose, onCreated }) {
     setErrors(next);
     if (Object.keys(next).length) return;
 
-    setSaving(true);
     setSubmitError('');
     try {
       const body = {
@@ -194,16 +203,14 @@ export default function OrderFormModal({ onClose, onCreated }) {
         amountTendered: change !== null ? tenderedNum : undefined,
         notes: notes.trim() || undefined,
       };
-      const order = await apiRequest('/orders', { method: 'POST', body });
+      const order = await dispatch(placeOrderThunk(body)).unwrap();
       await refreshData();
       showToast(
         `Order ${order.id} saved – ${rupees(order.total)}${order.changeDue ? `, give back ${rupees(order.changeDue)}` : ''}`,
       );
       onCreated(order);
     } catch (err) {
-      setSubmitError(err.message);
-    } finally {
-      setSaving(false);
+      setSubmitError(extractErrorMessage(err, 'Failed to place order'));
     }
   };
 
