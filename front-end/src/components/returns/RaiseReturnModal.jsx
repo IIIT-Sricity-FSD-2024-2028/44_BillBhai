@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import FormField from '../common/FormField.jsx';
-import { api, errorText } from '../../lib/http.js';
+import { fetchReturnableOrderThunk, createReturnThunk } from '../../store/slices/returnsSlice.js';
 import { RETURN_REASONS, rupees, shortDate } from './returnStats.js';
 
 const ROW = { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' };
@@ -27,6 +28,7 @@ const INFO_BOX = {
  *      out by the server; nobody types an amount or a product.
  */
 export default function RaiseReturnModal({ open, onClose, onCreated, recentOrders = [] }) {
+  const dispatch = useDispatch();
   const [orderInput, setOrderInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState(null);
@@ -67,14 +69,20 @@ export default function RaiseReturnModal({ open, onClose, onCreated, recentOrder
     }
     setLoading(true);
     try {
-      const data = await api(`/returns/order/${encodeURIComponent(id)}/returnable`);
-      setOrder(data);
-      setOrderInput(id);
-      setQty({});
-      setRequestedBy(data.customerName || '');
+      const action = await dispatch(fetchReturnableOrderThunk(id));
+      if (fetchReturnableOrderThunk.fulfilled.match(action)) {
+        const data = action.payload;
+        setOrder(data);
+        setOrderInput(id);
+        setQty({});
+        setRequestedBy(data?.customerName || '');
+      } else {
+        setOrder(null);
+        setError(action.payload || 'Could not load that order');
+      }
     } catch (err) {
       setOrder(null);
-      setError(errorText(err, 'Could not load that order'));
+      setError(err?.message || 'Could not load that order');
     } finally {
       setLoading(false);
     }
@@ -110,21 +118,26 @@ export default function RaiseReturnModal({ open, onClose, onCreated, recentOrder
     }
     setSaving(true);
     try {
-      const created = await api('/returns', {
-        method: 'POST',
-        body: {
+      const action = await dispatch(
+        createReturnThunk({
           orderId: order.orderId,
           items: chosen.map((l) => ({ productId: l.productId, qty: qty[l.productId] })),
           reason: finalReason,
           returnType,
           requestedBy: requestedBy.trim() || undefined,
           note: note.trim() || undefined,
-        },
-      });
-      reset();
-      onCreated(created);
+        }),
+      );
+      if (createReturnThunk.fulfilled.match(action)) {
+        const created = action.payload;
+        reset();
+        onCreated(created);
+      } else {
+        setError(action.payload || 'Could not raise the return');
+        setSaving(false);
+      }
     } catch (err) {
-      setError(errorText(err, 'Could not raise the return'));
+      setError(err?.message || 'Could not raise the return');
       setSaving(false);
     }
   };

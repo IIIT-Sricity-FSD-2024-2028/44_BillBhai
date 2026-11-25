@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
-import { api } from '../../lib/http.js';
+import {
+  transitionDeliveryThunk,
+  updateDeliveryThunk,
+  createDeliveryThunk,
+} from '../../store/slices/deliveriesSlice.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import {
   DEFAULT_ETA_MIN,
@@ -69,6 +74,7 @@ function initialForm(kind, d) {
 }
 
 function DeliveryActionModal({ request, partners, onClose, onDone }) {
+  const dispatch = useDispatch();
   const kind = request ? request.kind : null;
   const d = request ? request.delivery : null;
   const order = request ? request.order : null;
@@ -156,8 +162,18 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
     if (Object.keys(problems).length) return;
     setSaving(true);
     setServerError('');
-    const status = (body) =>
-      api(`/deliveries/${encodeURIComponent(d.id)}/status`, { method: 'POST', body: { ...body, version: d.version } });
+    const status = async (body) => {
+      const action = await dispatch(
+        transitionDeliveryThunk({
+          id: d.id,
+          body: { ...body, version: d.version },
+        }),
+      );
+      if (transitionDeliveryThunk.rejected.match(action)) {
+        throw new Error(action.payload || 'Failed to update delivery status');
+      }
+      return action.payload;
+    };
     try {
       let message = '';
       if (kind === 'assign' || kind === 'retry') {
@@ -205,14 +221,21 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
           onClose();
           return;
         }
-        await api(`/deliveries/${encodeURIComponent(d.id)}`, { method: 'PUT', body });
+        const action = await dispatch(updateDeliveryThunk({ id: d.id, body }));
+        if (updateDeliveryThunk.rejected.match(action)) {
+          throw new Error(action.payload || 'Failed to update delivery');
+        }
         message = `${d.id} updated.`;
       } else if (kind === 'create') {
         const body = { orderId: order.id };
         const p = partnerBody();
         if (p.partnerName) Object.assign(body, p);
         else body.etaMinutes = p.etaMinutes;
-        const created = await api('/deliveries', { method: 'POST', body });
+        const action = await dispatch(createDeliveryThunk(body));
+        if (createDeliveryThunk.rejected.match(action)) {
+          throw new Error(action.payload || 'Failed to create delivery');
+        }
+        const created = action.payload;
         message = `Delivery ${created.id} created for ${order.id}.`;
       }
       onDone(message, { kind, deliveryId: d?.id, rider: form.partnerName.trim() });

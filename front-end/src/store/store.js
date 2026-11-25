@@ -1,5 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import uiReducer from './slices/uiSlice.js';
+import deliveriesReducer from './slices/deliveriesSlice.js';
+import returnsReducer from './slices/returnsSlice.js';
 import deliveryReducer from './slices/deliverySlice.js';
 import productsReducer from './slices/productsSlice.js';
 import inventoryReducer from './slices/inventorySlice.js';
@@ -17,6 +19,8 @@ import posCartReducer from './slices/posCartSlice.js';
 const store = configureStore({
   reducer: {
     ui: uiReducer,
+    deliveries: deliveriesReducer,
+    returns: returnsReducer,
     delivery: deliveryReducer,
     products: productsReducer,
     inventory: inventoryReducer,

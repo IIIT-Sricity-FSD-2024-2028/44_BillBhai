@@ -1,4 +1,10 @@
 import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  selectReduxNotifications,
+  markNotificationRead as reduxMarkNotificationRead,
+  markAllNotificationsRead as reduxMarkAllNotificationsRead,
+} from '../store/slices/uiSlice.js';
 import DashboardLayout from '../components/dashboard/DashboardLayout.jsx';
 import NotificationsList from '../components/notifications/NotificationsList.jsx';
 import NotificationDetail from '../components/notifications/NotificationDetail.jsx';
@@ -6,16 +12,22 @@ import { useDashboard, useNotifications } from '../lib/dashboard/hooks.js';
 import { resolveNotificationViewState } from '../lib/dashboard/notifications.js';
 
 function NotificationsContent() {
+  const dispatch = useDispatch();
+  const reduxNotifs = useSelector(selectReduxNotifications);
+  const hookNotifs = useNotifications();
+  const notifications = reduxNotifs && reduxNotifs.length ? reduxNotifs : hookNotifs;
   const { roleKey, getActiveNotifications, setNotificationReadState, markNotificationsRead } =
     useDashboard();
-  const notifications = useNotifications();
   const [viewState, setViewState] = useState(() => resolveNotificationViewState());
   const [detailId, setDetailId] = useState(null);
 
   const openDetail = (id) => {
-    const target = getActiveNotifications().find((item) => item.id === id);
+    const target = notifications.find((item) => item.id === id) || getActiveNotifications().find((item) => item.id === id);
     if (!target) return;
-    if (target.unread) setNotificationReadState(target.id, true);
+    if (target.unread) {
+      dispatch(reduxMarkNotificationRead(target.id));
+      setNotificationReadState(target.id, true);
+    }
     setDetailId(id);
   };
 
@@ -26,7 +38,10 @@ function NotificationsContent() {
       <NotificationDetail
         notification={detail}
         onBack={() => setDetailId(null)}
-        onToggleRead={() => setNotificationReadState(detail.id, detail.unread)}
+        onToggleRead={() => {
+          dispatch(reduxMarkNotificationRead(detail.id));
+          setNotificationReadState(detail.id, detail.unread);
+        }}
       />
     );
   }
@@ -37,13 +52,15 @@ function NotificationsContent() {
       roleKey={roleKey}
       viewState={viewState}
       onViewStateChange={(next) => setViewState(resolveNotificationViewState(next))}
-      onMarkAllRead={() =>
-        markNotificationsRead(
-          notifications.filter((item) => item.unread).map((item) => item.id),
-          true,
-        )
-      }
-      onToggleRead={(item) => setNotificationReadState(item.id, item.unread)}
+      onMarkAllRead={() => {
+        const unreadIds = notifications.filter((item) => item.unread).map((item) => item.id);
+        dispatch(reduxMarkAllNotificationsRead(unreadIds));
+        markNotificationsRead(unreadIds, true);
+      }}
+      onToggleRead={(item) => {
+        dispatch(reduxMarkNotificationRead(item.id));
+        setNotificationReadState(item.id, item.unread);
+      }}
       onOpen={openDetail}
     />
   );

@@ -20,10 +20,6 @@ const initialState = {
   error: null,
 };
 
-// -------------------------------------------------------------
-// ASYNC THUNKS
-// -------------------------------------------------------------
-
 export const fetchOrdersThunk = createAsyncThunk(
   'orders/fetchOrders',
   async (_, { rejectWithValue }) => {
@@ -64,10 +60,6 @@ export const deleteOrderThunk = createAsyncThunk(
     }
   }
 );
-
-// -------------------------------------------------------------
-// SLICE
-// -------------------------------------------------------------
 
 export const ordersSlice = createSlice({
   name: 'orders',
@@ -147,10 +139,6 @@ export const {
   clearSelectedOrder,
   setOrders,
 } = ordersSlice.actions;
-
-// -------------------------------------------------------------
-// SELECTORS
-// -------------------------------------------------------------
 
 export const selectAllOrders = (state) => state.orders.orders;
 export const selectOrderFilters = (state) => state.orders.filters;

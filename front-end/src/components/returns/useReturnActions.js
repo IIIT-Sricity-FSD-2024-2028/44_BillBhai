@@ -1,14 +1,14 @@
-import { api, errorText } from '../../lib/http.js';
+import { useDispatch } from 'react-redux';
+import { transitionReturnThunk, deleteReturnThunk } from '../../store/slices/returnsSlice.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { rupees } from './returnStats.js';
 
 /**
- * Return-desk actions. Every change goes to the server (with the version the
- * screen loaded, so two people cannot overwrite each other) and the page then
- * reloads from the server.
+ * Return-desk actions using Redux Toolkit DB-first Thunks.
  */
 export default function useReturnActions() {
-  const { hasActionAccess, denyAction, openConfirm, showToast, refreshData } = useDashboard();
+  const dispatch = useDispatch();
+  const { hasActionAccess, denyAction, openConfirm, showToast } = useDashboard();
   const canManage = hasActionAccess('returns');
 
   const transition = async (item, body) => {
@@ -16,8 +16,11 @@ export default function useReturnActions() {
       denyAction('Return update');
       throw new Error('Not allowed for your role');
     }
-    const saved = await api(`/returns/${encodeURIComponent(item.id)}/status`, { method: 'POST', body });
-    await refreshData();
+    const action = await dispatch(transitionReturnThunk({ id: item.id, body }));
+    if (transitionReturnThunk.rejected.match(action)) {
+      throw new Error(action.payload || 'Return transition failed');
+    }
+    const saved = action.payload;
     const done = {
       Approved: `Return ${item.id} approved`,
       Refunded: `Refunded ${rupees(item.amount)} for ${item.id}`,
@@ -38,7 +41,7 @@ export default function useReturnActions() {
           await transition(item, { status: 'Approved', version: item.version });
           return true;
         } catch (err) {
-          showToast(`Approve failed: ${errorText(err)}`);
+          showToast(`Approve failed: ${err.message || 'Error'}`);
           return false;
         }
       },
@@ -51,12 +54,14 @@ export default function useReturnActions() {
       confirmLabel: 'Withdraw',
       onConfirm: async () => {
         try {
-          await api(`/returns/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
-          await refreshData();
+          const action = await dispatch(deleteReturnThunk(item.id));
+          if (deleteReturnThunk.rejected.match(action)) {
+            throw new Error(action.payload || 'Withdraw failed');
+          }
           showToast(`Return ${item.id} withdrawn`);
           return true;
         } catch (err) {
-          showToast(`Withdraw failed: ${errorText(err)}`);
+          showToast(`Withdraw failed: ${err.message || 'Error'}`);
           return false;
         }
       },

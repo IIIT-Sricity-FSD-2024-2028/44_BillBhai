@@ -1,7 +1,14 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { showToast as reduxShowToast, hideToast, selectToastState } from '../../store/slices/uiSlice.js';
+import {
+  showToast as reduxShowToast,
+  hideToast,
+  selectToastState,
+  openModal as reduxOpenModal,
+  closeModal as reduxCloseModal,
+  selectReduxNotifications,
+} from '../../store/slices/uiSlice.js';
 import usePageSetup from '../../hooks/usePageSetup.js';
 import { CSS, FONTS } from '../../lib/pageAssets.js';
 import {
@@ -82,7 +89,9 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
   });
 
   const s = useDashboardStore();
-  const notifications = useNotifications();
+  const legacyNotifs = useNotifications();
+  const reduxNotifs = useSelector(selectReduxNotifications);
+  const notifications = reduxNotifs && reduxNotifs.length ? reduxNotifs : legacyNotifs;
   const dispatch = useDispatch();
   const reduxToast = useSelector(selectToastState);
   const [ready, setReady] = useState(false);
@@ -116,7 +125,10 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
   }, [ready, revealed]);
 
   const uiApi = useMemo(() => {
-    const open = (kind, config) => setModals((list) => [...list, { id: ++modalSeq, kind, config }]);
+    const open = (kind, config) => {
+      dispatch(reduxOpenModal({ kind, config }));
+      setModals((list) => [...list, { id: ++modalSeq, kind, config }]);
+    };
     const openConfirm = (config) => open('confirm', config);
     return {
       showToast: (message, type = 'success') => {
@@ -170,7 +182,10 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
 
   if (boot.redirect) return null;
 
-  const closeModal = (id) => setModals((list) => list.filter((m) => m.id !== id));
+  const closeModal = (id) => {
+    dispatch(reduxCloseModal(id));
+    setModals((list) => list.filter((m) => m.id !== id));
+  };
   const onNavClick = () => {
     if (window.innerWidth <= SIDEBAR_DRAWER_WIDTH) setMobileOpen(false);
   };

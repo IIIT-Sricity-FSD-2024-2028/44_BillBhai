@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchReturnsThunk, selectAllReturns } from '../store/slices/returnsSlice.js';
 import DashboardLayout from '../components/dashboard/DashboardLayout.jsx';
 import PageHeader from '../components/common/PageHeader.jsx';
 import DataTable from '../components/common/DataTable.jsx';
@@ -60,8 +62,15 @@ function sorter(sortKey) {
 }
 
 function ReturnsContent() {
-  const { returns, orders, refreshData, showToast } = useDashboard();
+  const dispatch = useDispatch();
+  const reduxReturns = useSelector(selectAllReturns);
+  const { returns: dashReturns, orders, refreshData, showToast } = useDashboard();
+  const returns = reduxReturns.length ? reduxReturns : dashReturns;
   const { canManage, transition, approve, withdraw } = useReturnActions();
+
+  useEffect(() => {
+    dispatch(fetchReturnsThunk());
+  }, [dispatch]);
   const [tab, setTab] = useState('pending');
   const [sortKey, setSortKey] = useState('new');
   const [search, setSearch] = useState('');

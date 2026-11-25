@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { fetchDeliveriesThunk, updateDeliveryStatusThunk } from '../../store/slices/deliverySlice.js';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchDeliveriesThunk,
+  transitionDeliveryThunk,
+  selectAllDeliveries,
+} from '../../store/slices/deliveriesSlice.js';
 import PageHeader from '../common/PageHeader.jsx';
 import DataTable from '../common/DataTable.jsx';
 import FilterToolbar from '../common/FilterToolbar.jsx';
@@ -51,13 +55,15 @@ function sorter(key) {
 }
 
 export default function DeliveryContent() {
-  const { deliveries, orders, hasActionAccess, scopedBusinessName, syncError } = useDashboard();
+  const reduxDeliveries = useSelector(selectAllDeliveries);
+  const { deliveries: dashDeliveries, orders, hasActionAccess, scopedBusinessName, syncError } = useDashboard();
+  const deliveries = reduxDeliveries.length ? reduxDeliveries : dashDeliveries;
   const canManage = hasActionAccess('delivery');
   const dispatch = useDispatch();
   const actions = useDeliveryActions({
     onDone: (message, meta) => {
       if (meta && (meta.kind === 'assign' || meta.kind === 'retry')) {
-        dispatch(updateDeliveryStatusThunk({ id: meta.deliveryId, status: 'Assigned', rider: meta.rider }));
+        dispatch(transitionDeliveryThunk({ id: meta.deliveryId, body: { status: 'Assigned', rider: meta.rider } }));
       }
     },
   });

@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchDeliveriesThunk, selectAllDeliveries } from '../../store/slices/deliveriesSlice.js';
 import PageHeader from '../common/PageHeader.jsx';
 import DataTable from '../common/DataTable.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
@@ -15,11 +17,18 @@ const COLUMNS = ['Delivery', 'Customer', 'Items', 'Money', 'Partner', 'Status', 
 /** Delivery desk start page: what needs doing now. */
 export default function DeliveryOpsDashboard() {
   const navigate = useNavigate();
-  const { deliveries, scopedBusinessName, hasActionAccess } = useDashboard();
+  const dispatch = useDispatch();
+  const reduxDeliveries = useSelector(selectAllDeliveries);
+  const { deliveries: dashDeliveries, scopedBusinessName, hasActionAccess } = useDashboard();
+  const deliveries = reduxDeliveries.length ? reduxDeliveries : dashDeliveries;
   const canManage = hasActionAccess('delivery');
   const [notice, setNotice] = useState('');
   const [detailId, setDetailId] = useState(null);
   const actions = useDeliveryActions({ onDone: setNotice });
+
+  useEffect(() => {
+    dispatch(fetchDeliveriesThunk());
+  }, [dispatch]);
 
   const counts = getDeliveryCounts(deliveries);
   // Late parcels first, then failed attempts, then parcels with no partner.

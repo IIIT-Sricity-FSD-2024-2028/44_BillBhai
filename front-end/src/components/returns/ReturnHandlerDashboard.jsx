@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { processRefundThunk, selectPendingReturns, selectDeliveryLoading } from '../../store/slices/deliverySlice.js';
+import {
+  fetchReturnsThunk,
+  transitionReturnThunk,
+  selectAllReturns,
+  selectReturnsSaving,
+} from '../../store/slices/returnsSlice.js';
 import { showToast } from '../../store/slices/uiSlice.js';
 import PageHeader from '../common/PageHeader.jsx';
 import DataTable from '../common/DataTable.jsx';
@@ -20,20 +25,30 @@ function isoDay(ms) {
 }
 
 export default function ReturnHandlerDashboard() {
-  const { returns, scopedBusinessName, lastSyncedAt } = useDashboard();
+  const reduxReturns = useSelector(selectAllReturns);
+  const { returns: dashReturns, scopedBusinessName, lastSyncedAt } = useDashboard();
+  const returns = reduxReturns.length ? reduxReturns : dashReturns;
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const isProcessing = useSelector(selectDeliveryLoading);
-  const pendingReturns = useSelector(selectPendingReturns);
+  const isProcessing = useSelector(selectReturnsSaving);
   const [week, setWeek] = useState(null);
 
-  // Handler: process a refund via Redux thunk
+  useEffect(() => {
+    dispatch(fetchReturnsThunk());
+  }, [dispatch]);
+
+  // Handler: process a refund via Redux transitionReturnThunk
   const handleProcessRefund = async (r) => {
-    const result = await dispatch(processRefundThunk({ returnId: r.id, amount: r.amount }));
-    if (processRefundThunk.fulfilled.match(result)) {
+    const result = await dispatch(
+      transitionReturnThunk({
+        id: r.id,
+        body: { status: 'Refunded', amount: r.amount, version: r.version },
+      }),
+    );
+    if (transitionReturnThunk.fulfilled.match(result)) {
       dispatch(showToast({ message: `Refund of ${rupees(r.amount)} processed for ${r.id}`, type: 'success' }));
     } else {
-      dispatch(showToast({ message: `Failed to process refund for ${r.id}`, type: 'error' }));
+      dispatch(showToast({ message: `Failed to process refund for ${r.id}: ${result.payload || 'Error'}`, type: 'error' }));
     }
   };
 
