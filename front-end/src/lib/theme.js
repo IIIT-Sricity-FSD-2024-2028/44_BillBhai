@@ -12,9 +12,10 @@ function readSavedTheme() {
   }
 }
 
-let current = document.documentElement.dataset.theme || readSavedTheme();
+let current = (typeof document !== 'undefined' && document.documentElement?.dataset?.theme) || readSavedTheme();
 
 function apply(theme) {
+  if (typeof document === 'undefined' || !document.documentElement) return;
   const root = document.documentElement;
   root.dataset.theme = theme;
   root.style.colorScheme = theme;
@@ -35,10 +36,14 @@ export function setTheme(theme) {
   if (!THEMES.includes(theme) || theme === current) return;
   current = theme;
   // Colours cross-fade for a moment instead of snapping.
-  const root = document.documentElement;
-  root.classList.add('theme-switching');
-  apply(theme);
-  window.setTimeout(() => root.classList.remove('theme-switching'), 300);
+  if (typeof document !== 'undefined' && document.documentElement) {
+    const root = document.documentElement;
+    root.classList.add('theme-switching');
+    apply(theme);
+    if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+      window.setTimeout(() => root.classList.remove('theme-switching'), 300);
+    }
+  }
   try {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   } catch {
@@ -52,5 +57,7 @@ export function toggleTheme() {
 }
 
 // Paper is white: print in the light theme, then switch back.
-window.addEventListener('beforeprint', () => apply('light'));
-window.addEventListener('afterprint', () => apply(current));
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('beforeprint', () => apply('light'));
+  window.addEventListener('afterprint', () => apply(current));
+}

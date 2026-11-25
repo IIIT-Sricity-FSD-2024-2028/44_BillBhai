@@ -17,6 +17,7 @@ import productsReducer from '../../../store/slices/productsSlice.js';
 import inventoryReducer from '../../../store/slices/inventorySlice.js';
 import suppliersReducer from '../../../store/slices/suppliersSlice.js';
 import uploadsReducer from '../../../store/slices/uploadsSlice.js';
+import reportsReducer from '../../../store/slices/reportsSlice.js';
 import { patchState, registerUi } from '../../../lib/dashboard/store.js';
 import InventoryContent from '../InventoryContent.jsx';
 import ProductFormModal from '../ProductFormModal.jsx';
@@ -33,6 +34,7 @@ function makeStore(preloadedState) {
       suppliers: suppliersReducer,
       uploads: uploadsReducer,
       orders: ordersReducer,
+      reports: reportsReducer,
     },
     preloadedState,
   });

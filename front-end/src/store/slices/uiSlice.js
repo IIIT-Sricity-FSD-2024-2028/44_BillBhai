@@ -1,4 +1,5 @@
 import { createSlice, createSelector } from '@reduxjs/toolkit';
+import { setTheme as syncThemeStore } from '../../lib/theme.js';
 
 let modalSeq = 0;
 
@@ -55,25 +56,13 @@ const uiSlice = createSlice({
     toggleTheme(state) {
       const next = state.theme === 'dark' ? 'light' : 'dark';
       state.theme = next;
-      try {
-        localStorage.setItem('billbhai-theme', next);
-      } catch { /* private mode */ }
-      if (typeof document !== 'undefined') {
-        document.documentElement.dataset.theme = next;
-        document.documentElement.style.colorScheme = next;
-      }
+      syncThemeStore(next);
     },
     setTheme(state, action) {
       const theme = action.payload;
       if (theme !== 'dark' && theme !== 'light') return;
       state.theme = theme;
-      try {
-        localStorage.setItem('billbhai-theme', theme);
-      } catch { /* private mode */ }
-      if (typeof document !== 'undefined') {
-        document.documentElement.dataset.theme = theme;
-        document.documentElement.style.colorScheme = theme;
-      }
+      syncThemeStore(theme);
     },
 
     toggleSidebar(state) {
