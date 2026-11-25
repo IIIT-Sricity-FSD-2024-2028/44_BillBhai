@@ -83,20 +83,20 @@ process.env.VITE_API_URL = `http://127.0.0.1:${port}/api`;
 
 try {
   // Dynamically import after VITE_API_URL is set so http.js targets the live ephemeral server.
-  const { api, setAuthToken, resetRedirectGuard } = await import('../../lib/http.js');
+  const { api, setAuthToken, resetRedirectGuard } = await import('../../shared/lib/http.js');
   const { injectStore } = await import('../storeBridge.js');
   const { default: store } = await import('../store.js');
-  const { clearSession } = await import('../../lib/dashboard/session.js');
-  const { productsRepo } = await import('../../repositories/productsRepo.js');
-  const { inventoryRepo } = await import('../../repositories/inventoryRepo.js');
-  const { suppliersRepo } = await import('../../repositories/suppliersRepo.js');
-  const { uploadsRepo } = await import('../../repositories/uploadsRepo.js');
+  const { clearSession } = await import('../../shared/lib/dashboard/session.js');
+  const { productsRepo } = await import('../../features/inventory/productsRepo.js');
+  const { inventoryRepo } = await import('../../features/inventory/inventoryRepo.js');
+  const { suppliersRepo } = await import('../../features/inventory/suppliersRepo.js');
+  const { uploadsRepo } = await import('../../features/inventory/uploadsRepo.js');
   const {
     fetchProductsThunk,
     createProductThunk,
     updateProductThunk,
     deleteProductThunk,
-  } = await import('../slices/productsSlice.js');
+  } = await import('../../features/inventory/productsSlice.js');
   const {
     fetchInventoryThunk,
     fetchLowStockThunk,
@@ -105,19 +105,19 @@ try {
     adjustStockThunk,
     updateInventoryThunk,
     deleteInventoryThunk,
-  } = await import('../slices/inventorySlice.js');
+  } = await import('../../features/inventory/inventorySlice.js');
   const {
     fetchSuppliersThunk,
     createSupplierThunk,
     deleteSupplierThunk,
-  } = await import('../slices/suppliersSlice.js');
+  } = await import('../../features/inventory/suppliersSlice.js');
   const {
     fetchUploadsThunk,
     uploadImageThunk,
     importProductsCsvThunk,
     attachProductImageThunk,
     deleteUploadThunk,
-  } = await import('../slices/uploadsSlice.js');
+  } = await import('../../features/inventory/uploadsSlice.js');
 
   injectStore(store);
 

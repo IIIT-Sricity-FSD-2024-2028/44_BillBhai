@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import store from './store/store.js';
 import { injectStore } from './store/storeBridge.js';
 import App from './App.jsx';
-import './styles/theme.css';
+import './shared/styles/theme.css';
 
 injectStore(store);
 
