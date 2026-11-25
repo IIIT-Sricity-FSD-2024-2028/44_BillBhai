@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import usePageSetup from '../hooks/usePageSetup.js';
 import { CSS, FONTS } from '../lib/pageAssets.js';
-import { api, storeLoginSession } from '../lib/http.js';
 import { buildUsernameSeed } from '../lib/dashboard/credentials.js';
+import {
+  clearCompaniesError,
+  registerCompanyThunk,
+  selectCompaniesState,
+} from '../store/slices/companiesSlice.js';
 import AmbientGlow from '../components/login/AmbientGlow.jsx';
 import RegisterCard from '../components/register/RegisterCard.jsx';
 import RegisterField from '../components/register/RegisterField.jsx';
@@ -49,9 +54,8 @@ function toTitleCase(value) {
 const digits = (value) => String(value || '').replace(/\D/g, '');
 
 /**
- * Business sign-up. One request to POST /companies/register creates the
- * business AND its owner's admin login together, then signs the owner in.
- * Nothing is half-created and no password is kept in the browser.
+ * Business sign-up. Dispatches `registerCompanyThunk` to `companiesSlice`;
+ * Redux updates only after the backend confirms registration.
  */
 export default function RegisterBusinessPage() {
   usePageSetup({
@@ -60,28 +64,30 @@ export default function RegisterBusinessPage() {
     fonts: FONTS.auth,
   });
 
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const requestedPlan = PLANS.includes(params.get('plan')) ? params.get('plan') : 'starter';
+  const { saving: isLoading, error: serverError } = useSelector(selectCompaniesState);
+
   const [values, setValues] = useState(initialValues);
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [groups, setGroups] = useState(initialGroups);
   const [showing, setShowing] = useState({ password: false, confirmPassword: false });
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const [formError, setFormError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
-  const [disabled, setDisabled] = useState(false);
 
   const mounted = useRef(true);
   const redirectTimer = useRef(null);
   useEffect(() => {
     mounted.current = true;
+    dispatch(clearCompaniesError());
     return () => {
       mounted.current = false;
       clearTimeout(redirectTimer.current);
     };
-  }, []);
+  }, [dispatch]);
 
   function updateGroup(field, patch) {
     setGroups((prev) => ({ ...prev, [field]: { ...prev[field], ...patch } }));
@@ -120,7 +126,8 @@ export default function RegisterBusinessPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setFormError('');
+    setValidationError('');
+    dispatch(clearCompaniesError());
 
     const next = Object.fromEntries(FIELDS.map((f) => [f, { ...groups[f], error: false, shake: false }]));
     let hasError = false;
@@ -157,7 +164,7 @@ export default function RegisterBusinessPage() {
     setGroups(next);
     if (!agreeTerms) problems.push('Please accept the Terms & Conditions.');
     if (problems.length) {
-      setFormError(problems.join(' '));
+      setValidationError(problems.join(' '));
       hasError = true;
     }
     if (hasError) return;
@@ -166,13 +173,9 @@ export default function RegisterBusinessPage() {
     const phone = digits(values.phone).slice(-10);
     const owner = values.ownerName.trim();
 
-    setIsLoading(true);
-    setDisabled(true);
     try {
-      const result = await api('/companies/register', {
-        method: 'POST',
-        anonymous: true,
-        body: {
+      await dispatch(
+        registerCompanyThunk({
           plan: requestedPlan,
           company: {
             name: values.businessName.trim(),
@@ -191,22 +194,18 @@ export default function RegisterBusinessPage() {
             username: values.username.trim(),
             password: pw,
           },
-        },
-      });
-      storeLoginSession(result.session);
+        }),
+      ).unwrap();
       if (!mounted.current) return;
-      setIsLoading(false);
       setIsSuccess(true);
       redirectTimer.current = setTimeout(() => navigate('/choose-plan'), 700);
-    } catch (error) {
-      if (!mounted.current) return;
-      setFormError(error && error.message ? error.message : 'Could not create the business right now.');
-      setIsLoading(false);
-      setDisabled(false);
+    } catch {
+      // Server error is held in Redux (`state.companies.error`)
     }
   }
 
   const toggle = (field) => () => setShowing((prev) => ({ ...prev, [field]: !prev[field] }));
+  const formError = validationError || serverError || '';
 
   return (
     <>
@@ -282,7 +281,7 @@ export default function RegisterBusinessPage() {
             {formError}
           </p>
 
-          <RegisterButton isLoading={isLoading} isSuccess={isSuccess} disabled={disabled} />
+          <RegisterButton isLoading={isLoading} isSuccess={isSuccess} disabled={isLoading || isSuccess} />
         </form>
       </RegisterCard>
     </>

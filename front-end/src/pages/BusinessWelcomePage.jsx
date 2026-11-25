@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import usePageSetup from '../hooks/usePageSetup.js';
 import { FONTS } from '../lib/pageAssets.js';
 import inlineCss from '../styles/business-welcome-inline.css?inline';
 import InfoRow from '../components/businessWelcome/InfoRow.jsx';
 import WelcomeActions from '../components/businessWelcome/WelcomeActions.jsx';
-import { api, getAuthToken } from '../lib/http.js';
+import { getAuthToken } from '../lib/http.js';
 import { loadObject } from '../lib/dashboard/storage.js';
-import { formatCurrency } from '../lib/currency.js';
-
-const getPlanLabels = () => ({
-  starter: 'Starter Plan (Free)',
-  pro: `Growth / Pro Plan (${formatCurrency(1999)}/mo)`,
-  enterprise: `Enterprise Plan (${formatCurrency(4999)}/mo)`,
-});
+import {
+  fetchMyCompanyProfileThunk,
+  selectCompaniesState,
+} from '../store/slices/companiesSlice.js';
 
 const PLAN_LABELS = {
   starter: 'Starter Plan (Free)',
@@ -22,34 +20,24 @@ const PLAN_LABELS = {
 };
 
 /**
- * "Your business is ready". Shows what the server holds for the signed-in
- * owner's business. The password is never shown again: the owner chose it.
+ * "Your business is ready". Reads business profile from Redux (`companiesSlice`)
+ * after `fetchMyCompanyProfileThunk` succeeds against the backend.
  */
 export default function BusinessWelcomePage() {
   usePageSetup({ title: 'BillBhai - Business Ready', styles: [inlineCss], fonts: FONTS.businessWelcome });
 
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [user] = useState(() => loadObject('currentUser', {}));
-  const [company, setCompany] = useState(null);
-  const [error, setError] = useState('');
+  const { myCompany: company, myCompanyError: error } = useSelector(selectCompaniesState);
 
   useEffect(() => {
     if (!getAuthToken()) {
       navigate('/login');
-      return undefined;
+      return;
     }
-    let alive = true;
-    api('/companies/me/profile')
-      .then((c) => {
-        if (!alive) return;
-        setCompany(c);
-        if (c && c.plan) localStorage.setItem('activeBusinessPlan', c.plan);
-      })
-      .catch((err) => alive && setError(err.message));
-    return () => {
-      alive = false;
-    };
-  }, [navigate]);
+    dispatch(fetchMyCompanyProfileThunk());
+  }, [dispatch, navigate]);
 
   const show = (value) => value || '-';
 
@@ -67,7 +55,7 @@ export default function BusinessWelcomePage() {
         <InfoRow
           label="Active Subscription"
           id="planName"
-          value={company ? getPlanLabels()[company.plan] || company.plan : '-'}
+          value={company ? PLAN_LABELS[company.plan] || company.plan : '-'}
           valueStyle={{ color: '#10b981' }}
         />
         <InfoRow label="GSTIN" id="gstNo" value={show(company && company.gstNo)} />

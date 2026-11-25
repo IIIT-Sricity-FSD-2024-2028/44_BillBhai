@@ -1,31 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, errorText } from '../../lib/http.js';
+import { useDispatch, useSelector } from 'react-redux';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
+import {
+  fetchCompaniesThunk,
+  selectCompaniesState,
+} from '../../store/slices/companiesSlice.js';
 import BusinessesList from './BusinessesList.jsx';
 import BusinessDetails from './BusinessDetails.jsx';
 import useBusinessActions from './useBusinessActions.js';
 
 /**
- * Super user portal. Company records are read straight from GET /companies
- * (plan, subscription, renewal, version and all), staff from the users the
- * dashboard already loaded.
+ * Super user portal. Company records are fetched via `fetchCompaniesThunk`
+ * and read exclusively from Redux (`companiesSlice`).
  */
 export default function BusinessesContent() {
+  const dispatch = useDispatch();
   const { hasActionAccess, users, lastSyncedAt } = useDashboard();
-  const [companies, setCompanies] = useState([]);
-  const [state, setState] = useState({ loading: true, error: '' });
+  const { items: companies, status, error } = useSelector(selectCompaniesState);
   const [detailsId, setDetailsId] = useState(null);
   const canManage = hasActionAccess('businesses');
+  const loading = status === 'idle' || status === 'loading';
 
-  const reload = useCallback(async () => {
-    try {
-      const rows = await api('/companies');
-      setCompanies(Array.isArray(rows) ? rows : []);
-      setState({ loading: false, error: '' });
-    } catch (err) {
-      setState({ loading: false, error: errorText(err, 'Could not load businesses') });
-    }
-  }, []);
+  const reload = useCallback(() => dispatch(fetchCompaniesThunk()), [dispatch]);
 
   useEffect(() => {
     reload();
@@ -33,11 +29,11 @@ export default function BusinessesContent() {
 
   const actions = useBusinessActions({ companies, reload, showDetails: setDetailsId });
 
-  if (state.error && !companies.length) {
+  if (error && !companies.length) {
     return (
       <section className="card">
         <div className="card-bd">
-          <p>{state.error}</p>
+          <p>{error}</p>
           <button type="button" className="btn btn-outline" onClick={reload}>
             Try again
           </button>
@@ -61,7 +57,7 @@ export default function BusinessesContent() {
     <BusinessesList
       companies={companies}
       users={users}
-      loading={state.loading}
+      loading={loading}
       canManage={canManage}
       actions={actions}
     />

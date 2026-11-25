@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import usePageSetup from '../hooks/usePageSetup.js';
 import { CSS, FONTS } from '../lib/pageAssets.js';
@@ -7,12 +8,15 @@ import OnboardingHeader from '../components/choosePlan/OnboardingHeader.jsx';
 import PlanCard from '../components/choosePlan/PlanCard.jsx';
 import Toast from '../components/choosePlan/Toast.jsx';
 import { PLANS } from '../components/choosePlan/plans.js';
-import { api, getAuthToken } from '../lib/http.js';
+import { getAuthToken } from '../lib/http.js';
+import {
+  changeCompanyPlanThunk,
+  selectCompaniesState,
+} from '../store/slices/companiesSlice.js';
 
 /**
- * Plan choice right after sign-up. The new owner is already signed in (the
- * register call returned a session), so the plan is saved to their business
- * with their own token. Skipping keeps the plan chosen at sign-up.
+ * Plan choice right after sign-up. Dispatches `changeCompanyPlanThunk` to
+ * `companiesSlice` so Redux updates only after the server confirms the plan.
  */
 export default function ChoosePlanPage() {
   usePageSetup({
@@ -23,12 +27,13 @@ export default function ChoosePlanPage() {
     bodyAttrs: { 'data-app-ready': 'true' },
   });
 
+  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const businessId = localStorage.getItem('activeBusinessId') || '';
-  const businessName = localStorage.getItem('activeBusinessName') || 'Your Business';
+  const { myCompany, saving: busy } = useSelector(selectCompaniesState);
+  const businessId = (myCompany && myCompany.id) || localStorage.getItem('activeBusinessId') || '';
+  const businessName = (myCompany && myCompany.name) || localStorage.getItem('activeBusinessName') || 'Your Business';
   const signedIn = Boolean(getAuthToken()) && localStorage.getItem('userRole') === 'admin' && Boolean(businessId);
   const [toast, setToast] = useState({ message: '', visible: false });
-  const [busy, setBusy] = useState(false);
 
   const mounted = useRef(true);
   const redirectTimer = useRef(null);
@@ -43,17 +48,14 @@ export default function ChoosePlanPage() {
 
   async function selectPlan(planKey, _monthlyPrice, planName) {
     if (busy) return;
-    setBusy(true);
     try {
-      await api(`/companies/${encodeURIComponent(businessId)}/plan`, { method: 'POST', body: { plan: planKey } });
-      localStorage.setItem('activeBusinessPlan', planKey);
+      await dispatch(changeCompanyPlanThunk({ id: businessId, plan: planKey })).unwrap();
       if (!mounted.current) return;
       setToast({ message: `${planName} activated.`, visible: true });
       redirectTimer.current = setTimeout(() => navigate('/business-welcome'), 700);
-    } catch (err) {
+    } catch (errMessage) {
       if (!mounted.current) return;
-      setToast({ message: `Could not change the plan: ${err.message}`, visible: true });
-      setBusy(false);
+      setToast({ message: `Could not change the plan: ${errMessage}`, visible: true });
     }
   }
 

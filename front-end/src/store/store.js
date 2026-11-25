@@ -6,6 +6,10 @@ import inventoryReducer from './slices/inventorySlice.js';
 import suppliersReducer from './slices/suppliersSlice.js';
 import uploadsReducer from './slices/uploadsSlice.js';
 import ordersReducer from './slices/ordersSlice.js';
+import companiesReducer from './slices/companiesSlice.js';
+import customersReducer from './slices/customersSlice.js';
+import paymentsReducer from './slices/paymentsSlice.js';
+import posCartReducer from './slices/posCartSlice.js';
 
 const store = configureStore({
   reducer: {
@@ -16,6 +20,10 @@ const store = configureStore({
     suppliers: suppliersReducer,
     uploads: uploadsReducer,
     orders: ordersReducer,
+    companies: companiesReducer,
+    customers: customersReducer,
+    payments: paymentsReducer,
+    posCart: posCartReducer,
   },
 });
 

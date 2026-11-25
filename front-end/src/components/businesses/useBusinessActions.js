@@ -1,8 +1,15 @@
+import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { api, errorText } from '../../lib/http.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { setActiveBusiness } from '../../lib/dashboard/session.js';
 import { currencySymbol, formatCurrency } from '../../lib/currency.js';
+import {
+  cancelCompanySubscriptionThunk,
+  changeCompanyPlanThunk,
+  createCompanyThunk,
+  deleteCompanyThunk,
+  updateCompanyThunk,
+} from '../../store/slices/companiesSlice.js';
 
 export const getPlanOptions = () => [
   { value: 'starter', label: 'Starter (Free)' },
@@ -37,10 +44,11 @@ function checkGstin(values) {
 }
 
 /**
- * Super user actions on businesses. Everything is saved through the server
- * and the portal then reloads the company records it shows.
+ * Super user actions on businesses. Dispatches CRUD thunks to `companiesSlice`;
+ * Redux state updates strictly after DB confirmation.
  */
 export default function useBusinessActions({ companies, reload, showDetails }) {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { hasActionAccess, denyAction, showToast, openQuickForm, openConfirm, refreshData } = useDashboard();
 
@@ -56,7 +64,7 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
     if (message) showToast(message);
   };
   const put = (company, body) =>
-    api(`/companies/${encodeURIComponent(company.id)}`, { method: 'PUT', body: { ...body, version: company.version } });
+    dispatch(updateCompanyThunk({ id: company.id, body: { ...body, version: company.version } })).unwrap();
 
   /** Opens that business's own screens (dashboard, users…) as the super user. */
   const openBusiness = (id, path = '/dashboard') => {
@@ -80,9 +88,8 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
       onSubmit: async (values, close) => {
         try {
           const gstNo = checkGstin(values);
-          const created = await api('/companies', {
-            method: 'POST',
-            body: {
+          const created = await dispatch(
+            createCompanyThunk({
               name: values.name,
               type: values.type,
               owner: values.owner,
@@ -92,12 +99,13 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
               address: values.address,
               plan: values.plan,
               storesCount: Number(values.storesCount) || 1,
-            },
-          });
+            }),
+          ).unwrap();
           close();
           await after(`${created.name} created. Add its admin from Manage users.`);
         } catch (err) {
-          showToast(`Create failed: ${errorText(err)}`);
+          const msg = typeof err === 'string' ? err : err && err.message ? err.message : 'Request failed';
+          showToast(`Create failed: ${msg}`);
           throw err;
         }
       },
@@ -150,7 +158,8 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
           close();
           await after(`${values.name} updated`);
         } catch (err) {
-          showToast(`Save failed: ${errorText(err)}`);
+          const msg = typeof err === 'string' ? err : err && err.message ? err.message : 'Request failed';
+          showToast(`Save failed: ${msg}`);
           throw err;
         }
       },
@@ -174,7 +183,8 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
           await after(`${c.name} is now ${status}`);
           return true;
         } catch (err) {
-          showToast(`Failed: ${errorText(err)}`);
+          const msg = typeof err === 'string' ? err : err && err.message ? err.message : 'Request failed';
+          showToast(`Failed: ${msg}`);
           return false;
         }
       },
@@ -192,11 +202,12 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
       initialValues: { plan: c.plan || 'pro' },
       onSubmit: async (values, close) => {
         try {
-          await api(`/companies/${encodeURIComponent(c.id)}/plan`, { method: 'POST', body: { plan: values.plan } });
+          await dispatch(changeCompanyPlanThunk({ id: c.id, plan: values.plan })).unwrap();
           close();
           await after(`${c.name} moved to ${values.plan}`);
         } catch (err) {
-          showToast(`Plan change failed: ${errorText(err)}`);
+          const msg = typeof err === 'string' ? err : err && err.message ? err.message : 'Request failed';
+          showToast(`Plan change failed: ${msg}`);
           throw err;
         }
       },
@@ -213,11 +224,12 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
       confirmLabel: 'Cancel subscription',
       onConfirm: async () => {
         try {
-          await api(`/companies/${encodeURIComponent(c.id)}/cancel-subscription`, { method: 'POST', body: {} });
+          await dispatch(cancelCompanySubscriptionThunk(c.id)).unwrap();
           await after('Subscription cancelled');
           return true;
         } catch (err) {
-          showToast(`Failed: ${errorText(err)}`);
+          const msg = typeof err === 'string' ? err : err && err.message ? err.message : 'Request failed';
+          showToast(`Failed: ${msg}`);
           return false;
         }
       },
@@ -234,12 +246,13 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
       confirmLabel: 'Delete',
       onConfirm: async () => {
         try {
-          await api(`/companies/${encodeURIComponent(c.id)}`, { method: 'DELETE' });
+          await dispatch(deleteCompanyThunk(c.id)).unwrap();
           showDetails(null);
           await after(`${c.name} deleted`);
           return true;
         } catch (err) {
-          showToast(`Delete failed: ${errorText(err)}`);
+          const msg = typeof err === 'string' ? err : err && err.message ? err.message : 'Request failed';
+          showToast(`Delete failed: ${msg}`);
           return false;
         }
       },
@@ -273,7 +286,8 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
           close();
           await after(`${label} saved`);
         } catch (err) {
-          showToast(`Save failed: ${errorText(err)}`);
+          const msg = typeof err === 'string' ? err : err && err.message ? err.message : 'Request failed';
+          showToast(`Save failed: ${msg}`);
           throw err;
         }
       },
@@ -303,7 +317,8 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
           await after(`${label} deleted`);
           return true;
         } catch (err) {
-          showToast(`Delete failed: ${errorText(err)}`);
+          const msg = typeof err === 'string' ? err : err && err.message ? err.message : 'Request failed';
+          showToast(`Delete failed: ${msg}`);
           return false;
         }
       },

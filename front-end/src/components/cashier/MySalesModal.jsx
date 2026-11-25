@@ -1,35 +1,28 @@
-import { useEffect, useState } from 'react';
-import { loadMySalesToday } from '../../lib/cashier/dataStore.js';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { formatRupees } from '../../lib/cashier/posHelpers.js';
+import {
+  fetchMySalesTodayThunk,
+  selectMySalesList,
+  selectMySalesSummary,
+  selectPosState,
+} from '../../store/slices/posCartSlice.js';
 
 /**
  * The cashier's own bills since midnight: totals by payment method, the cash
  * that should be in the drawer, and a reprint button for each bill.
+ * Reads all data strictly from Redux (`posCartSlice`).
  */
 export default function MySalesModal({ open, userId, onClose, onReprint }) {
-  const [rows, setRows] = useState([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
+  const rows = useSelector(selectMySalesList);
+  const { standing, byMethod, net, cashInDrawer } = useSelector(selectMySalesSummary);
+  const { mySalesLoading: loading, mySalesError: error } = useSelector(selectPosState);
 
   useEffect(() => {
-    if (!open) return undefined;
-    let cancelled = false;
-    setLoading(true);
-    setError('');
-    loadMySalesToday(userId)
-      .then((list) => {
-        if (!cancelled) setRows(list);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || 'Could not load today’s sales.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, userId]);
+    if (!open) return;
+    dispatch(fetchMySalesTodayThunk(userId));
+  }, [dispatch, open, userId]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -41,17 +34,6 @@ export default function MySalesModal({ open, userId, onClose, onReprint }) {
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const standing = rows.filter((o) => o.status !== 'Cancelled');
-  const byMethod = {};
-  standing.forEach((o) => {
-    byMethod[o.paymentMethod] = (byMethod[o.paymentMethod] || 0) + o.total;
-  });
-  const refunds = standing.reduce((s, o) => s + (o.refundedAmount || 0), 0);
-  const net = standing.reduce((s, o) => s + o.total, 0) - refunds;
-  const cashInDrawer = standing
-    .filter((o) => o.paymentMethod === 'Cash')
-    .reduce((s, o) => s + o.total, 0);
 
   return (
     <div className="sales-modal-backdrop" onClick={onClose}>

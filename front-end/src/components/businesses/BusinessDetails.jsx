@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import PageHeader from '../common/PageHeader.jsx';
 import DataTable from '../common/DataTable.jsx';
 import Badge from '../common/Badge.jsx';
-import { api } from '../../lib/http.js';
+import {
+  clearCompanyHistory,
+  fetchCompanyHistoryThunk,
+  selectCompanyHistory,
+} from '../../store/slices/companiesSlice.js';
 import { PLAN_LABEL, planOf, rupees, statusType } from './BusinessesList.jsx';
 
 const ROW_BTN_STYLE = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px' };
@@ -78,21 +83,19 @@ function when(iso) {
 }
 
 /**
- * One business: profile, subscription, real staff accounts (managed on the
- * Users page of that business), stores, billing history and change log.
+ * One business: profile, subscription, real staff accounts, stores,
+ * billing history and change log (loaded into Redux via `fetchCompanyHistoryThunk`).
  */
 export default function BusinessDetails({ company: c, staff, canManage, actions }) {
-  const [history, setHistory] = useState([]);
+  const dispatch = useDispatch();
+  const history = useSelector(selectCompanyHistory);
 
   useEffect(() => {
-    let alive = true;
-    api('/activity', { query: { companyId: c.id, entity: 'company', entityId: c.id, limit: 20 } })
-      .then((rows) => alive && setHistory(Array.isArray(rows) ? rows : []))
-      .catch(() => alive && setHistory([]));
+    dispatch(fetchCompanyHistoryThunk({ companyId: c.id, limit: 20 }));
     return () => {
-      alive = false;
+      dispatch(clearCompanyHistory());
     };
-  }, [c.id, c.version]);
+  }, [dispatch, c.id, c.version]);
 
   const staffOnly = staff.filter((u) => u.roleKey !== 'customer');
   const subActive = String(c.subscriptionStatus || 'Active') === 'Active';
