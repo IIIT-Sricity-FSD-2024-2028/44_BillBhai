@@ -8,6 +8,7 @@ import {
 } from './constants.js';
 import { formatRelativeTime } from './helpers.js';
 import { loadObject, saveObject } from './storage.js';
+import { formatCurrency } from '../currency.js';
 
 /**
  * Notifications.
@@ -133,6 +134,7 @@ export function loadProfileSettingsRecord(s) {
   const identity = getCurrentUserIdentity(s);
   const store = loadObject(PROFILE_SETTINGS_STORAGE_KEY, {});
   const saved = store[identity.key] && typeof store[identity.key] === 'object' ? store[identity.key] : {};
+  const activeCurrency = localStorage.getItem('userCurrency') || saved.currency || 'INR';
   return {
     key: identity.key,
     fullName: identity.displayName,
@@ -142,7 +144,7 @@ export function loadProfileSettingsRecord(s) {
     location: '',
     bio: '',
     language: String(saved.language || 'English (India)').trim(),
-    currency: String(saved.currency || 'INR').trim(),
+    currency: String(activeCurrency).trim(),
     timezone: String(saved.timezone || 'Asia/Kolkata').trim(),
     dateFormat: String(saved.dateFormat || 'DD/MM/YYYY').trim(),
     notifications: normalizeNotificationPreferences(saved.notifications, s.roleKey),
@@ -161,6 +163,12 @@ export function writeProfileSettingsRecord(s, record) {
     notifications: { ...record.notifications },
   };
   saveObject(PROFILE_SETTINGS_STORAGE_KEY, store);
+  if (record.currency) {
+    localStorage.setItem('userCurrency', record.currency);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('currency-changed', { detail: record.currency }));
+    }
+  }
   if (record.fullName) {
     // Mirror of what the server now holds, for the header.
     localStorage.setItem('userName', record.fullName);
@@ -254,7 +262,7 @@ function ms(value) {
 }
 
 function rupees(n) {
-  return `₹${Math.max(0, Number(n || 0)).toLocaleString('en-IN')}`;
+  return formatCurrency(n, { decimals: 0 });
 }
 
 function stockNotifications(inventory, { outOfStockOnly = false } = {}) {

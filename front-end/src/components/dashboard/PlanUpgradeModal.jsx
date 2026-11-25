@@ -1,5 +1,6 @@
 import Modal from '../common/Modal.jsx';
 import { PlanCheckIcon, PlanCrossIcon } from '../common/icons.jsx';
+import { formatCurrency } from '../../lib/currency.js';
 import { PLAN_DEFINITIONS } from '../../lib/dashboard/constants.js';
 import { getActiveCompanyPlan, switchCompanyPlan } from '../../lib/dashboard/store.js';
 
@@ -32,11 +33,11 @@ export default function PlanUpgradeModal({ onClose }) {
                 <div className="plan-tier-price">
                   {p.price === 0 ? (
                     <>
-                      ₹0<span>/Free</span>
+                      {formatCurrency(0)}<span>/Free</span>
                     </>
                   ) : (
                     <>
-                      {`₹${p.price.toLocaleString()}`}
+                      {formatCurrency(p.price)}
                       <span>/mo</span>
                     </>
                   )}

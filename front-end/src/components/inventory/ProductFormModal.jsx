@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
 import { api } from '../../lib/http.js';
+import { currencySymbol } from '../../lib/currency.js';
 import {
   BARCODE,
   CATEGORY_SUGGESTIONS,
@@ -250,10 +251,10 @@ export default function ProductFormModal({ request, onClose, suppliers, categori
           )}
 
           <div className="form-row">
-            <FormField label="Selling price (₹, incl. GST) *" htmlFor="pfPrice" error={err('price') || ''} invalid={err('price') ? true : undefined}>
+            <FormField label={`Selling price (${currencySymbol()}, incl. GST) *`} htmlFor="pfPrice" error={err('price') || ''} invalid={err('price') ? true : undefined}>
               <input id="pfPrice" inputMode="decimal" className={controlClass(err('price'))} value={form.price} onChange={set('price')} placeholder="e.g. 120" />
             </FormField>
-            <FormField label="Cost price (₹)" htmlFor="pfCost" error={err('costPrice') || ''} invalid={err('costPrice') ? true : undefined} hint="What you pay the supplier per unit.">
+            <FormField label={`Cost price (${currencySymbol()})`} htmlFor="pfCost" error={err('costPrice') || ''} invalid={err('costPrice') ? true : undefined} hint="What you pay the supplier per unit.">
               <input id="pfCost" inputMode="decimal" className={controlClass(err('costPrice'))} value={form.costPrice} onChange={set('costPrice')} />
             </FormField>
           </div>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import PageHeader from '../common/PageHeader.jsx';
 import { LockIcon } from '../common/icons.jsx';
+import { formatCurrency } from '../../lib/currency.js';
 import { openPlanUpgradeModal } from '../../lib/dashboard/store.js';
 
 export default function PlanFeatureLock({ featureName }) {
@@ -22,7 +23,7 @@ export default function PlanFeatureLock({ featureName }) {
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
             <button className="btn btn-primary" onClick={() => openPlanUpgradeModal()}>
-              Upgrade to Pro (₹1,999/mo)
+              {`Upgrade to Pro (${formatCurrency(1999)}/mo)`}
             </button>
             <Link to="/dashboard" className="btn btn-outline">
               Back to Dashboard

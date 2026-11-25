@@ -25,9 +25,10 @@ export const MOVEMENT_LABELS = {
   exchange: 'Exchange',
 };
 
+import { formatCurrency } from '../../lib/currency.js';
+
 export function money(value) {
-  const n = Number(value) || 0;
-  return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  return formatCurrency(value);
 }
 
 export function dateTime(value) {

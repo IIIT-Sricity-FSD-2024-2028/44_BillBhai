@@ -22,6 +22,7 @@ import {
   summarise,
 } from './orderFilters.js';
 import { CHECKOUT_MODE_LABELS, dayKey, rupees } from './orderFormat.js';
+import { useCurrency } from '../../lib/currency.js';
 import {
   fetchOrdersThunk,
   deleteOrderThunk,
@@ -67,6 +68,7 @@ const SUMMARY_STYLE = {
 };
 
 export default function OrdersContent() {
+  useCurrency();
   const dispatch = useDispatch();
   const reduxOrders = useSelector(selectAllOrders);
   const filters = useSelector(selectOrderFilters);

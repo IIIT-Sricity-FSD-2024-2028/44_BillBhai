@@ -1,12 +1,11 @@
 /** Formatting shared by the Orders, Coupons, Dashboard and Reports screens. */
 
-export function rupees(value, { decimals = 2 } = {}) {
-  const n = Number(value) || 0;
-  const whole = Number.isInteger(Number(n.toFixed(decimals)));
-  return `₹${n.toLocaleString('en-IN', {
-    minimumFractionDigits: whole ? 0 : decimals,
-    maximumFractionDigits: decimals,
-  })}`;
+import { formatCurrency, currencySymbol, getActiveCurrency, USD_TO_INR_RATE, convertInrToActiveCurrency } from '../../lib/currency.js';
+
+export { currencySymbol, getActiveCurrency, USD_TO_INR_RATE, formatCurrency, convertInrToActiveCurrency };
+
+export function rupees(value, options) {
+  return formatCurrency(value, options);
 }
 
 /** Local calendar day as YYYY-MM-DD. */

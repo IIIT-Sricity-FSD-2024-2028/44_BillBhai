@@ -1,3 +1,5 @@
+import { formatCurrency } from '../../lib/currency.js';
+
 function planBadgeClass(planKey) {
   if (planKey === 'starter') return 'b-pending';
   if (planKey === 'enterprise') return 'b-processing';
@@ -50,7 +52,7 @@ export default function SubscriptionPlanCard({
         >
           <div>
             <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {`₹${Number(plan.price).toLocaleString('en-IN')}`}
+              {formatCurrency(plan.price)}
               <small style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>
                 /month
               </small>

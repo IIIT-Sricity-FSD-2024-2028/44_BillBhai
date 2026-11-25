@@ -16,12 +16,31 @@ const initialState = {
     message: '',
     type: 'success',
   },
+  currency: (() => {
+    try {
+      const saved = localStorage.getItem('userCurrency');
+      return saved === 'USD' || saved === 'INR' ? saved : 'INR';
+    } catch {
+      return 'INR';
+    }
+  })(),
 };
 
 const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
+
+    setCurrency(state, action) {
+      const currency = action.payload === 'USD' ? 'USD' : 'INR';
+      state.currency = currency;
+      try {
+        localStorage.setItem('userCurrency', currency);
+      } catch {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('currency-changed', { detail: currency }));
+      }
+    },
 
     toggleTheme(state) {
       const next = state.theme === 'dark' ? 'light' : 'dark';
@@ -69,6 +88,7 @@ const uiSlice = createSlice({
 });
 
 export const {
+  setCurrency,
   toggleTheme,
   setTheme,
   toggleSidebar,
@@ -79,6 +99,7 @@ export const {
 } = uiSlice.actions;
 
 export const selectCurrentTheme = (state) => state.ui.theme;
+export const selectCurrentCurrency = (state) => state.ui.currency;
 export const selectToastState = (state) => state.ui.toast;
 export const selectSidebarState = (state) => ({
   collapsed: state.ui.sidebarCollapsed,

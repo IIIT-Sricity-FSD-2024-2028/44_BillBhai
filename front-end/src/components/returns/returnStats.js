@@ -1,3 +1,5 @@
+import { formatCurrency } from '../../lib/currency.js';
+
 /** The return statuses the server uses, in the order a request moves. */
 export const RETURN_STATUS_LIST = ['Pending', 'Approved', 'Refunded', 'Exchanged', 'Rejected'];
 
@@ -96,9 +98,7 @@ export function returnAge(r, now = Date.now()) {
 }
 
 export function rupees(value) {
-  const n = Number(value || 0);
-  const whole = Number.isInteger(Number(n.toFixed(2)));
-  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
+  return formatCurrency(value);
 }
 
 export function shortDate(iso) {

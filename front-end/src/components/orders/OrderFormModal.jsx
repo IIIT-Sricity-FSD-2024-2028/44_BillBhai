@@ -4,7 +4,7 @@ import FormField, { controlClass } from '../common/FormField.jsx';
 import Badge from '../common/Badge.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { apiRequest } from '../../lib/dashboard/api.js';
-import { rupees, scopedCompanyId } from './orderFormat.js';
+import { rupees, scopedCompanyId, currencySymbol } from './orderFormat.js';
 
 const MODES = [
   { value: 'takeaway_now', label: 'Counter (take away)' },
@@ -82,8 +82,8 @@ export default function OrderFormModal({ onClose, onCreated }) {
   const needle = search.trim().toLowerCase();
   const matches = needle
     ? products
-        .filter((p) => `${p.name} ${p.productId} ${p.barcode} ${p.cat}`.toLowerCase().includes(needle))
-        .slice(0, 8)
+      .filter((p) => `${p.name} ${p.productId} ${p.barcode} ${p.cat}`.toLowerCase().includes(needle))
+      .slice(0, 8)
     : [];
 
   const localSubtotal = lines.reduce((sum, l) => sum + (byId.get(l.productId)?.price || 0) * l.quantity, 0);
@@ -331,7 +331,7 @@ export default function OrderFormModal({ onClose, onCreated }) {
               <FormField label="Delivery address *" htmlFor="noAddress" error={errors.address} invalid={errors.address ? true : undefined}>
                 <textarea id="noAddress" rows={2} maxLength={250} className={controlClass(Boolean(errors.address))} value={address} onChange={(e) => setAddress(e.target.value)} />
               </FormField>
-              <FormField label="Delivery charge (₹)" htmlFor="noCharge" hint="0 to 500">
+              <FormField label={`Delivery charge (${currencySymbol()})`} htmlFor="noCharge" hint="0 to 500">
                 <input id="noCharge" type="number" min="0" max="500" className="form-control" value={deliveryCharge} onChange={(e) => setDeliveryCharge(e.target.value)} />
               </FormField>
             </div>
@@ -352,7 +352,7 @@ export default function OrderFormModal({ onClose, onCreated }) {
               </div>
             </FormField>
             {mode === 'takeaway_now' && payment === 'Cash' ? (
-              <FormField label="Cash received (₹)" htmlFor="noTendered" error={errors.tendered} invalid={errors.tendered ? true : undefined} hint={change !== null && change >= 0 ? `Give back ${rupees(change)}` : undefined}>
+              <FormField label={`Cash received (${currencySymbol()})`} htmlFor="noTendered" error={errors.tendered} invalid={errors.tendered ? true : undefined} hint={change !== null && change >= 0 ? `Give back ${rupees(change)}` : undefined}>
                 <input id="noTendered" type="number" min="0" className={controlClass(Boolean(errors.tendered))} value={tendered} onChange={(e) => setTendered(e.target.value)} />
               </FormField>
             ) : (

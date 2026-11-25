@@ -12,8 +12,10 @@ const H4 = { fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.0
 const ROW = { display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '0.85rem', padding: '2px 0' };
 const LIST = { listStyle: 'none', margin: 0, padding: 0, fontSize: '0.82rem' };
 
+import { formatCurrency } from '../../lib/currency.js';
+
 function money2(n) {
-  return `₹${(Number(n) || 0).toFixed(2)}`;
+  return formatCurrency(n);
 }
 
 /** The printed bill: GST-inclusive lines, discount, delivery, tax and payment. */

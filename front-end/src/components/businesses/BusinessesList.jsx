@@ -17,15 +17,12 @@ const SORT_OPTIONS = [
 const COLUMNS = ['Business', 'Plan', 'Subscription', 'Staff', 'Stores', 'Profit', 'Payment due', 'Status', 'Actions'];
 
 const ROW_BTN_STYLE = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px', marginBottom: '2px' };
+import { formatCurrency } from '../../lib/currency.js';
+
 const ROW_DELETE_STYLE = { ...ROW_BTN_STYLE, color: 'var(--red)', borderColor: 'var(--red)' };
 export const PLAN_LABEL = { starter: 'Starter', pro: 'Growth / Pro', enterprise: 'Enterprise' };
 
-const num = (v) => Number(v || 0);
-export const rupees = (v) => {
-  const n = num(v);
-  const whole = Number.isInteger(Number(n.toFixed(2)));
-  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
-};
+export const rupees = (v) => formatCurrency(v);
 
 /** 2026-12-08 becomes 8 Dec 2026. */
 const renewalLabel = (value) => {

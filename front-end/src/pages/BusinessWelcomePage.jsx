@@ -7,6 +7,13 @@ import InfoRow from '../components/businessWelcome/InfoRow.jsx';
 import WelcomeActions from '../components/businessWelcome/WelcomeActions.jsx';
 import { api, getAuthToken } from '../lib/http.js';
 import { loadObject } from '../lib/dashboard/storage.js';
+import { formatCurrency } from '../lib/currency.js';
+
+const getPlanLabels = () => ({
+  starter: 'Starter Plan (Free)',
+  pro: `Growth / Pro Plan (${formatCurrency(1999)}/mo)`,
+  enterprise: `Enterprise Plan (${formatCurrency(4999)}/mo)`,
+});
 
 const PLAN_LABELS = {
   starter: 'Starter Plan (Free)',
@@ -60,7 +67,7 @@ export default function BusinessWelcomePage() {
         <InfoRow
           label="Active Subscription"
           id="planName"
-          value={company ? PLAN_LABELS[company.plan] || company.plan : '-'}
+          value={company ? getPlanLabels()[company.plan] || company.plan : '-'}
           valueStyle={{ color: '#10b981' }}
         />
         <InfoRow label="GSTIN" id="gstNo" value={show(company && company.gstNo)} />

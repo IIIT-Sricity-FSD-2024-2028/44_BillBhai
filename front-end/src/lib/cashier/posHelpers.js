@@ -1,4 +1,7 @@
+import { formatCurrency, currencySymbol } from '../currency.js';
+
 export const RUPEE = '₹';
+export { currencySymbol, formatCurrency };
 
 export const PRODUCT_VISUAL_FALLBACK = {
   rice: '🍚',
@@ -121,7 +124,7 @@ export function getCartTotals(cart, discount, deliveryChargeAmount) {
 }
 
 export function formatRupees(value) {
-  return `${RUPEE}${(Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatCurrency(value);
 }
 
 export { clearStoredSession } from '../http.js';

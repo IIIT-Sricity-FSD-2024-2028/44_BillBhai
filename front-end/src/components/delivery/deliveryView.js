@@ -155,8 +155,10 @@ export function getDeliveryCounts(deliveries) {
   return counts;
 }
 
+import { formatCurrency } from '../../lib/currency.js';
+
 export function money(value) {
-  return `₹${(Number(value) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  return formatCurrency(value);
 }
 
 export function when(value) {

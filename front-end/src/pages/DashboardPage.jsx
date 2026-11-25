@@ -13,7 +13,7 @@ import DeliveryOpsDashboard from '../components/delivery/DeliveryOpsDashboard.js
 import ReturnHandlerDashboard from '../components/returns/ReturnHandlerDashboard.jsx';
 import { useDashboard } from '../lib/dashboard/hooks.js';
 import { fillDays, useReport } from '../components/reports/useSalesReport.js';
-import { rangePreset, rupees, shortDay, statusColour, todayKey } from '../components/orders/orderFormat.js';
+import { rangePreset, rupees, shortDay, statusColour, todayKey, currencySymbol, convertInrToActiveCurrency } from '../components/orders/orderFormat.js';
 
 const svg = (children) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -74,20 +74,21 @@ function AdminDashboard() {
 
   const trendData = () => {
     const c = getColors();
+    const sym = currencySymbol();
     return {
       labels: trend.map((d) => shortDay(d.day)),
       datasets: [
         {
-          label: 'Net sales (₹)',
-          data: trend.map((d) => Math.round(d.net)),
+          label: `Net sales (${sym})`,
+          data: trend.map((d) => Math.round(convertInrToActiveCurrency(d.net))),
           borderColor: c.red,
           backgroundColor: 'rgba(220,53,69,0.1)',
           tension: 0.35,
           fill: true,
         },
         {
-          label: 'Refunds (₹)',
-          data: trend.map((d) => Math.round(d.refunds)),
+          label: `Refunds (${sym})`,
+          data: trend.map((d) => Math.round(convertInrToActiveCurrency(d.refunds))),
           borderColor: c.amber,
           tension: 0.35,
           fill: false,

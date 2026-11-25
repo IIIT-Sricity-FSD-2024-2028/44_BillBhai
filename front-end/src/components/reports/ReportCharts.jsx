@@ -1,5 +1,5 @@
 import ChartCanvas, { getColors } from '../common/ChartCanvas.jsx';
-import { shortDay } from '../orders/orderFormat.js';
+import { shortDay, currencySymbol, convertInrToActiveCurrency } from '../orders/orderFormat.js';
 
 export function ChartCard({ title, height = '260px', children }) {
   return (
@@ -29,11 +29,12 @@ const axes = (extra = {}) => {
 export function SalesByDayChart({ days }) {
   const data = () => {
     const c = getColors();
+    const sym = currencySymbol();
     return {
       labels: days.map((d) => shortDay(d.day)),
       datasets: [
-        { label: 'Net sales (₹)', data: days.map((d) => Math.round(d.net)), backgroundColor: c.green, yAxisID: 'y' },
-        { label: 'Refunds (₹)', data: days.map((d) => Math.round(d.refunds)), backgroundColor: c.red, yAxisID: 'y' },
+        { label: `Net sales (${sym})`, data: days.map((d) => Math.round(convertInrToActiveCurrency(d.net))), backgroundColor: c.green, yAxisID: 'y' },
+        { label: `Refunds (${sym})`, data: days.map((d) => Math.round(convertInrToActiveCurrency(d.refunds))), backgroundColor: c.red, yAxisID: 'y' },
         { label: 'Bills', data: days.map((d) => d.orders), type: 'line', borderColor: c.blue, tension: 0.3, yAxisID: 'y1' },
       ],
     };
@@ -83,9 +84,10 @@ export function MixChart({ id, counts, emptyLabel = 'No data' }) {
 export function CategoryChart({ rows }) {
   const data = () => {
     const c = getColors();
+    const sym = currencySymbol();
     return {
       labels: rows.map((r) => r.category),
-      datasets: [{ label: 'Sales (₹)', data: rows.map((r) => Math.round(r.sales)), backgroundColor: c.blue }],
+      datasets: [{ label: `Sales (${sym})`, data: rows.map((r) => Math.round(convertInrToActiveCurrency(r.sales))), backgroundColor: c.blue }],
     };
   };
   const options = () => ({ ...axes(), indexAxis: 'y', plugins: { legend: { display: false } } });

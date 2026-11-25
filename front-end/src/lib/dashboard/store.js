@@ -2,8 +2,10 @@ import { useSyncExternalStore } from 'react';
 import { LIVE_SYNC_CHANNEL, LIVE_SYNC_KEY, PLAN_DEFINITIONS, ROLE_ACTIONS } from './constants.js';
 import { apiRequest, fetchOperationalData, mutationErrorMessage, setApiActiveRole } from './api.js';
 import { API_BASE_URL } from '../http.js';
+import { formatCurrency } from '../currency.js';
 import { getAppStore } from '../../store/storeBridge.js';
 import { fetchInventoryThunk } from '../../store/slices/inventorySlice.js';
+import { setCurrency } from '../../store/slices/uiSlice.js';
 import {
   writeNotificationReadState,
   writeNotificationsRead,
@@ -80,11 +82,11 @@ export function useDashboardStore() {
 }
 
 const noopUi = {
-  showToast: () => {},
-  openQuickForm: () => {},
-  openConfirm: () => {},
-  openPlanUpgrade: () => {},
-  showCredentialsModal: () => {},
+  showToast: () => { },
+  openQuickForm: () => { },
+  openConfirm: () => { },
+  openPlanUpgrade: () => { },
+  showCredentialsModal: () => { },
 };
 let uiApi = noopUi;
 
@@ -196,7 +198,7 @@ function initRealtimeSync(current) {
     if (current.channel) {
       try {
         current.channel.close();
-      } catch (err) {}
+      } catch (err) { }
       current.channel = null;
     }
   };
@@ -257,9 +259,16 @@ export function saveProfileSettings(record) {
   };
   state = {
     ...state,
+    currency: record.currency,
     shell: { ...state.shell, ...shellPatch },
     notificationsVersion: state.notificationsVersion + 1,
   };
+  try {
+    const appStore = getAppStore();
+    if (appStore && record.currency) {
+      appStore.dispatch(setCurrency(record.currency));
+    }
+  } catch { }
   emit();
 }
 
@@ -446,7 +455,7 @@ export function getProfileSubscriptionView(s = state) {
     plan: activePlan,
     badgeClass: badgeClassName,
     name: activePlan.name,
-    price: activePlan.price === 0 ? '₹0' : `₹${activePlan.price.toLocaleString()}`,
+    price: formatCurrency(activePlan.price),
     priceSuffix: activePlan.price === 0 ? '/Free Forever' : '/month',
     renewalText: biz && biz.renewalDate ? `Renews on ${biz.renewalDate}` : 'Renewal date not set',
     cancelled,
@@ -521,7 +530,7 @@ let refreshing = null;
 export function refreshData() {
   try {
     getAppStore()?.dispatch(fetchInventoryThunk());
-  } catch {}
+  } catch { }
   if (state.status !== 'ready') return Promise.resolve(false);
   if (refreshing) return refreshing;
   const gen = generation;
@@ -588,7 +597,7 @@ export function beginPageSession(boot, { onReady } = {}) {
     if (onReady) onReady();
     try {
       getAppStore()?.dispatch(fetchInventoryThunk());
-    } catch {}
+    } catch { }
   })();
 
   return () => {

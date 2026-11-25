@@ -1,3 +1,5 @@
+import { formatCurrency } from '../../lib/currency.js';
+
 function CheckIcon() {
   return (
     <svg
@@ -65,7 +67,7 @@ export default function PlanCard({ plan, onSelect }) {
         {plan.title}
       </div>
       <div className="plan-tier-price" style={{ fontSize: '1.85rem', marginBottom: '8px' }}>
-        {plan.priceLabel}
+        {formatCurrency(plan.price)}
         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>/month</span>
       </div>
       <p

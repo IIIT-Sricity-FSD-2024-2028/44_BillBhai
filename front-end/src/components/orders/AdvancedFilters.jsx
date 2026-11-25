@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { HOUR_BANDS, PAYMENT_STATUS_OPTIONS, WEEKDAYS } from './orderFilters.js';
-import { CHECKOUT_MODE_LABELS, RANGE_PRESETS, rangePreset } from './orderFormat.js';
+import { CHECKOUT_MODE_LABELS, RANGE_PRESETS, rangePreset, currencySymbol } from './orderFormat.js';
 
 const GRID_STYLE = {
   display: 'grid',
@@ -137,10 +137,10 @@ export default function AdvancedFilters({ filters, setFilter, onClear, orders, i
           options={[{ value: 'all', label: 'Anyone' }, ...cashiers]}
         />
       </Field>
-      <Field id="ofMin" label="Bill total from (₹)">
+      <Field id="ofMin" label={`Bill total from (${currencySymbol()})`}>
         <input id="ofMin" type="number" min="0" className="toolbar-select" value={filters.minAmount} onChange={(e) => setFilter('minAmount', e.target.value)} />
       </Field>
-      <Field id="ofMax" label="Bill total up to (₹)">
+      <Field id="ofMax" label={`Bill total up to (${currencySymbol()})`}>
         <input id="ofMax" type="number" min="0" className="toolbar-select" value={filters.maxAmount} onChange={(e) => setFilter('maxAmount', e.target.value)} />
       </Field>
       <Field id="ofItems" label="At least this many items">

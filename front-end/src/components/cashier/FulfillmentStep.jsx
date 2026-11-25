@@ -1,4 +1,4 @@
-import { formatRupees } from '../../lib/cashier/posHelpers.js';
+import { formatRupees, currencySymbol } from '../../lib/cashier/posHelpers.js';
 
 const ERROR_STYLE = { display: 'block', color: 'var(--red)', fontSize: '0.8rem', marginTop: '4px' };
 
@@ -177,7 +177,7 @@ export default function FulfillmentStep({
             <div className="form-row delivery-contact-row">
               <div className="form-group">
                 <label className="form-label" htmlFor="cDeliveryCharge">
-                  Delivery charge (₹)
+                  Delivery charge ({currencySymbol()})
                 </label>
                 <input
                   type="number"
@@ -258,7 +258,7 @@ export default function FulfillmentStep({
             <div className="form-row" style={{ marginTop: '8px' }}>
               <div className="form-group">
                 <label className="form-label" htmlFor="cTendered">
-                  Cash received (₹)
+                  Cash received ({currencySymbol()})
                 </label>
                 <input
                   type="number"

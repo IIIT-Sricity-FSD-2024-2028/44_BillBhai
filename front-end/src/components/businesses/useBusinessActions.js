@@ -2,6 +2,13 @@ import { useNavigate } from 'react-router-dom';
 import { api, errorText } from '../../lib/http.js';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { setActiveBusiness } from '../../lib/dashboard/session.js';
+import { currencySymbol, formatCurrency } from '../../lib/currency.js';
+
+export const getPlanOptions = () => [
+  { value: 'starter', label: 'Starter (Free)' },
+  { value: 'pro', label: `Growth / Pro (${formatCurrency(1999)}/mo)` },
+  { value: 'enterprise', label: `Enterprise (${formatCurrency(4999)}/mo)` },
+];
 
 export const PLAN_OPTIONS = [
   { value: 'starter', label: 'Starter (Free)' },
@@ -109,7 +116,7 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
         { name: 'status', label: 'Status', type: 'select', required: true, options: BUSINESS_STATUSES },
         { name: 'storesCount', label: 'Number of stores', type: 'number', required: true, min: 0 },
         { name: 'tenureMonths', label: 'Months on BillBhai', type: 'number', required: true, min: 0 },
-        { name: 'paymentDue', label: 'Payment due (₹)', type: 'number', required: true, min: 0, step: 0.01 },
+        { name: 'paymentDue', label: `Payment due (${currencySymbol()})`, type: 'number', required: true, min: 0, step: 0.01 },
       ],
       initialValues: {
         name: c.name,
@@ -310,7 +317,7 @@ export default function useBusinessActions({ companies, reload, showDetails }) {
   ];
   const PAYMENT_FIELDS = [
     { name: 'month', label: 'Billing month (YYYY-MM)', type: 'month', required: true },
-    { name: 'amount', label: 'Amount (₹)', type: 'number', required: true, min: 0, step: 0.01 },
+    { name: 'amount', label: `Amount (${currencySymbol()})`, type: 'number', required: true, min: 0, step: 0.01 },
     { name: 'status', label: 'Status', type: 'select', required: true, options: ['Paid', 'Partial', 'Due'] },
   ];
 

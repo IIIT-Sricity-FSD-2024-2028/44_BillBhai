@@ -3,7 +3,7 @@ import Modal from '../common/Modal.jsx';
 import FormField, { controlClass } from '../common/FormField.jsx';
 import { useDashboard } from '../../lib/dashboard/hooks.js';
 import { apiRequest } from '../../lib/dashboard/api.js';
-import { addDays, dayKey, scopedCompanyId } from '../orders/orderFormat.js';
+import { addDays, dayKey, scopedCompanyId, currencySymbol } from '../orders/orderFormat.js';
 
 function initialValues(coupon) {
   if (!coupon) {
@@ -124,15 +124,15 @@ export default function CouponFormModal({ coupon, onClose }) {
               'Type',
               <select id="cp_type" className="form-control" value={v.type} onChange={set('type')}>
                 <option value="percent">Percent off</option>
-                <option value="flat">Flat ₹ off</option>
+                <option value="flat">Flat {currencySymbol()} off</option>
               </select>,
             )}
-            {field('value', v.type === 'percent' ? 'Percent off *' : 'Rupees off *', <input id="cp_value" type="number" min="0" step="0.01" className={controlClass(errors.value)} value={v.value} onChange={set('value')} />)}
+            {field('value', v.type === 'percent' ? 'Percent off *' : 'Amount off *', <input id="cp_value" type="number" min="0" step="0.01" className={controlClass(errors.value)} value={v.value} onChange={set('value')} />)}
           </div>
           <div className="form-row">
-            {field('minOrder', 'Minimum bill (₹)', <input id="cp_minOrder" type="number" min="0" className={controlClass(errors.minOrder)} value={v.minOrder} onChange={set('minOrder')} />, '0 = any bill')}
+            {field('minOrder', `Minimum bill (${currencySymbol()})`, <input id="cp_minOrder" type="number" min="0" className={controlClass(errors.minOrder)} value={v.minOrder} onChange={set('minOrder')} />, '0 = any bill')}
             {v.type === 'percent'
-              ? field('maxDiscount', 'Largest discount (₹)', <input id="cp_maxDiscount" type="number" min="0" className={controlClass(errors.maxDiscount)} value={v.maxDiscount} onChange={set('maxDiscount')} />, '0 = no cap')
+              ? field('maxDiscount', `Largest discount (${currencySymbol()})`, <input id="cp_maxDiscount" type="number" min="0" className={controlClass(errors.maxDiscount)} value={v.maxDiscount} onChange={set('maxDiscount')} />, '0 = no cap')
               : <div />}
           </div>
           <div className="form-row">

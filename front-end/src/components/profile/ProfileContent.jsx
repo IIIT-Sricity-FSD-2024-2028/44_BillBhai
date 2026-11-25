@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { setActiveCurrency } from '../../lib/currency.js';
 import PageHeader from '../common/PageHeader.jsx';
 import ProfileIdentityCard from './ProfileIdentityCard.jsx';
 import ProfileDetailsCard from './ProfileDetailsCard.jsx';
@@ -114,6 +115,8 @@ export default function ProfileContent() {
         roleKey,
       ),
     });
+    setActiveCurrency(prefs.currency);
+    refreshData();
     showToast('Preferences saved.');
   };
 
