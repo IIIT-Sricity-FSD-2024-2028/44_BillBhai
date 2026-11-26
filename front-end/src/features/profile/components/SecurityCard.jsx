@@ -1,4 +1,4 @@
-import { useState } from "react";
+import useViewState from "../../../shared/hooks/useViewState.js";
 import { useDispatch, useSelector } from "react-redux";
 import { changeOwnPasswordThunk } from "../../users/usersSlice.js";
 import { validatePasswordCriteria } from "../../../shared/lib/dashboard/helpers.js";
@@ -7,16 +7,16 @@ const MISMATCH = "The two new passwords do not match.";
 
 /** Change your own password. The server checks the current one first. */
 export default function SecurityCard({ onDone }) {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [message, setMessage] = useState({ text: "", ok: false });
+  const [current, setCurrent] = useViewState("");
+  const [next, setNext] = useViewState("");
+  const [confirm, setConfirm] = useViewState("");
+  const [message, setMessage] = useViewState({ text: "", ok: false });
   const dispatch = useDispatch();
   const saving = useSelector(
     (state) => state.users.passwordStatus === "loading",
   );
 
-  const [errors, setErrors] = useState({ next: "", confirm: "" });
+  const [errors, setErrors] = useViewState({ next: "", confirm: "" });
 
   const onNextChange = (value) => {
     setNext(value);

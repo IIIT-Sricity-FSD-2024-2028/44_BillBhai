@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import useViewState from '../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import usePageSetup from '../../shared/hooks/usePageSetup.js';
@@ -33,7 +34,7 @@ export default function ChoosePlanPage() {
   const businessId = (myCompany && myCompany.id) || localStorage.getItem('activeBusinessId') || '';
   const businessName = (myCompany && myCompany.name) || localStorage.getItem('activeBusinessName') || 'Your Business';
   const signedIn = Boolean(getAuthToken()) && localStorage.getItem('userRole') === 'admin' && Boolean(businessId);
-  const [toast, setToast] = useState({ message: '', visible: false });
+  const [toast, setToast] = useViewState({ message: '', visible: false });
 
   const mounted = useRef(true);
   const redirectTimer = useRef(null);

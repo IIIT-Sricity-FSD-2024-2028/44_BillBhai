@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import useViewState from '../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../shared/components/dashboard/DashboardLayout.jsx';
@@ -278,8 +279,8 @@ function DeliverySection({ range }) {
 
 function ReportsContent() {
   const { roleKey, scopedBusinessName } = useDashboard();
-  const [presetKey, setPresetKey] = useState('30d');
-  const [custom, setCustom] = useState(() => rangePreset('30d'));
+  const [presetKey, setPresetKey] = useViewState('30d');
+  const [custom, setCustom] = useViewState(() => rangePreset('30d'));
   const range = useMemo(() => {
     if (presetKey === 'custom') return custom;
     if (presetKey === 'all') return { from: '', to: '' };

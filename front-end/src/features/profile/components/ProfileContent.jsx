@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import useViewState from "../../../shared/hooks/useViewState.js";
 import { setActiveCurrency } from "../../../shared/lib/currency.js";
 import PageHeader, { homeFor } from "../../../shared/components/common/PageHeader.jsx";
 import ProfileIdentityCard from "./ProfileIdentityCard.jsx";
@@ -69,11 +70,11 @@ export default function ProfileContent() {
   const me = useSelector((state) => state.users.me);
   const error = useSelector((state) => state.users.error);
   const activityRows = useSelector((state) => state.activity.items);
-  const [businessName, setBusinessName] = useState("");
+  const [businessName, setBusinessName] = useViewState("");
   const activity = me
     ? activityRows.filter((r) => r.by === me.username).slice(0, 8)
     : [];
-  const [prefs, setPrefs] = useState(() => {
+  const [prefs, setPrefs] = useViewState(() => {
     const record = loadProfileSettingsRecord();
     return {
       language: pickOption(record.language, [
@@ -102,7 +103,7 @@ export default function ProfileContent() {
     return () => {
       alive = false;
     };
-  }, [dispatch, roleKey]);
+  }, [dispatch, roleKey, setBusinessName]);
 
   const notificationOptions = getNotificationPreferenceConfig(roleKey);
   // The plan belongs to a business: the platform super user has none of their own.

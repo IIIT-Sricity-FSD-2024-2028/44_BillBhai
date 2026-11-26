@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   selectReduxNotifications,
@@ -18,8 +18,8 @@ function NotificationsContent() {
   const notifications = reduxNotifs && reduxNotifs.length ? reduxNotifs : hookNotifs;
   const { roleKey, getActiveNotifications, setNotificationReadState, markNotificationsRead } =
     useDashboard();
-  const [viewState, setViewState] = useState(() => resolveNotificationViewState());
-  const [detailId, setDetailId] = useState(null);
+  const [viewState, setViewState] = useViewState(() => resolveNotificationViewState());
+  const [detailId, setDetailId] = useViewState(null);
 
   const openDetail = (id) => {
     const target = notifications.find((item) => item.id === id) || getActiveNotifications().find((item) => item.id === id);

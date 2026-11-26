@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import Badge from '../../../shared/components/common/Badge.jsx';
@@ -118,9 +119,9 @@ export default function OrderBillModal({ orderId, onClose, canEdit, isManager, o
   const ordersError = useSelector(selectOrdersError);
   const order = selectedOrder && String(selectedOrder.id) === String(orderId) ? selectedOrder : null;
   const error = !order && ordersError ? ordersError : '';
-  const [history, setHistory] = useState([]);
-  const [delivery, setDelivery] = useState(null);
-  const [shop, setShop] = useState({});
+  const [history, setHistory] = useViewState([]);
+  const [delivery, setDelivery] = useViewState(null);
+  const [shop, setShop] = useViewState({});
 
   useEffect(() => {
     if (!orderId) return undefined;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../../../shared/hooks/useViewState.js';
 import PageHeader from '../../../../shared/components/common/PageHeader.jsx';
 import StatCard from '../../../../shared/components/common/StatCard.jsx';
 import FilterToolbar from '../../../../shared/components/common/FilterToolbar.jsx';
@@ -43,11 +43,11 @@ export const statusType = (s) => (s === 'Active' ? 'active' : s === 'Paused' ? '
 
 /** All client businesses with their subscription and money position. */
 export default function BusinessesList({ companies, users, loading, canManage, actions }) {
-  const [status, setStatus] = useState('all');
-  const [plan, setPlan] = useState('all');
-  const [subscription, setSubscription] = useState('all');
-  const [sortKey, setSortKey] = useState('name');
-  const [search, setSearch] = useState('');
+  const [status, setStatus] = useViewState('all');
+  const [plan, setPlan] = useViewState('all');
+  const [subscription, setSubscription] = useViewState('all');
+  const [sortKey, setSortKey] = useViewState('name');
+  const [search, setSearch] = useViewState('');
 
   const staffCount = (id) =>
     users.filter((u) => u.companyId === id && u.roleKey !== 'customer' && u.roleKey !== 'superuser').length;

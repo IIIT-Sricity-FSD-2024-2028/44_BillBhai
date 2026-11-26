@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../hooks/useViewState.js';
 
 /** Current exchange rate: 1 USD = 86.5 INR */
 export const USD_TO_INR_RATE = 86.5;
@@ -67,7 +68,7 @@ export function formatCurrency(value, { decimals = 2 } = {}) {
 }
 
 export function useCurrency() {
-  const [currency, setCurrency] = useState(getActiveCurrency);
+  const [currency, setCurrency] = useViewState(getActiveCurrency);
 
   useEffect(() => {
     const handleCurrencyChange = () => {
@@ -79,7 +80,7 @@ export function useCurrency() {
       window.removeEventListener('currency-changed', handleCurrencyChange);
       window.removeEventListener('storage', handleCurrencyChange);
     };
-  }, []);
+  }, [setCurrency]);
 
   return currency;
 }

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import useViewState from '../../../../shared/hooks/useViewState.js';
 import { Link } from 'react-router-dom';
 import useTheme from '../../../../shared/hooks/useTheme.js';
 
@@ -7,7 +8,7 @@ export default function RegisterCard({ children }) {
   const { logo } = useTheme();
   const cardRef = useRef(null);
   const resetTimer = useRef(null);
-  const [tilt, setTilt] = useState({});
+  const [tilt, setTilt] = useViewState({});
 
   useEffect(() => () => clearTimeout(resetTimer.current), []);
 

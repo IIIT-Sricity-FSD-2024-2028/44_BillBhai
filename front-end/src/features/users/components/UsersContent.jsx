@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import PageHeader from '../../../shared/components/common/PageHeader.jsx';
 import FilterToolbar from '../../../shared/components/common/FilterToolbar.jsx';
 import DataTable from '../../../shared/components/common/DataTable.jsx';
@@ -20,12 +20,12 @@ export default function UsersContent() {
   const { canManage, deleteUser, resetPassword, toggleSuspension } = useUserActions();
   const selfId = String(loadObject('currentUser', {}).id || '');
 
-  const [role, setRole] = useState('all');
-  const [status, setStatus] = useState('all');
-  const [sortKey, setSortKey] = useState('name');
-  const [search, setSearch] = useState('');
-  const [profileId, setProfileId] = useState(null);
-  const [formUser, setFormUser] = useState(null);
+  const [role, setRole] = useViewState('all');
+  const [status, setStatus] = useViewState('all');
+  const [sortKey, setSortKey] = useViewState('name');
+  const [search, setSearch] = useViewState('');
+  const [profileId, setProfileId] = useViewState(null);
+  const [formUser, setFormUser] = useViewState(null);
 
   const staff = users.filter((u) => u.roleKey !== 'customer' && u.roleKey !== 'superuser');
   const maxUsers = activePlan && activePlan.limits ? activePlan.limits.maxUsers : Infinity;

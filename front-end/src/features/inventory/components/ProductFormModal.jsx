@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import FormField, { controlClass } from '../../../shared/components/common/FormField.jsx';
@@ -93,11 +94,11 @@ function ProductFormBody({ request, onClose, suppliers, categories, scopeQuery, 
   const dispatch = useDispatch();
   const mode = request ? request.mode : 'add';
   const item = request ? request.item : null;
-  const [form, setForm] = useState(() => (request && request.mode === 'edit' && request.item ? formFromItem(request.item) : blankForm()));
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [imageFile, setImageFile] = useState(null);
+  const [form, setForm] = useViewState(() => (request && request.mode === 'edit' && request.item ? formFromItem(request.item) : blankForm()));
+  const [errors, setErrors] = useViewState({});
+  const [serverError, setServerError] = useViewState('');
+  const [saving, setSaving] = useViewState(false);
+  const [imageFile, setImageFile] = useViewState(null);
   const savedProductOnRetryRef = useRef(false);
 
   const set = (key) => (e) => {

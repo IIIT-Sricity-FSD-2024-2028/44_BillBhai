@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import useViewState from '../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { Navigate } from 'react-router-dom';
 import usePageSetup from '../../shared/hooks/usePageSetup.js';
@@ -96,8 +97,8 @@ function posRedirect() {
 
 export default function CashierPage() {
   const dispatch = useDispatch();
-  const [redirectTo] = useState(posRedirect);
-  const [session] = useState(() => getSessionContext());
+  const [redirectTo] = useViewState(posRedirect);
+  const [session] = useViewState(() => getSessionContext());
   const isCustomerTerminal = Boolean(session.isCustomerTerminal);
 
   const pos = useSelector(selectPosState);
@@ -138,13 +139,13 @@ export default function CashierPage() {
     completedTendered,
   } = pos;
 
-  const [planBadge, setPlanBadge] = useState(null);
-  const [lookupHint, setLookupHint] = useState(() => hintFor('info', getTerminalCopy(false).lookupInfo));
+  const [planBadge, setPlanBadge] = useViewState(null);
+  const [lookupHint, setLookupHint] = useViewState(() => hintFor('info', getTerminalCopy(false).lookupInfo));
   const customerLookupRequestId = useRef(0);
   const autofilledFromLookup = useRef(false);
-  const [menu, setMenu] = useState(HIDDEN_MENU);
-  const [salesOpen, setSalesOpen] = useState(false);
-  const [reprint, setReprint] = useState(null);
+  const [menu, setMenu] = useViewState(HIDDEN_MENU);
+  const [salesOpen, setSalesOpen] = useViewState(false);
+  const [reprint, setReprint] = useViewState(null);
 
   const ct = booted && isCustomerTerminal;
   const activePlanKey = String(localStorage.getItem('activeBusinessPlan') || '').toLowerCase();
@@ -167,7 +168,7 @@ export default function CashierPage() {
     setLookupHint(hintFor('info', getTerminalCopy(isCustomerTerminal).lookupInfo));
     dispatch(clearCustomerLookup());
     dispatch(resetPosSession(isCustomerTerminal));
-  }, [dispatch, isCustomerTerminal]);
+  }, [dispatch, isCustomerTerminal, setLookupHint]);
 
   useEffect(() => {
     dispatch(bootPosThunk()).finally(() => {
@@ -215,11 +216,11 @@ export default function CashierPage() {
       document.removeEventListener('click', hide);
       window.removeEventListener('scroll', hide, true);
     };
-  }, []);
+  }, [setMenu]);
 
   const repositionMenu = useCallback((x, y) => {
     setMenu((m) => ({ ...m, x, y, measure: false }));
-  }, []);
+  }, [setMenu]);
 
   // A coupon is re-checked by the server whenever the bill changes.
   useEffect(() => {
@@ -495,7 +496,7 @@ export default function CashierPage() {
       setReprint(null);
     }, 50);
     return () => clearTimeout(timer);
-  }, [reprint]);
+  }, [reprint, setReprint]);
 
   const hasItems = cart.length > 0;
 

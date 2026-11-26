@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { formatRupees } from '../lib/posHelpers.js';
 
 /** One cart line: +/- buttons, a typed quantity (capped at stock) and remove. */
 export default function CartItem({ item, onUpdateQty, onSetQty, onRemove }) {
-  const [draft, setDraft] = useState(String(item.qty));
-  useEffect(() => setDraft(String(item.qty)), [item.qty]);
+  const [draft, setDraft] = useViewState(String(item.qty));
+  useEffect(() => setDraft(String(item.qty)), [item.qty, setDraft]);
 
   const commit = () => {
     const n = Number(draft);

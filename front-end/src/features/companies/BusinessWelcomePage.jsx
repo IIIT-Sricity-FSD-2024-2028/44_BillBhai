@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import usePageSetup from '../../shared/hooks/usePageSetup.js';
@@ -28,7 +29,7 @@ export default function BusinessWelcomePage() {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [user] = useState(() => loadObject('currentUser', {}));
+  const [user] = useViewState(() => loadObject('currentUser', {}));
   const { myCompany: company, myCompanyError: error } = useSelector(selectCompaniesState);
 
   useEffect(() => {

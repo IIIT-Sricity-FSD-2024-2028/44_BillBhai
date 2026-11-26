@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import FormField, { controlClass } from '../../../shared/components/common/FormField.jsx';
@@ -12,10 +12,10 @@ const REASONS = ['Customer changed mind', 'Billing mistake', 'Out of stock after
 export default function CancelOrderModal({ order, onClose }) {
   const dispatch = useDispatch();
   const { refreshData, showToast } = useDashboard();
-  const [preset, setPreset] = useState(REASONS[0]);
-  const [detail, setDetail] = useState('');
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [preset, setPreset] = useViewState(REASONS[0]);
+  const [detail, setDetail] = useViewState('');
+  const [error, setError] = useViewState('');
+  const [saving, setSaving] = useViewState(false);
   const reason = preset === 'Other' ? detail.trim() : detail.trim() ? `${preset}: ${detail.trim()}` : preset;
   const paid = order.paymentStatus === 'Paid';
 

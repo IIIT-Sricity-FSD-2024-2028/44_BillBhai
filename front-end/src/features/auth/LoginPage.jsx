@@ -1,4 +1,4 @@
-import { useState } from "react";
+import useViewState from "../../shared/hooks/useViewState.js";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { loginThunk } from "./authSlice.js";
@@ -11,20 +11,20 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useViewState("");
+  const [password, setPassword] = useViewState("");
+  const [rememberMe, setRememberMe] = useViewState(false);
+  const [showPassword, setShowPassword] = useViewState(false);
 
-  const [errorMessage, setErrorMessage] = useState(() =>
+  const [errorMessage, setErrorMessage] = useViewState(() =>
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("expired")
       ? "Your session ended. Please sign in again."
       : "",
   );
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [fieldStatus, setFieldStatus] = useState({
+  const [isLoading, setIsLoading] = useViewState(false);
+  const [isSuccess, setIsSuccess] = useViewState(false);
+  const [fieldStatus, setFieldStatus] = useViewState({
     username: { error: false, shake: false },
     password: { error: false, shake: false },
   });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import FormField, { controlClass } from '../../../shared/components/common/FormField.jsx';
@@ -13,12 +13,12 @@ import { extractErrorMessage } from '../../../store/thunkUtils.js';
 export default function OrderEditModal({ order, onClose }) {
   const dispatch = useDispatch();
   const { refreshData, showToast } = useDashboard();
-  const [name, setName] = useState(order.customer || '');
-  const [phone, setPhone] = useState(order.customerPhone || '');
-  const [address, setAddress] = useState(order.address || '');
-  const [notes, setNotes] = useState(order.notes || '');
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState('');
+  const [name, setName] = useViewState(order.customer || '');
+  const [phone, setPhone] = useViewState(order.customerPhone || '');
+  const [address, setAddress] = useViewState(order.address || '');
+  const [notes, setNotes] = useViewState(order.notes || '');
+  const [errors, setErrors] = useViewState({});
+  const [serverError, setServerError] = useViewState('');
   const saving = useSelector(selectOrdersSaving);
   const isDelivery = order.orderType === 'delivery';
   const addressLocked = ['Shipped', 'Delivered', 'Partially Returned', 'Returned'].includes(order.status);

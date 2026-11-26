@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import useViewState from '../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import usePageSetup from '../../shared/hooks/usePageSetup.js';
@@ -70,13 +71,13 @@ export default function RegisterBusinessPage() {
   const requestedPlan = PLANS.includes(params.get('plan')) ? params.get('plan') : 'starter';
   const { saving: isLoading, error: serverError } = useSelector(selectCompaniesState);
 
-  const [values, setValues] = useState(initialValues);
-  const [usernameTouched, setUsernameTouched] = useState(false);
-  const [groups, setGroups] = useState(initialGroups);
-  const [showing, setShowing] = useState({ password: false, confirmPassword: false });
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [validationError, setValidationError] = useState('');
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [values, setValues] = useViewState(initialValues);
+  const [usernameTouched, setUsernameTouched] = useViewState(false);
+  const [groups, setGroups] = useViewState(initialGroups);
+  const [showing, setShowing] = useViewState({ password: false, confirmPassword: false });
+  const [agreeTerms, setAgreeTerms] = useViewState(false);
+  const [validationError, setValidationError] = useViewState('');
+  const [isSuccess, setIsSuccess] = useViewState(false);
 
   const mounted = useRef(true);
   const redirectTimer = useRef(null);

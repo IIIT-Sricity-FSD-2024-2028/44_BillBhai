@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../hooks/useViewState.js';
 import { Link } from 'react-router-dom';
 import { BellIcon, LogoutMenuIcon, MenuToggleIcon, ProfileMenuIcon } from './icons.jsx';
 import NotificationIcon from './NotificationIcon.jsx';
@@ -18,7 +19,7 @@ export default function TopHeader({
   onLogout,
   legacyMenu,
 }) {
-  const [openMenu, setOpenMenu] = useState(null); // 'notif' | 'user' | null
+  const [openMenu, setOpenMenu] = useViewState(null); // 'notif' | 'user' | null
   const dispatch = useDispatch();
 const auth = useSelector((state) => state.auth) || {};
 const me = useSelector((state) => state.users?.me);
@@ -37,7 +38,7 @@ const displayBusinessName = businessName ?? auth.activeBusinessName;
     const close = () => setOpenMenu(null);
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
-  }, []);
+  }, [setOpenMenu]);
 
   const toggle = (menu) => (e) => {
     e.stopPropagation();

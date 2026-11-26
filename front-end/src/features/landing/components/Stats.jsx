@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import useReveal from './useReveal.js';
 
 const STATS = [
@@ -18,7 +19,7 @@ function formatNumber(n) {
 
 function useCounter(target) {
   const ref = useRef(null);
-  const [text, setText] = useState('0');
+  const [text, setText] = useViewState('0');
 
   useEffect(() => {
     const el = ref.current;
@@ -58,7 +59,7 @@ function useCounter(target) {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [target]);
+  }, [setText, target]);
 
   return [ref, text];
 }

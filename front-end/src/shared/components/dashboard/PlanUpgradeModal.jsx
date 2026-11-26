@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../hooks/useViewState.js';
 import Modal from '../common/Modal.jsx';
 import { PlanCheckIcon, PlanCrossIcon } from '../common/icons.jsx';
 import { formatCurrency } from '../../lib/currency.js';
@@ -8,9 +8,9 @@ import { getActiveCompanyPlan, switchCompanyPlan } from '../../lib/dashboard/sto
 export default function PlanUpgradeModal({ onClose }) {
   const currentPlan = getActiveCompanyPlan();
   const plans = [PLAN_DEFINITIONS.starter, PLAN_DEFINITIONS.pro, PLAN_DEFINITIONS.enterprise];
-  const [confirmPlan, setConfirmPlan] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [confirmPlan, setConfirmPlan] = useViewState(null);
+  const [busy, setBusy] = useViewState(false);
+  const [error, setError] = useViewState('');
 
   const confirmSwitch = async () => {
     if (!confirmPlan || busy) return;

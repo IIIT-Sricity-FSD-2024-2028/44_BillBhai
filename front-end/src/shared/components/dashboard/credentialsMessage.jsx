@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../hooks/useViewState.js';
 
 const BOX = {
   display: 'grid',
@@ -17,7 +17,7 @@ const CODE = {
 };
 
 function CopyButton({ text }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useViewState(false);
   return (
     <button
       type="button"

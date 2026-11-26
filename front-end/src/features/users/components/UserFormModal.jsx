@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import useViewState from "../../../shared/hooks/useViewState.js";
 import Modal from "../../../shared/components/common/Modal.jsx";
 import FormField, { controlClass } from "../../../shared/components/common/FormField.jsx";
 import { errorText } from "../../../shared/lib/http.js";
@@ -62,10 +63,10 @@ export default function UserFormModal({ user, onClose }) {
   } = useDashboard();
   const { activeBusinessId } = useSession();
   const editing = Boolean(user && user.id);
-  const [values, setValues] = useState(EMPTY);
-  const [touchedUsername, setTouchedUsername] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState("");
+  const [values, setValues] = useViewState(EMPTY);
+  const [touchedUsername, setTouchedUsername] = useViewState(false);
+  const [errors, setErrors] = useViewState({});
+  const [serverError, setServerError] = useViewState("");
   const dispatch = useDispatch();
   const saving = useSelector((state) => state.users.saving);
 
@@ -85,7 +86,7 @@ export default function UserFormModal({ user, onClose }) {
     setTouchedUsername(editing);
     setErrors({});
     setServerError("");
-  }, [user, editing]);
+  }, [user, editing, setValues, setTouchedUsername, setErrors, setServerError]);
 
   const roles = roleKey === "superuser" ? ALL_ROLES : STAFF_ROLES;
   const features = (activePlan && activePlan.features) || {};

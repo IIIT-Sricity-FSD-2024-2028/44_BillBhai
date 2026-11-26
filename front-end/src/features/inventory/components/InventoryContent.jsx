@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   fetchInventoryThunk,
@@ -96,17 +97,17 @@ export default function InventoryContent() {
     }
   }, [dispatch, canManage, scopeQuery]);
 
-  const [tab, setTab] = useState('products');
-  const [category, setCategory] = useState('all');
-  const [status, setStatus] = useState('all');
-  const [supplier, setSupplier] = useState('all');
-  const [sort, setSort] = useState('urgency');
-  const [query, setQuery] = useState('');
-  const [belowReorder, setBelowReorder] = useState(false);
-  const [showInactive, setShowInactive] = useState(false);
-  const [productRequest, setProductRequest] = useState(null);
-  const [stockRequest, setStockRequest] = useState(null);
-  const [historyItem, setHistoryItem] = useState(null);
+  const [tab, setTab] = useViewState('products');
+  const [category, setCategory] = useViewState('all');
+  const [status, setStatus] = useViewState('all');
+  const [supplier, setSupplier] = useViewState('all');
+  const [sort, setSort] = useViewState('urgency');
+  const [query, setQuery] = useViewState('');
+  const [belowReorder, setBelowReorder] = useViewState(false);
+  const [showInactive, setShowInactive] = useViewState(false);
+  const [productRequest, setProductRequest] = useViewState(null);
+  const [stockRequest, setStockRequest] = useViewState(null);
+  const [historyItem, setHistoryItem] = useViewState(null);
   const csvInputRef = useRef(null);
 
   const activeItems = useMemo(() => inventory.filter((i) => i.active !== false), [inventory]);

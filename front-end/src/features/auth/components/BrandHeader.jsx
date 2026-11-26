@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import useTheme from '../../../shared/hooks/useTheme.js';
 
 const SUBTITLE = 'ORDER & BILLING SYSTEM';
@@ -6,7 +7,7 @@ const SUBTITLE = 'ORDER & BILLING SYSTEM';
 // Logo + typewriter subtitle (starts after 600ms, 60-100ms per character).
 export default function BrandHeader() {
   const { logo } = useTheme();
-  const [subtitle, setSubtitle] = useState('');
+  const [subtitle, setSubtitle] = useViewState('');
 
   useEffect(() => {
     let timer;
@@ -20,7 +21,7 @@ export default function BrandHeader() {
     }
     timer = setTimeout(typeText, 600);
     return () => clearTimeout(timer);
-  }, []);
+  }, [setSubtitle]);
 
   return (
     <div className="brand-header">

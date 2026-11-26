@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import useViewState from '../../shared/hooks/useViewState.js';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectLowStockForDashboard, selectInventoryStatus } from '../inventory/inventorySlice.js';
@@ -52,7 +53,7 @@ const OPEN_RETURN = ['Pending', 'Approved'];
 
 function AdminDashboard() {
   const { orders, returns, deliveries, scopedBusinessName, syncError } = useDashboard();
-  const [trendDays, setTrendDays] = useState(7);
+  const [trendDays, setTrendDays] = useViewState(7);
   const today = useMemo(() => rangePreset('today'), []);
   const month = useMemo(() => rangePreset('30d'), []);
   const todayReport = useReport('/reports/sales', today);

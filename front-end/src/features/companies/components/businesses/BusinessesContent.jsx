@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
+import useViewState from '../../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { useDashboard } from '../../../../shared/lib/dashboard/hooks.js';
 import {
@@ -17,7 +18,7 @@ export default function BusinessesContent() {
   const dispatch = useDispatch();
   const { hasActionAccess, users, lastSyncedAt } = useDashboard();
   const { items: companies, status, error } = useSelector(selectCompaniesState);
-  const [detailsId, setDetailsId] = useState(null);
+  const [detailsId, setDetailsId] = useViewState(null);
   const canManage = hasActionAccess('businesses');
   const loading = status === 'idle' || status === 'loading';
 

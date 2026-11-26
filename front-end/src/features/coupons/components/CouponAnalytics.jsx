@@ -1,4 +1,5 @@
-import { Fragment, useState } from 'react';
+import { Fragment } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useNavigate } from 'react-router-dom';
 import ChartCanvas, { getColors } from '../../../shared/components/common/ChartCanvas.jsx';
 import StatCard from '../../../shared/components/common/StatCard.jsx';
@@ -95,7 +96,7 @@ function Detail({ row }) {
 /** Coupon analytics: totals and one expandable row per coupon. */
 export default function CouponAnalytics({ data, loading, error }) {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(null);
+  const [open, setOpen] = useViewState(null);
 
   if (error) return <p className="form-error" style={{ display: 'block' }}>{error}</p>;
   if (!data) return <p className="text-muted">{loading ? 'Working out coupon numbers…' : 'No data.'}</p>;

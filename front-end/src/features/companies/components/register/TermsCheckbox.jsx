@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import useViewState from '../../../../shared/hooks/useViewState.js';
 import { CheckIcon } from './icons.jsx';
 
 export default function TermsCheckbox({ checked, onChange }) {
-  const [showTerms, setShowTerms] = useState(false);
+  const [showTerms, setShowTerms] = useViewState(false);
   return (
     <div>
       <label className="custom-checkbox">

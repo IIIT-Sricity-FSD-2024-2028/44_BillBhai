@@ -1,11 +1,12 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { Link } from 'react-router-dom';
 import BrandHeader from './BrandHeader.jsx';
 import LoginForm from './LoginForm.jsx';
 
 export default function LoginCard(props) {
   const cardRef = useRef(null);
-  const [tiltStyle, setTiltStyle] = useState({});
+  const [tiltStyle, setTiltStyle] = useViewState({});
 
   const handleMouseMove = (e) => {
     if (!cardRef.current) return;

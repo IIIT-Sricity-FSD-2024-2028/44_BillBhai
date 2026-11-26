@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import DataTable from '../../../shared/components/common/DataTable.jsx';
@@ -19,8 +20,8 @@ function StockHistoryBody({ item, canManage, scopeQuery, onClose }) {
   const allMovements = useSelector(selectMovements);
   const movementsStatus = useSelector(selectMovementsStatus);
   const activityByProduct = useSelector(selectActivityByProduct);
-  const [tab, setTab] = useState('stock');
-  const [error, setError] = useState('');
+  const [tab, setTab] = useViewState('stock');
+  const [error, setError] = useViewState('');
 
   useEffect(() => {
     let active = true;
@@ -45,7 +46,7 @@ function StockHistoryBody({ item, canManage, scopeQuery, onClose }) {
     return () => {
       active = false;
     };
-  }, [dispatch, item, canManage, scopeQuery]);
+  }, [dispatch, item, canManage, scopeQuery, setError]);
 
   const moves = useMemo(
     () => allMovements.filter((m) => String(m.productId) === String(item.productId)),

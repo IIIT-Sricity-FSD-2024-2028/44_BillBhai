@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import FormField, { controlClass } from '../../../shared/components/common/FormField.jsx';
@@ -60,9 +60,9 @@ function validate(v) {
 export default function CouponFormModal({ coupon, onClose }) {
   const dispatch = useDispatch();
   const { refreshData, showToast, state } = useDashboard();
-  const [v, setV] = useState(() => initialValues(coupon));
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState('');
+  const [v, setV] = useViewState(() => initialValues(coupon));
+  const [errors, setErrors] = useViewState({});
+  const [serverError, setServerError] = useViewState('');
   const saving = useSelector(selectCouponsSaving);
   const used = coupon ? Number(coupon.usedCount) || 0 : 0;
   const set = (key) => (e) => setV((cur) => ({ ...cur, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));

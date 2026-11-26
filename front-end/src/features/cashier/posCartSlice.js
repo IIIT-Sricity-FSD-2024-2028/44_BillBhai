@@ -188,6 +188,28 @@ export const fetchMySalesTodayThunk = createAsyncThunk(
   },
 );
 
+export const fetchKioskPaymentsWaitingThunk = createAsyncThunk(
+  'posCart/fetchKioskPaymentsWaiting',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await posRepo.fetchKioskPaymentsWaiting();
+    } catch (err) {
+      return rejectWithValue(errorText(err, 'Could not load self-checkout payments.'));
+    }
+  },
+);
+
+export const confirmKioskPaymentThunk = createAsyncThunk(
+  'posCart/confirmKioskPayment',
+  async (id, { rejectWithValue }) => {
+    try {
+      return await posRepo.confirmKioskPayment(id);
+    } catch (err) {
+      return rejectWithValue(errorText(err, 'Could not confirm the payment'));
+    }
+  },
+);
+
 const draft = loadDraft();
 
 const initialState = {
@@ -222,6 +244,8 @@ const initialState = {
   mySales: [],
   mySalesLoading: false,
   mySalesError: '',
+  kioskWaiting: [],
+  kioskConfirmError: '',
 };
 
 function recomputeStateDiscount(state) {
@@ -483,6 +507,21 @@ const posCartSlice = createSlice({
       .addCase(fetchMySalesTodayThunk.rejected, (state, action) => {
         state.mySalesLoading = false;
         state.mySalesError = action.payload || 'Could not load today’s sales.';
+      })
+      .addCase(fetchKioskPaymentsWaitingThunk.fulfilled, (state, action) => {
+        state.kioskWaiting = action.payload;
+      })
+      .addCase(fetchKioskPaymentsWaitingThunk.rejected, (state) => {
+        state.kioskWaiting = [];
+      })
+      .addCase(confirmKioskPaymentThunk.pending, (state) => {
+        state.kioskConfirmError = '';
+      })
+      .addCase(confirmKioskPaymentThunk.fulfilled, (state, action) => {
+        state.kioskWaiting = state.kioskWaiting.filter((o) => o.id !== action.meta.arg);
+      })
+      .addCase(confirmKioskPaymentThunk.rejected, (state, action) => {
+        state.kioskConfirmError = action.payload || 'Could not confirm the payment';
       });
   },
 });

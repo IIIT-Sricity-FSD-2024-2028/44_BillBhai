@@ -18,6 +18,7 @@ import posCartReducer from '../../../features/cashier/posCartSlice.js';
 import usersReducer from '../../../features/users/usersSlice.js';
 import reportsReducer from '../../../features/reports/reportsSlice.js';
 import returnsReducer from '../../../features/returns/returnsSlice.js';
+import viewStateReducer, { VIEW_STATE_MIDDLEWARE_OPTIONS } from '../../../store/viewStateSlice.js';
 
 import LoginPage from '../../../features/auth/LoginPage.jsx';
 import BusinessesList from '../../../features/companies/components/businesses/BusinessesList.jsx';
@@ -45,7 +46,9 @@ function makeStore() {
       users: usersReducer,
       reports: reportsReducer,
       returns: returnsReducer,
+      viewState: viewStateReducer,
     },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware(VIEW_STATE_MIDDLEWARE_OPTIONS),
   });
 }
 

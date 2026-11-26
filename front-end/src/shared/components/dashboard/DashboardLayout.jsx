@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import useViewState from '../../hooks/useViewState.js';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -78,7 +79,7 @@ const SIDEBAR_DRAWER_WIDTH = 1279;
 
 export default function DashboardLayout({ page, children, afterMain, toast }) {
   const navigate = useNavigate();
-  const [boot] = useState(() => computeBootContext(page));
+  const [boot] = useViewState(() => computeBootContext(page));
 
   usePageSetup({
     title: PAGE_TITLES[page],
@@ -94,12 +95,12 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
   const notifications = reduxNotifs && reduxNotifs.length ? reduxNotifs : legacyNotifs;
   const dispatch = useDispatch();
   const reduxToast = useSelector(selectToastState);
-  const [ready, setReady] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [modals, setModals] = useState([]);
-  const [toastState, setToastState] = useState({ message: toast || '', show: false, type: 'success' });
+  const [ready, setReady] = useViewState(false);
+  const [revealed, setRevealed] = useViewState(false);
+  const [collapsed, setCollapsed] = useViewState(false);
+  const [mobileOpen, setMobileOpen] = useViewState(false);
+  const [modals, setModals] = useViewState([]);
+  const [toastState, setToastState] = useViewState({ message: toast || '', show: false, type: 'success' });
   const contentRef = useRef(null);
   const redirectedRef = useRef(false);
   const toastTimers = useRef([]);
@@ -114,7 +115,7 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
       }, 3000);
       toastTimers.current.push(timer);
     }
-  }, [reduxToast, dispatch]);
+  }, [reduxToast, dispatch, setToastState]);
 
   useLayoutEffect(() => {
     if (boot.roleKey) document.body.setAttribute('data-role', boot.roleKey);
@@ -146,7 +147,7 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
       showCredentialsModal: (title, credential) =>
         openCredentialsModal(openConfirm, title, credential),
     };
-  }, []);
+  }, [dispatch, setModals, setToastState]);
 
   useLayoutEffect(() => registerUi(uiApi), [uiApi]);
 
@@ -160,7 +161,7 @@ export default function DashboardLayout({ page, children, afterMain, toast }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [attempt, setAttempt] = useState(0);
+  const [attempt, setAttempt] = useViewState(0);
   useEffect(() => {
     if (boot.redirect) return undefined;
     const dispose = beginPageSession(boot, { onReady: () => setReady(true) });

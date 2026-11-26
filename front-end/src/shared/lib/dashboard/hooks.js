@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import useViewState from '../../hooks/useViewState.js';
 import { ROLE_ACTIONS, ROLE_LABELS } from './constants.js';
 import { apiRequest } from './api.js';
 import { getActiveNotifications, loadProfileSettingsRecord } from './notifications.js';
@@ -129,8 +130,8 @@ function persistOpts(opts) {
 
 export function useResource(collection, { basePath, idKey = 'id' } = {}) {
   const s = useDashboardStore();
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
+  const [saving, setSaving] = useViewState(false);
+  const [error, setError] = useViewState(null);
 
   const run = useCallback(async (fn) => {
     setSaving(true);
@@ -146,7 +147,7 @@ export function useResource(collection, { basePath, idKey = 'id' } = {}) {
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [setError, setSaving]);
 
   const matches = useCallback((row, id) => String(row && row[idKey]) === String(id), [idKey]);
 

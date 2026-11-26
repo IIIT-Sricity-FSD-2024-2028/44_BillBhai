@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch } from 'react-redux';
 import DataTable from '../../../shared/components/common/DataTable.jsx';
 import Modal from '../../../shared/components/common/Modal.jsx';
@@ -29,10 +29,10 @@ function initialSupplierForm(supplier) {
 
 function SupplierFormBody({ supplier, scopeQuery, onClose, onSaved }) {
   const dispatch = useDispatch();
-  const [form, setForm] = useState(() => initialSupplierForm(supplier));
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useViewState(() => initialSupplierForm(supplier));
+  const [errors, setErrors] = useViewState({});
+  const [serverError, setServerError] = useViewState('');
+  const [saving, setSaving] = useViewState(false);
 
   const set = (key) => (e) => {
     const value = e.target.value;
@@ -136,8 +136,8 @@ function SupplierFormModal({ supplier, open, scopeQuery, onClose, onSaved }) {
 /** The business's real supplier records, with how many products each supplies. */
 export default function SupplierDirectory({ suppliers, canManage, scopeQuery, onSaved, onError, openConfirm }) {
   const dispatch = useDispatch();
-  const [editing, setEditing] = useState({ open: false, supplier: null });
-  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useViewState({ open: false, supplier: null });
+  const [search, setSearch] = useViewState('');
   const q = search.trim().toLowerCase();
   const rows = suppliers
     .filter((s) => !q || `${s.name} ${s.contactPerson || ''} ${s.mobileNo} ${s.email || ''} ${s.gstNo || ''}`.toLowerCase().includes(q))

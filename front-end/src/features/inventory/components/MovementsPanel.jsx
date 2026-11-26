@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import DataTable from '../../../shared/components/common/DataTable.jsx';
 import FilterToolbar from '../../../shared/components/common/FilterToolbar.jsx';
@@ -19,9 +20,9 @@ export default function MovementsPanel({ inventory, canManage = true, scopeQuery
   const { lastSyncedAt } = useDashboard();
   const rows = useSelector(selectMovements);
   const status = useSelector(selectMovementsStatus);
-  const [type, setType] = useState('all');
-  const [search, setSearch] = useState('');
-  const [error, setError] = useState('');
+  const [type, setType] = useViewState('all');
+  const [search, setSearch] = useViewState('');
+  const [error, setError] = useViewState('');
 
   useEffect(() => {
     if (!canManage) return undefined;
@@ -43,7 +44,7 @@ export default function MovementsPanel({ inventory, canManage = true, scopeQuery
     return () => {
       active = false;
     };
-  }, [dispatch, canManage, scopeQuery, type, lastSyncedAt]);
+  }, [dispatch, canManage, scopeQuery, type, lastSyncedAt, setError]);
 
   const nameOf = useMemo(() => new Map(inventory.map((i) => [i.productId, i.name])), [inventory]);
   const visible = useMemo(() => {

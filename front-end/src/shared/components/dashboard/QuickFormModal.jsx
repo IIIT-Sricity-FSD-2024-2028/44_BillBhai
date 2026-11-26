@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../hooks/useViewState.js';
 import Modal from '../common/Modal.jsx';
 import FormField from '../common/FormField.jsx';
 import { isValidEmailAddress, isValidPhoneNumber } from '../../lib/dashboard/helpers.js';
@@ -9,7 +9,7 @@ const optionLabel = (opt) => String(opt && typeof opt === 'object' ? opt.label :
 
 export default function QuickFormModal({ config, onClose }) {
   const { title, submitLabel, fields = [], initialValues, onSubmit } = config;
-  const [formError, setFormError] = useState(null); // null = hidden
+  const [formError, setFormError] = useViewState(null); // null = hidden
 
   const valueFor = (f) =>
     initialValues && Object.prototype.hasOwnProperty.call(initialValues, f.name)
@@ -24,7 +24,7 @@ export default function QuickFormModal({ config, onClose }) {
   };
 
   // Lazy initial state: built once when the modal mounts.
-  const [values, setValues] = useState(() =>
+  const [values, setValues] = useViewState(() =>
     Object.fromEntries(fields.map((f) => [f.name, startValue(f)])),
   );
 

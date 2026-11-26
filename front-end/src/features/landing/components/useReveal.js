@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 
 export default function useReveal() {
   const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useViewState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -20,7 +21,7 @@ export default function useReveal() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [visible]);
+  }, [setVisible, visible]);
 
   return [ref, visible ? 'reveal visible' : 'reveal'];
 }

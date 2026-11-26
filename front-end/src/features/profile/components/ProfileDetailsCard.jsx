@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import FormField, { controlClass } from '../../../shared/components/common/FormField.jsx';
 import { errorText } from '../../../shared/lib/http.js';
@@ -13,15 +14,15 @@ const ROW_STYLE = { display: 'flex', flexDirection: 'column', gap: '8px' };
  * them read-only and ask their admin.
  */
 export default function ProfileDetailsCard({ me, canEdit, businessName, onSaved }) {
-  const [values, setValues] = useState({ name: '', email: '', phone: '' });
-  const [errors, setErrors] = useState({});
-  const [message, setMessage] = useState({ text: '', ok: false });
+  const [values, setValues] = useViewState({ name: '', email: '', phone: '' });
+  const [errors, setErrors] = useViewState({});
+  const [message, setMessage] = useViewState({ text: '', ok: false });
   const dispatch = useDispatch();
   const saving = useSelector((state) => state.users.saving);
 
   useEffect(() => {
     if (me) setValues({ name: me.name || '', email: me.email || '', phone: me.mobileNo || '' });
-  }, [me]);
+  }, [me, setValues]);
 
   if (!me) {
     return (

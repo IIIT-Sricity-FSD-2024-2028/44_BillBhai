@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -73,8 +74,8 @@ export default function InventoryManagerDashboard() {
   const dispatch = useDispatch();
   const { state: dashState, scopedBusinessName, hasActionAccess, refreshData } = useDashboard();
   const canManage = hasActionAccess('inventory');
-  const [stockRequest, setStockRequest] = useState(null);
-  const [notice, setNotice] = useState('');
+  const [stockRequest, setStockRequest] = useViewState(null);
+  const [notice, setNotice] = useViewState('');
 
   const active = useSelector(selectActiveCatalog);
   const effectiveSuppliers = useSelector(selectSortedSuppliers);

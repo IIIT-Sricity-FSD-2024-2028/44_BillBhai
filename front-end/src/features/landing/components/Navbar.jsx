@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { Link } from 'react-router-dom';
 import useTheme from '../../../shared/hooks/useTheme.js';
 import ThemeToggle from '../../../shared/components/common/ThemeToggle.jsx';
@@ -15,15 +16,15 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const { logo } = useTheme();
-  const [scrolled, setScrolled] = useState(() => window.scrollY > SCROLL_THRESHOLD);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useViewState(() => window.scrollY > SCROLL_THRESHOLD);
+  const [menuOpen, setMenuOpen] = useViewState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > SCROLL_THRESHOLD);
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [setScrolled]);
 
   // The open mobile menu locks page scrolling.
   useEffect(() => {

@@ -17,6 +17,7 @@ import paymentsReducer from '../features/cashier/paymentsSlice.js';
 import posCartReducer from '../features/cashier/posCartSlice.js';
 import couponsReducer from '../features/coupons/couponsSlice.js';
 import reportsReducer from '../features/reports/reportsSlice.js';
+import viewStateReducer, { VIEW_STATE_MIDDLEWARE_OPTIONS } from './viewStateSlice.js';
 
 const store = configureStore({
   reducer: {
@@ -38,7 +39,9 @@ const store = configureStore({
     posCart: posCartReducer,
     coupons: couponsReducer,
     reports: reportsReducer,
+    viewState: viewStateReducer,
   },
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware(VIEW_STATE_MIDDLEWARE_OPTIONS),
 });
 
 export default store;

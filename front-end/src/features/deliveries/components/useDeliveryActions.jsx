@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import FormField, { controlClass } from '../../../shared/components/common/FormField.jsx';
@@ -80,10 +81,10 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
   const kind = request ? request.kind : null;
   const d = request ? request.delivery : null;
   const order = request ? request.order : null;
-  const [form, setForm] = useState(() => initialForm(null, null));
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useViewState(() => initialForm(null, null));
+  const [errors, setErrors] = useViewState({});
+  const [serverError, setServerError] = useViewState('');
+  const [saving, setSaving] = useViewState(false);
 
   useEffect(() => {
     if (!request) return;
@@ -91,7 +92,7 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
     setErrors({});
     setServerError('');
     setSaving(false);
-  }, [request]);
+  }, [request, setErrors, setForm, setSaving, setServerError]);
 
   if (!request) return <Modal open={false} title="" onClose={onClose} />;
 
@@ -421,7 +422,7 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
  */
 export default function useDeliveryActions({ onDone } = {}) {
   const { deliveries, showToast, refreshData } = useDashboard();
-  const [request, setRequest] = useState(null);
+  const [request, setRequest] = useViewState(null);
   const load = new Map();
   deliveries
     .filter((x) => x.partner && ['Assigned', 'Dispatched', 'Out for Delivery'].includes(x.status))

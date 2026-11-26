@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import PageHeader from '../../../shared/components/common/PageHeader.jsx';
@@ -105,10 +106,10 @@ export default function OrdersContent() {
   // Use redux orders once fetched; fallback gracefully to dashboard orders if available
   const orders = reduxOrders.length > 0 ? reduxOrders : (dashboardOrders || []);
 
-  const [showAdvanced, setShowAdvanced] = useState(() => Boolean(searchParams.get('coupon')));
-  const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [cancelling, setCancelling] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useViewState(() => Boolean(searchParams.get('coupon')));
+  const [creating, setCreating] = useViewState(false);
+  const [editing, setEditing] = useViewState(null);
+  const [cancelling, setCancelling] = useViewState(null);
 
   // A link such as /orders?coupon=FLAT50 (from the Coupons page) sets the
   // coupon filter. The code stays in the address while that filter is on, so

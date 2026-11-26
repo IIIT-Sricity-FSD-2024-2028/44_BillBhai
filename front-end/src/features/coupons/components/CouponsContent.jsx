@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../../shared/components/common/PageHeader.jsx';
@@ -49,9 +50,9 @@ export default function CouponsContent() {
   const dispatch = useDispatch();
   const { coupons, state, lastSyncedAt, openConfirm, showToast, showMutationError, refreshData } = useDashboard();
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(undefined);
-  const [rangeKey, setRangeKey] = useState('30d');
-  const [range, setRange] = useState(() => rangePreset('30d'));
+  const [editing, setEditing] = useViewState(undefined);
+  const [rangeKey, setRangeKey] = useViewState('30d');
+  const [range, setRange] = useViewState(() => rangePreset('30d'));
   const analytics = useSelector(selectCouponAnalytics);
   const analyticsStatus = useSelector(selectCouponAnalyticsStatus);
   const loading = analyticsStatus === 'loading';

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { formatRupees } from '../lib/posHelpers.js';
-import { posRepo } from '../posRepo.js';
 import {
+  confirmKioskPaymentThunk,
+  fetchKioskPaymentsWaitingThunk,
   fetchMySalesTodayThunk,
   selectMySalesList,
   selectMySalesSummary,
@@ -20,28 +21,19 @@ export default function MySalesModal({ open, userId, onClose, onReprint }) {
   const { standing, byMethod, net, cashInDrawer, uncollectedCod, refunds } = useSelector(selectMySalesSummary);
   const { mySalesLoading: loading, mySalesError: error } = useSelector(selectPosState);
 
-  const [waiting, setWaiting] = useState([]);
-  const [confirmError, setConfirmError] = useState('');
-  const loadWaiting = () =>
-    posRepo
-      .fetchKioskPaymentsWaiting()
-      .then(setWaiting)
-      .catch(() => setWaiting([]));
+  const { kioskWaiting: waiting, kioskConfirmError: confirmError } = useSelector(selectPosState);
 
   useEffect(() => {
     if (!open) return;
     dispatch(fetchMySalesTodayThunk(userId));
-    loadWaiting();
+    dispatch(fetchKioskPaymentsWaitingThunk());
   }, [dispatch, open, userId]);
 
   const confirmPaid = async (o) => {
-    setConfirmError('');
-    try {
-      await posRepo.confirmKioskPayment(o.id);
-      await loadWaiting();
+    const result = await dispatch(confirmKioskPaymentThunk(o.id));
+    if (confirmKioskPaymentThunk.fulfilled.match(result)) {
+      dispatch(fetchKioskPaymentsWaitingThunk());
       dispatch(fetchMySalesTodayThunk(userId));
-    } catch (err) {
-      setConfirmError((err && err.message) || 'Could not confirm the payment');
     }
   };
 

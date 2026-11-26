@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import FormField, { controlClass } from '../../../shared/components/common/FormField.jsx';
@@ -15,14 +15,14 @@ function StockActionBody({ request, suppliers, onClose, onSaved }) {
   const storeSaving = useSelector(selectInventorySaving);
   const kind = request.kind;
   const item = request.item;
-  const [qty, setQty] = useState(() => (request.quantity ? String(request.quantity) : ''));
-  const [direction, setDirection] = useState('remove');
-  const [supplierId, setSupplierId] = useState(() => item.supplierId || '');
-  const [note, setNote] = useState('');
-  const [reason, setReason] = useState(ADJUST_REASONS[0]);
-  const [details, setDetails] = useState('');
-  const [error, setError] = useState('');
-  const [localSaving, setLocalSaving] = useState(false);
+  const [qty, setQty] = useViewState(() => (request.quantity ? String(request.quantity) : ''));
+  const [direction, setDirection] = useViewState('remove');
+  const [supplierId, setSupplierId] = useViewState(() => item.supplierId || '');
+  const [note, setNote] = useViewState('');
+  const [reason, setReason] = useViewState(ADJUST_REASONS[0]);
+  const [details, setDetails] = useViewState('');
+  const [error, setError] = useViewState('');
+  const [localSaving, setLocalSaving] = useViewState(false);
   const saving = localSaving || storeSaving;
 
   const submit = async (e) => {

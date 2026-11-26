@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../../shared/hooks/useViewState.js';
 import { Link } from 'react-router-dom';
 import useTheme from '../../../shared/hooks/useTheme.js';
 import ThemeToggle from '../../../shared/components/common/ThemeToggle.jsx';
@@ -6,13 +7,13 @@ import { clearStoredSession } from '../lib/posHelpers.js';
 
 export default function Header({ session, planBadge, onShowSales }) {
   const { logo } = useTheme();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useViewState(false);
 
   useEffect(() => {
     const close = () => setMenuOpen(false);
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
-  }, []);
+  }, [setMenuOpen]);
 
   const isCustomerTerminal = Boolean(session && session.isCustomerTerminal);
   const safeUserName = session ? String(session.userName || 'Cashier').trim() || 'Cashier' : '';

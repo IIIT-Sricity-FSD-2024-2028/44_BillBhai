@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import useViewState from '../../hooks/useViewState.js';
 
 /**
  * Table used on every dashboard page. Pass `pageSize` to show long lists one
@@ -15,8 +16,8 @@ export default function DataTable({
   pageSize,
 }) {
   const size = Number(pageSize) || 0;
-  const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [rows.length]);
+  const [page, setPage] = useViewState(1);
+  useEffect(() => setPage(1), [rows.length, setPage]);
 
   const pageCount = size ? Math.max(1, Math.ceil(rows.length / size)) : 1;
   const current = Math.min(page, pageCount);

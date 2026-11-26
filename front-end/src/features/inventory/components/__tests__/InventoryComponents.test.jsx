@@ -18,6 +18,7 @@ import inventoryReducer from '../../inventorySlice.js';
 import suppliersReducer from '../../suppliersSlice.js';
 import uploadsReducer from '../../uploadsSlice.js';
 import reportsReducer from '../../../reports/reportsSlice.js';
+import viewStateReducer, { VIEW_STATE_MIDDLEWARE_OPTIONS } from '../../../../store/viewStateSlice.js';
 import { patchState, registerUi } from '../../../../shared/lib/dashboard/store.js';
 import InventoryContent from '../InventoryContent.jsx';
 import ProductFormModal from '../ProductFormModal.jsx';
@@ -35,7 +36,9 @@ function makeStore(preloadedState) {
       uploads: uploadsReducer,
       orders: ordersReducer,
       reports: reportsReducer,
+      viewState: viewStateReducer,
     },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware(VIEW_STATE_MIDDLEWARE_OPTIONS),
     preloadedState,
   });
 }
