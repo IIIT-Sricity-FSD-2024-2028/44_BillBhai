@@ -95,7 +95,9 @@ export default function OrdersContent() {
 
   const urlCoupon = searchParams.get('coupon');
   useEffect(() => {
-    dispatch(setFilter({ key: 'coupon', value: urlCoupon ? urlCoupon.toUpperCase() : 'all' }));
+    const special = urlCoupon && ['any', 'none'].includes(urlCoupon.toLowerCase());
+    const value = !urlCoupon ? 'all' : special ? urlCoupon.toLowerCase() : urlCoupon.toUpperCase();
+    dispatch(setFilter({ key: 'coupon', value }));
     // run when the address changes, not when the dropdown changes the filter
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlCoupon]);
@@ -115,7 +117,7 @@ export default function OrdersContent() {
     dispatch(setFilter({ key, value }));
     if (key === 'coupon') {
       const next = new URLSearchParams(searchParams);
-      if (value && value !== 'any' && value !== 'none' && value !== 'all') next.set('coupon', value);
+      if (value && value !== 'all') next.set('coupon', value);
       else next.delete('coupon');
       setSearchParams(next, { replace: true });
     }

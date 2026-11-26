@@ -125,6 +125,8 @@ export class OrdersController {
     return updated;
   });
 
+  public confirmPayment = handle((req) => this.service.confirmCounterPayment(this.owned(req).id, actorName(req)));
+
   public cancel = handle((req) => {
     const order = this.owned(req);
     const body = req.body as CancelOrderDto;
@@ -156,7 +158,7 @@ export class OrdersController {
   public findAllBills = handle((req) => this.service.findAllBills(listScope(req, query(req, 'companyId'))));
 
   public findOneBill = handle((req) => {
-    const bill = this.service.findOneBill(param(req, 'billNo'));
+    const bill = this.service.findOneBill(param(req, 'billNo'), listScope(req, query(req, 'companyId')));
     assertInScope(req, bill.companyId, `Bill ${bill.billNo}`);
     return bill;
   });
@@ -164,7 +166,7 @@ export class OrdersController {
   public findAllPayments = handle((req) => this.service.findAllPayments(listScope(req, query(req, 'companyId'))));
 
   public findOnePayment = handle((req) => {
-    const payment = this.service.findOnePayment(param(req, 'billNo'));
+    const payment = this.service.findOnePayment(param(req, 'billNo'), listScope(req, query(req, 'companyId')));
     assertInScope(req, payment.companyId, `Payment ${payment.id}`);
     return payment;
   });

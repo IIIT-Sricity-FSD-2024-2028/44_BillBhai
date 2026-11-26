@@ -301,7 +301,7 @@ describe('Customers routes', () => {
       .get(`/api/customers/phone/${encodeURIComponent('+91-98100 01001')}`)
       .set('x-role', 'customer');
     expect(res.status).toBe(200);
-    expect(res.body.id).toBe('CUS-001');
+    expect(res.body).toEqual({ known: true });
   });
 
   it('rejects a malformed phone on the lookup (400)', async () => {

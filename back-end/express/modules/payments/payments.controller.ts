@@ -10,7 +10,7 @@ export class PaymentsController {
   }
 
   public verifyRazorpayPayment(req: Request, res: Response): void {
-    const result = paymentsService.verifyRazorpayPayment(req.body);
+    const result = paymentsService.verifyRazorpayPayment(req.body, req.auth?.companyId);
     res.status(200).json(result);
   }
 

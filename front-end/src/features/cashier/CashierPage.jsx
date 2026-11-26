@@ -254,8 +254,9 @@ export default function CashierPage() {
     let knownOnly = false;
     try {
       const res = await dispatch(lookupCustomerByPhoneThunk(phone)).unwrap();
-      profile = res ? res.profile : null;
-      knownOnly = Boolean(res && res.known && !profile);
+      const found = res ? res.profile : null;
+      profile = found && found.known === undefined ? found : null;
+      knownOnly = Boolean(found && found.known === true);
     } catch {
       profile = null;
     }

@@ -6,17 +6,21 @@ export function homeFor(roleKey) {
   return '/dashboard';
 }
 
-export default function PageHeader({ title, actions, backTo }) {
+function BackButton({ to }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const goBack = () => (location.key !== 'default' ? navigate(-1) : navigate(backTo));
+  const goBack = () => (location.key !== 'default' ? navigate(-1) : navigate(to));
+  return (
+    <button type="button" className="btn btn-outline" onClick={goBack}>
+      ← Back
+    </button>
+  );
+}
+
+export default function PageHeader({ title, actions, backTo }) {
   return (
     <div className="page-header">
-      {backTo && (
-        <button type="button" className="btn btn-outline" onClick={goBack}>
-          ← Back
-        </button>
-      )}
+      {backTo && <BackButton to={backTo} />}
       <h2>{title}</h2>
       {actions !== undefined && <div className="page-header-actions">{actions}</div>}
     </div>

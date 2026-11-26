@@ -17,6 +17,7 @@ import paymentsReducer from '../../../features/cashier/paymentsSlice.js';
 import posCartReducer from '../../../features/cashier/posCartSlice.js';
 import usersReducer from '../../../features/users/usersSlice.js';
 import reportsReducer from '../../../features/reports/reportsSlice.js';
+import returnsReducer from '../../../features/returns/returnsSlice.js';
 
 import LoginPage from '../../../features/auth/LoginPage.jsx';
 import BusinessesList from '../../../features/companies/components/businesses/BusinessesList.jsx';
@@ -43,6 +44,7 @@ function makeStore() {
       posCart: posCartReducer,
       users: usersReducer,
       reports: reportsReducer,
+      returns: returnsReducer,
     },
   });
 }
@@ -110,7 +112,7 @@ describe('Layer 7 Critical Components, Forms & Modals (RTL)', () => {
     expect(screen.getByText('2 of 2')).toBeTruthy();
   });
 
-  it('RaiseReturnModal uppercases order ID input, allows Escape close, and guards empty submit', () => {
+  it('RaiseReturnModal keeps the typed order/bill/phone, allows Escape close', () => {
     const store = makeStore();
     const onClose = vi.fn();
     render(
@@ -120,7 +122,7 @@ describe('Layer 7 Critical Components, Forms & Modals (RTL)', () => {
     );
     const input = document.querySelector('#returnOrderId');
     fireEvent.change(input, { target: { value: 'ord-4827' } });
-    expect(input.value).toBe('ORD-4827');
+    expect(input.value).toBe('ord-4827');
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();

@@ -557,9 +557,7 @@ export const selectMySalesSummary = createSelector([selectMySalesList], (rows) =
     .filter((o) => o.paymentMethod === 'COD' && o.paymentStatus === 'Pending')
     .reduce((s, o) => s + o.total, 0);
   const refunds = standing.reduce((s, o) => s + (o.refundedAmount || 0), 0);
-  const cashRefunds = standing
-    .filter((o) => o.paymentMethod === 'Cash')
-    .reduce((s, o) => s + (o.refundedAmount || 0), 0);
+  const cashRefunds = standing.reduce((s, o) => s + (o.cashRefundedToday || 0), 0);
   const net = standing.reduce((s, o) => s + o.total, 0) - refunds - uncollectedCod;
   const cashInDrawer =
     standing

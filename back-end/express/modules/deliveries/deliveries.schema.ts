@@ -91,6 +91,7 @@ export const transitionDeliverySchema = z.object({
   etaMinutes: z.number().int().min(5).max(24 * 60).optional(),
   receiverName: z.string().trim().max(60).optional(),
   cashCollected: z.number().min(0).max(10000000).optional(),
+  shortfallReason: z.string().trim().min(3).max(200).optional(),
   failureReason: z.string().trim().max(200).optional(),
   version: z.number().int().optional(),
 });

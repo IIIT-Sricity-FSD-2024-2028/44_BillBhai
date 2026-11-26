@@ -43,7 +43,7 @@ export class InventoryController {
           size: product?.size,
           active: product?.active !== false,
           inStock,
-          stockAvailable: inStock ? 10 : 0,
+          stockAvailable: Math.min(row.stockAvailable, 10),
           status: inStock ? 'In Stock' : 'Out of Stock',
         };
       }

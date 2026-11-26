@@ -321,7 +321,7 @@ describe('ReturnsService - status flow', () => {
     const order = world.orders.findOneOrder('ORD-4827');
     const ret = world.returns.findOne('RET-221');
 
-    const refunded = world.returns.transition('RET-221', { status: 'Refunded', refundMethod: 'UPI' }, 'returnhandler');
+    const refunded = world.returns.transition('RET-221', { status: 'Refunded', refundMethod: 'UPI', restock: true }, 'returnhandler');
 
     expect(refunded).toMatchObject({ status: 'Refunded', refundMethod: 'UPI', restock: true, resolvedBy: 'returnhandler' });
     expect(refunded.resolvedAt).toBeTruthy();
@@ -335,13 +335,23 @@ describe('ReturnsService - status flow', () => {
     expect(after.paymentStatus).toBe('Partially Refunded');
   });
 
-  it('restock:false refunds without touching the shelf', () => {
+  it('restock:false refunds without touching the shelf and records a write-off', () => {
     const before = world.inventory.stockFor('P005')!;
     const movesBefore = world.inventory.findMovements({ productId: 'P005' }).length;
     const refunded = world.returns.transition('RET-221', { status: 'Refunded', refundMethod: 'Cash', restock: false });
     expect(refunded.restock).toBe(false);
     expect(world.inventory.stockFor('P005')).toBe(before);
-    expect(world.inventory.findMovements({ productId: 'P005' })).toHaveLength(movesBefore);
+    expect(world.inventory.findMovements({ productId: 'P005' })).toHaveLength(movesBefore + 1);
+    const writeOff = world.inventory.findMovements({ productId: 'P005', type: 'write-off' })[0];
+    expect(writeOff).toMatchObject({ refId: 'RET-221', quantity: 0, balanceAfter: before });
+    expect(writeOff.reason.startsWith('1 unit(s) written off on RET-221')).toBe(true);
+  });
+
+  it('an expired return stays off the shelf by default', () => {
+    const before = world.inventory.stockFor('P005')!;
+    const refunded = world.returns.transition('RET-221', { status: 'Refunded', refundMethod: 'Cash' });
+    expect(refunded.restock).toBe(false);
+    expect(world.inventory.stockFor('P005')).toBe(before);
   });
 
   it('marks the order Returned and Refunded once every unit is refunded', () => {
@@ -562,7 +572,7 @@ describe('Returns routes', () => {
     expect(res.status).toBe(404);
   });
 
-  it('refund needs a method (400) and then restocks (200)', async () => {
+  it('refund needs a method (400) and then restocks when asked (200)', async () => {
     const before = world.inventory.stockFor('P005')!;
     const noMethod = await request(world.app)
       .post('/api/returns/RET-221/status')
@@ -573,7 +583,7 @@ describe('Returns routes', () => {
     const ok = await request(world.app)
       .post('/api/returns/RET-221/status')
       .set('x-role', 'returnhandler')
-      .send({ status: 'Refunded', refundMethod: 'Original payment' });
+      .send({ status: 'Refunded', refundMethod: 'Original payment', restock: true });
     expect(ok.status).toBe(200);
     expect(ok.body.status).toBe('Refunded');
     expect(world.inventory.stockFor('P005')).toBe(before + 1);

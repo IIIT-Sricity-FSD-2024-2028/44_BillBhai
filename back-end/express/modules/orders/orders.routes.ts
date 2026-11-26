@@ -45,6 +45,12 @@ export function createOrdersRouter(controller: OrdersController = ordersControll
     controller.update,
   );
   router.post(
+    '/:id/confirm-payment',
+    requireRoles(...EDITORS),
+    validate({ params: orderIdParamsSchema }),
+    controller.confirmPayment,
+  );
+  router.post(
     '/:id/cancel',
     requireRoles(...MANAGERS),
     validate({ params: orderIdParamsSchema, body: cancelOrderSchema }),

@@ -50,7 +50,7 @@ export default function PlanUpgradeModal({ onClose }) {
                 Back
               </button>
               <button type="button" className="btn btn-primary" disabled={busy} onClick={confirmSwitch}>
-                {busy ? 'Updating…' : confirmPlan.price > 0 ? `Confirm & Pay ${formatCurrency(confirmPlan.price)}/mo` : 'Confirm Switch'}
+                {busy ? 'Updating…' : confirmPlan.price > 0 ? `Confirm ${formatCurrency(confirmPlan.price)}/mo plan` : 'Confirm Switch'}
               </button>
             </div>
           </div>

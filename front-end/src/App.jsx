@@ -47,7 +47,9 @@ const FLOATING_TOGGLE_PATHS = ['/login', '/register-business', '/business-welcom
 function LegacyHtmlRedirect() {
   const { file } = useParams();
   const name = String(file || '').replace(/\.html$/, '');
-  const target = name === 'index' || !PAGES[name] ? '/' : `/${name}`;
+  const isLegacyPage = name === 'index' || Boolean(PAGES[name]);
+  if (!isLegacyPage) return <NotFoundPage />;
+  const target = name === 'index' ? '/' : `/${name}`;
   return <Navigate to={`${target}${window.location.search}${window.location.hash}`} replace />;
 }
 

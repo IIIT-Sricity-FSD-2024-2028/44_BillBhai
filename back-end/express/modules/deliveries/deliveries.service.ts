@@ -262,7 +262,7 @@ export class DeliveriesService {
           if (dto.cashCollected === undefined) {
             throw new BadRequestError(`This is a COD order: enter the cash collected (₹${current.codAmount})`);
           }
-          this.orders.recordCodPayment(current.orderId, dto.cashCollected, by);
+          this.orders.recordCodPayment(current.orderId, dto.cashCollected, by, dto.shortfallReason);
           next.cashCollected = dto.cashCollected;
         }
         next.deliveryDate = at;

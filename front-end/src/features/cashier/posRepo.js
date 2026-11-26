@@ -48,13 +48,36 @@ export const posRepo = {
 
   placeOrder: (payload) => api('/orders', { method: 'POST', body: payload }),
 
+  fetchKioskPaymentsWaiting: async () => {
+    const rows = await api('/orders');
+    return (Array.isArray(rows) ? rows : []).filter(
+      (o) => o.paymentStatus === 'Pending' && o.checkoutMode === 'takeaway_now' && ['UPI', 'Card'].includes(o.paymentMethod),
+    );
+  },
+
+  confirmKioskPayment: (id) => api(`/orders/${encodeURIComponent(String(id))}/confirm-payment`, { method: 'POST' }),
+
   fetchMySalesToday: async (userId) => {
     const rows = await api('/orders');
+    let cashRefunds = {};
+    try {
+      const refunded = await api('/returns', { query: { status: 'Refunded' } });
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      (Array.isArray(refunded) ? refunded : [])
+        .filter((r) => r.refundMethod === 'Cash' && r.resolvedAt && new Date(r.resolvedAt) >= today)
+        .forEach((r) => {
+          cashRefunds[r.orderId] = (cashRefunds[r.orderId] || 0) + Number(r.refundAmount || 0);
+        });
+    } catch {
+      cashRefunds = {};
+    }
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     return (Array.isArray(rows) ? rows : [])
       .filter((o) => new Date(o.orderDate) >= start)
       .filter((o) => !userId || o.staffId === userId)
+      .map((o) => ({ ...o, cashRefundedToday: cashRefunds[o.id] || 0 }))
       .sort((a, b) => String(b.orderDate).localeCompare(String(a.orderDate)));
   },
 };

@@ -91,7 +91,7 @@ export class OrdersService {
   private buildSnapshot(order: Order): OrderSnapshot {
     const items = this.orderItems.filter((item) => item.orderId === order.id).map((i) => ({ ...i }));
     const bill = this.bills.find((b) => b.orderId === order.id);
-    const payments = this.payments.filter((p) => p.orderId === order.id || (bill && p.billNo === bill.billNo));
+    const payments = this.payments.filter((p) => this.paymentBelongsTo(p, order.id, bill));
     const derivedCount = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0);
     return {
       ...order,
@@ -540,7 +540,7 @@ export class OrdersService {
     const paid = current.paymentStatus === 'Paid';
     const bill = this.bills.find((b) => b.orderId === id);
     this.payments = this.payments.map((p) =>
-      p.orderId === id || (bill && p.billNo === bill.billNo) ? { ...p, paymentStatus: 'Refunded' } : p,
+      this.paymentBelongsTo(p, id, bill) ? { ...p, paymentStatus: 'Refunded' } : p,
     );
     return this.save(
       index,
@@ -571,12 +571,13 @@ export class OrdersService {
   }
 
   /** Cash collected at the door for a COD order. */
-  public recordCodPayment(id: string, amount: number, by = 'system'): OrderSnapshot {
+  public recordCodPayment(id: string, amount: number, by = 'system', shortfallReason?: string): OrderSnapshot {
     const index = this.indexOf(id);
     const current = this.orders[index];
     if (current.paymentMethod !== 'COD') return this.buildSnapshot(current);
     if (current.paymentStatus === 'Paid') return this.buildSnapshot(current);
-    if (Math.abs(amount - current.total) > 0.009) {
+    const short = current.total - amount > 0.009;
+    if (Math.abs(amount - current.total) > 0.009 && !(short && shortfallReason)) {
       throw new BadRequestError(`Collect exactly ₹${current.total} for order ${id} (entered ₹${amount})`);
     }
     const bill = this.bills.find((b) => b.orderId === id);
@@ -591,7 +592,40 @@ export class OrdersService {
       amountPaid: amount,
       collectedBy: by,
     });
-    return this.save(index, { ...current, paymentStatus: 'Paid' }, `₹${amount} cash collected on delivery`, by, 'payment');
+    const summary = short
+      ? `₹${amount} cash collected on delivery, ₹${round2(current.total - amount)} short: ${shortfallReason}`
+      : `₹${amount} cash collected on delivery`;
+    return this.save(index, { ...current, paymentStatus: 'Paid' }, summary, by, 'payment');
+  }
+
+  public confirmCounterPayment(id: string, by = 'system'): OrderSnapshot {
+    const index = this.indexOf(id);
+    const current = this.orders[index];
+    if (current.paymentStatus !== 'Pending' || !['UPI', 'Card'].includes(String(current.paymentMethod))) {
+      throw new BadRequestError(`Order ${id} has no UPI/Card payment waiting for confirmation`);
+    }
+    if (current.checkoutMode !== 'takeaway_now') {
+      throw new BadRequestError(`Order ${id} is a delivery order; its payment is confirmed on delivery`);
+    }
+    const bill = this.bills.find((b) => b.orderId === id);
+    this.payments.push({
+      id: `PAY-${String(this.paymentCounter++).padStart(4, '0')}`,
+      billNo: bill ? bill.billNo : '',
+      orderId: id,
+      companyId: current.companyId,
+      paymentDate: nowIso(),
+      paymentMethod: String(current.paymentMethod),
+      paymentStatus: 'Paid',
+      amountPaid: current.total,
+      collectedBy: by,
+    });
+    return this.save(
+      index,
+      { ...current, paymentStatus: 'Paid', status: 'Delivered' },
+      `${current.paymentMethod} payment of ₹${current.total} confirmed by staff`,
+      by,
+      'payment',
+    );
   }
 
   /** Called by the returns module once a refund is paid out. */
@@ -648,8 +682,13 @@ export class OrdersService {
     return this.bills.filter((b) => (companyId ? b.companyId === companyId : true)).map((b) => ({ ...b }));
   }
 
-  public findOneBill(billNo: string): Bill {
-    const bill = this.bills.find((entry) => entry.billNo === billNo);
+  private paymentBelongsTo(p: Payment, orderId: string, bill?: Bill): boolean {
+    if (p.orderId) return p.orderId === orderId;
+    return Boolean(bill && p.billNo === bill.billNo && p.companyId === bill.companyId);
+  }
+
+  public findOneBill(billNo: string, companyId?: string): Bill {
+    const bill = this.bills.find((entry) => entry.billNo === billNo && (!companyId || entry.companyId === companyId));
     if (!bill) throw new NotFoundError(`Bill ${billNo} not found`);
     return { ...bill };
   }
@@ -658,8 +697,8 @@ export class OrdersService {
     return this.payments.filter((p) => (companyId ? p.companyId === companyId : true)).map((p) => ({ ...p }));
   }
 
-  public findOnePayment(billNo: string): Payment {
-    const payment = this.payments.find((entry) => entry.billNo === billNo);
+  public findOnePayment(billNo: string, companyId?: string): Payment {
+    const payment = this.payments.find((entry) => entry.billNo === billNo && (!companyId || entry.companyId === companyId));
     if (!payment) throw new NotFoundError(`Payment for bill ${billNo} not found`);
     return { ...payment };
   }

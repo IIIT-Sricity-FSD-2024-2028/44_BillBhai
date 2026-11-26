@@ -285,7 +285,7 @@ export class ReturnsService {
         lines.forEach((line) =>
           this.inventory.move(line.productId, 0, {
             type: 'write-off',
-            reason: `Written off on ${id} (${current.reason})`,
+            reason: `${line.qty} unit(s) written off on ${id} (${current.reason})`,
             refType: 'return',
             refId: id,
             by,
@@ -319,7 +319,7 @@ export class ReturnsService {
         } else {
           this.inventory.move(line.productId, 0, {
             type: 'write-off',
-            reason: `Written off on exchange ${id} (${current.reason})`,
+            reason: `${line.qty} unit(s) written off on exchange ${id} (${current.reason})`,
             refType: 'return',
             refId: id,
             by,

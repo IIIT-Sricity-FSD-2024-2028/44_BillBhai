@@ -144,7 +144,7 @@ export default function CouponFormModal({ coupon, onClose }) {
           </div>
           <div className="form-row">
             {field('usageLimit', 'Total uses allowed', <input id="cp_usageLimit" type="number" min="0" step="1" className={controlClass(errors.usageLimit)} value={v.usageLimit} onChange={set('usageLimit')} />, '0 = unlimited')}
-            {field('perCustomerLimit', 'Uses per customer', <input id="cp_perCustomerLimit" type="number" min="0" step="1" className={controlClass(errors.perCustomerLimit)} value={v.perCustomerLimit} onChange={set('perCustomerLimit')} />, '0 = unlimited; requires customer phone at till')}
+            {field('perCustomerLimit', 'Uses per customer', <input id="cp_perCustomerLimit" type="number" min="0" step="1" className={controlClass(errors.perCustomerLimit)} value={v.perCustomerLimit} onChange={set('perCustomerLimit')} />, '0 = unlimited; counted by phone number, so bills without a phone are not limited')}
           </div>
           <label htmlFor="cp_active" style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.9rem' }}>
             <input id="cp_active" type="checkbox" checked={v.active} onChange={set('active')} />

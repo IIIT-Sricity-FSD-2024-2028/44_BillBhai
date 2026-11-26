@@ -205,6 +205,7 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
           if (form.collectedLess) {
             const diff = Math.max(0, d.codAmount - body.cashCollected);
             body.note = `COD shortfall ${money(diff)}: ${form.shortfallReason.trim()}`;
+            body.shortfallReason = form.shortfallReason.trim();
           }
         }
         await status(body);

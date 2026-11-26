@@ -197,6 +197,7 @@ export class PaymentsService {
    */
   public verifyRazorpayPayment(
     dto: VerifyRazorpayPaymentDto,
+    companyId?: string,
   ): VerifyPaymentResponse {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature, billNo } =
       dto;
@@ -216,7 +217,7 @@ export class PaymentsService {
 
     if (targetBillNo) {
       try {
-        const bill = ordersService.findOneBill(targetBillNo);
+        const bill = ordersService.findOneBill(targetBillNo, companyId);
         ordersService.recordCodPayment(
           bill.orderId,
           razorpayOrder ? razorpayOrder.amount / 100 : 0,

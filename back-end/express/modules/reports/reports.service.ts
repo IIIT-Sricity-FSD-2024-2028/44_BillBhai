@@ -48,16 +48,27 @@ export class ReportsService {
     const allOrders = this.orders.findAllOrders(query.companyId);
     const all = allOrders.filter((o) => inRange(o.orderDate));
     const live = all.filter((o) => o.status !== 'Cancelled');
-    const refundedInRange = allOrders.filter(
-      (o) =>
-        o.status !== 'Cancelled' &&
-        (o.refundedAmount ?? 0) > 0 &&
-        inRange(o.refundedAt || o.updatedAt || o.orderDate),
-    );
+    const refundedReturns = this.returns.findAll('Refunded', query.companyId);
+    const refundEvents: { day: string; amount: number }[] = [];
+    allOrders
+      .filter((o) => o.status !== 'Cancelled' && (o.refundedAmount ?? 0) > 0)
+      .forEach((o) => {
+        let explained = 0;
+        refundedReturns
+          .filter((r) => r.orderId === o.id)
+          .forEach((r) => {
+            explained += r.refundAmount;
+            refundEvents.push({ day: istDay(r.resolvedAt || r.returnDate), amount: r.refundAmount });
+          });
+        const rest = round2((o.refundedAmount ?? 0) - explained);
+        if (rest > 0.009) refundEvents.push({ day: istDay(o.refundedAt || o.updatedAt || o.orderDate), amount: rest });
+      });
+    const dayInRange = (day: string) => (!query.from || day >= query.from) && (!query.to || day <= query.to);
+    const refundsInRange = refundEvents.filter((e) => dayInRange(e.day));
     const categoryOf = new Map(this.products.findAll({ companyId: query.companyId, includeInactive: true }).map((p) => [p.id, p.category]));
 
     const grossSales = round2(live.reduce((s, o) => s + o.total, 0));
-    const refunds = round2(refundedInRange.reduce((s, o) => s + (o.refundedAmount ?? 0), 0));
+    const refunds = round2(refundsInRange.reduce((s, e) => s + e.amount, 0));
     const netSales = round2(grossSales - refunds);
     // Money in the drawer: payments taken on bills still standing, less refunds paid out in range.
     const collected = round2(
@@ -86,13 +97,13 @@ export class ReportsService {
       const hour = istHour(o.orderDate);
       const h = hours.get(hour) ?? { hour, orders: 0, net: 0 };
       h.orders += 1;
-      h.net = round2(h.net + o.total);
+      h.net = round2(h.net + o.total - (o.refundedAmount ?? 0));
       hours.set(hour, h);
 
       const staff = o.staffName || o.staffId || 'Unknown';
       const c = cashiers.get(staff) ?? { staff, orders: 0, net: 0 };
       c.orders += 1;
-      c.net = round2(c.net + o.total);
+      c.net = round2(c.net + o.total - (o.refundedAmount ?? 0));
       cashiers.set(staff, c);
 
       const keep = (o.subtotal ?? 0) > 0 ? (o.subtotal! - o.discountAmount) / o.subtotal! : 1;
@@ -110,12 +121,10 @@ export class ReportsService {
       });
     });
 
-    refundedInRange.forEach((o) => {
-      const day = istDay(o.refundedAt || o.updatedAt || o.orderDate);
+    refundsInRange.forEach(({ day, amount }) => {
       const d = days.get(day) ?? { day, orders: 0, gross: 0, refunds: 0, net: 0, discount: 0 };
-      const amt = o.refundedAmount ?? 0;
-      d.refunds = round2(d.refunds + amt);
-      d.net = round2(d.net - amt);
+      d.refunds = round2(d.refunds + amount);
+      d.net = round2(d.net - amount);
       days.set(day, d);
     });
 

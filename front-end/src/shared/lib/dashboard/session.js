@@ -58,6 +58,7 @@ export function clearSession() {
   }
   try {
     sessionStorage.removeItem('bb_customer_session_id');
+    sessionStorage.removeItem('bb_pos_draft');
     sessionStorage.removeItem('bb_customer_session_notifications');
   } catch {
     /* ignore */

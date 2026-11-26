@@ -91,7 +91,9 @@ export class UsersController {
     if (losesAdmin) this.assertNotLastAdmin(user.companyId, user.id);
     const becomesStaff =
       body.role && ['customer', 'superuser'].includes(user.role) && !['customer', 'superuser'].includes(body.role);
-    if (becomesStaff) {
+    const reactivatesStaff =
+      body.status === 'Active' && user.status !== 'Active' && !['customer', 'superuser'].includes(body.role || user.role);
+    if (becomesStaff || reactivatesStaff) {
       const plan = planOf(this.companies.findOne(user.companyId));
       if (this.service.staffCount(user.companyId) >= plan.limits.maxUsers) {
         throw new ForbiddenError(`The ${plan.name} allows ${plan.limits.maxUsers} staff accounts. Upgrade the plan to add more.`);
