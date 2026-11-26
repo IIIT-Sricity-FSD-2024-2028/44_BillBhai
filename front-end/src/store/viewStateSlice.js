@@ -6,7 +6,7 @@ export const clearViewValue = createAction('viewState/clear');
 export default function viewStateReducer(state = {}, action) {
   if (action.type === setViewValue.type) {
     const { key, value } = action.payload;
-    if (Object.prototype.hasOwnProperty.call(state, key) && state[key] === value) return state;
+    if (Object.prototype.hasOwnProperty.call(state, key) && Object.is(state[key], value)) return state;
     return { ...state, [key]: value };
   }
   if (action.type === clearViewValue.type) {

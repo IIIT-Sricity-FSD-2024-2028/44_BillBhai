@@ -19,7 +19,7 @@ export default function useViewState(initial) {
 
   const stored = useSelector(
     (state) => (has(state.viewState, key) ? { value: state.viewState[key] } : null),
-    (a, b) => (a && b ? a.value === b.value : a === b),
+    (a, b) => (a && b ? Object.is(a.value, b.value) : a === b),
   );
   const value = stored ? stored.value : fallback;
 
@@ -27,6 +27,7 @@ export default function useViewState(initial) {
     (next) =>
       dispatch((innerDispatch, getState) => {
         const bag = getState().viewState;
+        if (!initialValues.has(key) && !has(bag, key)) return;
         const current = has(bag, key) ? bag[key] : initialValues.get(key);
         innerDispatch(setViewValue({ key, value: typeof next === 'function' ? next(current) : next }));
       }),

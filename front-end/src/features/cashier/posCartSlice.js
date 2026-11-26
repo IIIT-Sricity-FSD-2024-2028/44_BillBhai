@@ -508,6 +508,9 @@ const posCartSlice = createSlice({
         state.mySalesLoading = false;
         state.mySalesError = action.payload || 'Could not load today’s sales.';
       })
+      .addCase(fetchKioskPaymentsWaitingThunk.pending, (state) => {
+        state.kioskConfirmError = '';
+      })
       .addCase(fetchKioskPaymentsWaitingThunk.fulfilled, (state, action) => {
         state.kioskWaiting = action.payload;
       })
