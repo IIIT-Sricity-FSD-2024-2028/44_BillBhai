@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import SectionHeader from './SectionHeader.jsx';
+import { PLAN_DEFINITIONS } from '../../../shared/lib/dashboard/constants.js';
 
 const CHECK = (
   <svg
@@ -61,6 +62,7 @@ function PlanHeader({ badge, badgeClass, name, desc, amount }) {
 }
 
 export default function Pricing() {
+  const { starter, pro, enterprise } = PLAN_DEFINITIONS;
   return (
     <section className="pricing-section" id="pricing">
       <div className="container">
@@ -76,23 +78,36 @@ export default function Pricing() {
               badge="Free Forever"
               name="Starter Plan"
               desc="For small retail counters, boutiques, and single-store shops."
-              amount="0"
+              amount={starter.price.toLocaleString('en-IN')}
             />
             <ul className="plan-features">
               <Feature>
-                Up to <strong>2 Staff Users</strong>
+                Up to <strong>{starter.limits.maxUsers} Staff Users</strong> (Owner + 1 staff)
               </Feature>
               <Feature>
-                <strong>1 Store Location</strong>
+                <strong>{starter.limits.maxStores} Store Location</strong>
               </Feature>
               <Feature>
-                Up to <strong>300 Products</strong>
+                Up to <strong>{starter.limits.maxProducts} Products</strong>
               </Feature>
-              <Feature>500 Bills / month</Feature>
+              <Feature>{starter.limits.maxInvoices} Bills / month</Feature>
               <Feature>POS Scanning &amp; Digital Invoices</Feature>
               <Feature>UPI, Card &amp; Cash Payments</Feature>
-              <DisabledFeature>Delivery Operations</DisabledFeature>
-              <DisabledFeature>Returns &amp; Refund Management</DisabledFeature>
+              {starter.features.discounts ? (
+                <Feature>Promo Codes &amp; Discounts Engine</Feature>
+              ) : (
+                <DisabledFeature>Promo Codes &amp; Discounts Engine</DisabledFeature>
+              )}
+              {starter.features.delivery ? (
+                <Feature>Delivery Operations</Feature>
+              ) : (
+                <DisabledFeature>Delivery Operations</DisabledFeature>
+              )}
+              {starter.features.returns ? (
+                <Feature>Returns &amp; Refund Management</Feature>
+              ) : (
+                <DisabledFeature>Returns &amp; Refund Management</DisabledFeature>
+              )}
             </ul>
             <Link to="/register-business" className="btn btn-outline plan-btn">
               Get Started Free
@@ -106,17 +121,17 @@ export default function Pricing() {
               badgeClass="pro-badge"
               name="Growth / Pro"
               desc="For busy stores and expanding multi-counter outlets."
-              amount="1,999"
+              amount={pro.price.toLocaleString('en-IN')}
             />
             <ul className="plan-features">
               <Feature>
-                Up to <strong>10 Staff Users</strong>
+                Up to <strong>{pro.limits.maxUsers} Staff Users</strong>
               </Feature>
               <Feature>
-                Up to <strong>3 Store Outlets</strong>
+                Up to <strong>{pro.limits.maxStores} Store Outlets</strong>
               </Feature>
               <Feature>
-                Up to <strong>5,000 Products</strong>
+                Up to <strong>{pro.limits.maxProducts.toLocaleString('en-IN')} Products</strong>
               </Feature>
               <Feature>
                 <strong>Unlimited Invoices</strong>
@@ -141,7 +156,7 @@ export default function Pricing() {
               badgeClass="enterprise-badge"
               name="Enterprise"
               desc="For supermarket chains, multi-warehouse & franchise brands."
-              amount="4,999"
+              amount={enterprise.price.toLocaleString('en-IN')}
             />
             <ul className="plan-features">
               <Feature>

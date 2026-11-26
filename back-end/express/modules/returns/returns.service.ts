@@ -19,6 +19,13 @@ import {
 /** Statuses whose quantities count against what can still be returned. */
 const COUNTS_AGAINST = ['Pending', 'Approved', 'Refunded', 'Exchanged'];
 
+const NOT_SELLABLE_REASONS = ['damaged', 'expired', 'stale', 'defective'];
+
+function isSellableByDefault(entry: ReturnRecord): boolean {
+  if (entry.condition === 'damaged') return false;
+  return !NOT_SELLABLE_REASONS.includes(String(entry.reason || '').toLowerCase());
+}
+
 /**
  * Returns Module Service
  *
@@ -167,6 +174,7 @@ export class ReturnsService {
       staffId: actor.staffId,
       returnDate: new Date(Date.parse(at) + 330 * 60 * 1000).toISOString().slice(0, 10),
       reason: dto.reason,
+      condition: dto.condition,
       refundAmount: finalRefund,
       status: 'Pending',
       returnType: dto.returnType ?? 'refund',
@@ -257,7 +265,7 @@ export class ReturnsService {
         throw new BadRequestError('This is an exchange request. Complete it as Exchanged, or raise a refund return instead.');
       }
       if (!dto.refundMethod) throw new BadRequestError('Choose how the money is refunded');
-      const restock = dto.restock ?? true;
+      const restock = dto.restock ?? isSellableByDefault(current);
       // Check the order can take this refund before anything moves.
       const order = this.orders.findOneOrder(current.orderId);
       if (round2((order.refundedAmount ?? 0) + current.refundAmount) - order.total > 0.009) {
@@ -273,6 +281,16 @@ export class ReturnsService {
             by,
           }),
         );
+      } else {
+        lines.forEach((line) =>
+          this.inventory.move(line.productId, 0, {
+            type: 'write-off',
+            reason: `Written off on ${id} (${current.reason})`,
+            refType: 'return',
+            refId: id,
+            by,
+          }),
+        );
       }
       this.orders.applyRefund(current.orderId, current.refundAmount, by);
       next.refundMethod = dto.refundMethod;
@@ -281,7 +299,7 @@ export class ReturnsService {
     }
 
     if (dto.status === 'Exchanged') {
-      const restock = dto.restock ?? true;
+      const restock = dto.restock ?? isSellableByDefault(current);
       lines.forEach((line) => {
         const onHand = this.inventory.stockFor(line.productId) ?? 0;
         const coming = restock ? line.qty : 0;
@@ -294,6 +312,14 @@ export class ReturnsService {
           this.inventory.move(line.productId, line.qty, {
             type: 'return',
             reason: `Returned for exchange on ${id}`,
+            refType: 'return',
+            refId: id,
+            by,
+          });
+        } else {
+          this.inventory.move(line.productId, 0, {
+            type: 'write-off',
+            reason: `Written off on exchange ${id} (${current.reason})`,
             refType: 'return',
             refId: id,
             by,

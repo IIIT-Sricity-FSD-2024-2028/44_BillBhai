@@ -56,9 +56,9 @@ export default function Navbar() {
           <Link to="/login" className="btn btn-ghost" id="navSignInBtn">
             Sign In
           </Link>
-          <HashLink href="#cta" className="btn btn-primary" id="navPrimaryBtn">
+          <Link to="/register-business" className="btn btn-primary" id="navPrimaryBtn">
             Get Started Free
-          </HashLink>
+          </Link>
         </div>
         <button
           className="mobile-toggle"

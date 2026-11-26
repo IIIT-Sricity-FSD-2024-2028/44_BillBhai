@@ -57,7 +57,7 @@ export default function CustomerStep({
                 className="form-control"
                 id="cPhone"
                 placeholder="10-digit number"
-                maxLength={10}
+                maxLength={16}
                 inputMode="numeric"
                 value={customer.phone}
                 onChange={(e) => onPhoneChange(e.target.value)}

@@ -66,10 +66,9 @@ export function minutesLate(delivery, now = Date.now()) {
   return due === null ? 0 : Math.max(0, Math.round((now - due) / 60000));
 }
 
-/** COD cash the partner still has to bring back. */
+/** COD cash the partner still has to bring back (only parcels out with riders). */
 export function codOutstanding(delivery) {
-  if (!delivery.codAmount || delivery.status === 'Delivered') return 0;
-  if (['Cancelled', 'Returned to Store'].includes(delivery.status)) return 0;
+  if (!delivery.codAmount || !ON_ROAD.includes(delivery.status)) return 0;
   return delivery.codAmount;
 }
 

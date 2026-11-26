@@ -1,5 +1,42 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import { returnsRepo } from './returnsRepo.js';
+import { api } from '../../shared/lib/http.js';
+import { getState as getDashboardState } from '../../shared/lib/dashboard/store.js';
+import { scopedCompanyId } from '../orders/components/orderFormat.js';
+
+const NOT_SELLABLE_REASONS = ['damaged', 'expired', 'stale', 'defective'];
+
+const initialActionForm = {
+  refundMethod: 'Cash',
+  restock: true,
+  rejectReason: '',
+  note: '',
+  error: '',
+  saving: false,
+};
+
+const initialRaiseForm = {
+  orderInput: '',
+  loading: false,
+  order: null,
+  matches: [],
+  qty: {},
+  reason: '',
+  otherReason: '',
+  condition: 'good',
+  returnType: 'refund',
+  requestedBy: '',
+  note: '',
+  error: '',
+  saving: false,
+};
+
+const initialEditForm = {
+  reason: '',
+  note: '',
+  error: '',
+  saving: false,
+};
 
 const initialState = {
   items: [],
@@ -8,6 +45,24 @@ const initialState = {
   status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
   saving: false,
   error: null,
+  ui: {
+    tab: 'pending',
+    sortKey: 'new',
+    search: '',
+    reasonFilter: 'all',
+    typeFilter: 'all',
+    from: '',
+    to: '',
+    raiseOpen: false,
+    actionModal: null,
+    editModal: null,
+    detailItem: null,
+    detailHistory: { loading: false, rows: [], error: '' },
+    actionForm: { ...initialActionForm },
+    raiseForm: { ...initialRaiseForm },
+    editForm: { ...initialEditForm },
+    weekReport: null,
+  },
 };
 
 export const fetchReturnsThunk = createAsyncThunk(
@@ -58,13 +113,48 @@ export const createReturnThunk = createAsyncThunk(
   },
 );
 
+export const fetchReturnsWeekReportThunk = createAsyncThunk(
+  'returns/fetchWeekReport',
+  async ({ from, to }, { rejectWithValue }) => {
+    try {
+      return await api('/reports/returns', { query: { from, to } });
+    } catch {
+      return rejectWithValue(null);
+    }
+  },
+);
+
+export const fetchReturnHistoryThunk = createAsyncThunk(
+  'returns/fetchHistory',
+  async (returnId, { rejectWithValue }) => {
+    try {
+      const rows = await api('/activity', { query: { entity: 'return', entityId: returnId, limit: 50 } });
+      return Array.isArray(rows) ? rows : [];
+    } catch (err) {
+      return rejectWithValue(err.message || 'History unavailable');
+    }
+  },
+);
+
 export const transitionReturnThunk = createAsyncThunk(
   'returns/transition',
-  async ({ id, body }, { rejectWithValue }) => {
+  async ({ id, body }, { dispatch, rejectWithValue }) => {
     try {
       const updated = await returnsRepo.transition(id, body);
       return updated;
     } catch (err) {
+      if (err?.status === 409) {
+        const companyId = scopedCompanyId(getDashboardState());
+        const listAction = await dispatch(fetchReturnsThunk({ companyId }));
+        const latest = Array.isArray(listAction.payload)
+          ? listAction.payload.find((r) => String(r.id) === String(id))
+          : null;
+        const baseMsg = String(err.message || '').replace(/\s*Reload to see the latest version\.?/i, '');
+        const detail = latest?.status
+          ? ` Current status: ${latest.status}${latest.updatedBy ? ` (by ${latest.updatedBy})` : ''}.`
+          : '';
+        return rejectWithValue(`${baseMsg}${detail} List refreshed.`.trim());
+      }
       return rejectWithValue(err.message || `Failed to transition return ${id}`);
     }
   },
@@ -72,11 +162,23 @@ export const transitionReturnThunk = createAsyncThunk(
 
 export const updateReturnThunk = createAsyncThunk(
   'returns/update',
-  async ({ id, body }, { rejectWithValue }) => {
+  async ({ id, body }, { dispatch, rejectWithValue }) => {
     try {
       const updated = await returnsRepo.update(id, body);
       return updated;
     } catch (err) {
+      if (err?.status === 409) {
+        const companyId = scopedCompanyId(getDashboardState());
+        const listAction = await dispatch(fetchReturnsThunk({ companyId }));
+        const latest = Array.isArray(listAction.payload)
+          ? listAction.payload.find((r) => String(r.id) === String(id))
+          : null;
+        const baseMsg = String(err.message || '').replace(/\s*Reload to see the latest version\.?/i, '');
+        const detail = latest?.status
+          ? ` Current status: ${latest.status}${latest.updatedBy ? ` (by ${latest.updatedBy})` : ''}.`
+          : '';
+        return rejectWithValue(`${baseMsg}${detail} List refreshed.`.trim());
+      }
       return rejectWithValue(err.message || `Failed to update return ${id}`);
     }
   },
@@ -107,6 +209,88 @@ const returnsSlice = createSlice({
     },
     clearReturnsError(state) {
       state.error = null;
+    },
+    setReturnFilter(state, action) {
+      const { key, value } = action.payload || {};
+      if (key && key in state.ui) state.ui[key] = value;
+    },
+    clearReturnFilters(state) {
+      state.ui.search = '';
+      state.ui.reasonFilter = 'all';
+      state.ui.typeFilter = 'all';
+      state.ui.from = '';
+      state.ui.to = '';
+    },
+    setRaiseReturnOpen(state, action) {
+      state.ui.raiseOpen = Boolean(action.payload);
+    },
+    openReturnActionModal(state, action) {
+      state.ui.actionModal = action.payload;
+      const item = action.payload?.item;
+      const order = action.payload?.order;
+      const isNotSellable =
+        item?.condition === 'damaged' ||
+        NOT_SELLABLE_REASONS.includes(String(item?.reason || '').toLowerCase());
+      const billMethod = order?.payment;
+      const defaultMethod = ['Cash', 'UPI', 'Card'].includes(billMethod) ? billMethod : 'Cash';
+      state.ui.actionForm = {
+        ...initialActionForm,
+        refundMethod: defaultMethod,
+        restock: !isNotSellable,
+      };
+    },
+    closeReturnActionModal(state) {
+      state.ui.actionModal = null;
+      state.ui.actionForm = { ...initialActionForm };
+    },
+    setReturnActionFormField(state, action) {
+      const { key, value } = action.payload || {};
+      if (key && key in state.ui.actionForm) state.ui.actionForm[key] = value;
+    },
+    openReturnEditModal(state, action) {
+      const item = action.payload || null;
+      state.ui.editModal = item;
+      state.ui.editForm = {
+        ...initialEditForm,
+        reason: item?.reason || '',
+        note: item?.note || '',
+      };
+    },
+    closeReturnEditModal(state) {
+      state.ui.editModal = null;
+      state.ui.editForm = { ...initialEditForm };
+    },
+    setReturnEditFormField(state, action) {
+      const { key, value } = action.payload || {};
+      if (key && key in state.ui.editForm) state.ui.editForm[key] = value;
+    },
+    setRaiseFormField(state, action) {
+      const { key, value } = action.payload || {};
+      if (key && key in state.ui.raiseForm) {
+        state.ui.raiseForm[key] = value;
+        if (key === 'reason') {
+          state.ui.raiseForm.condition = NOT_SELLABLE_REASONS.includes(String(value || '').toLowerCase())
+            ? 'damaged'
+            : 'good';
+        }
+      }
+    },
+    setRaiseLineQty(state, action) {
+      const { productId, value } = action.payload || {};
+      if (productId) state.ui.raiseForm.qty[productId] = value;
+    },
+    setRaiseOrderResult(state, action) {
+      const { order, orderInput } = action.payload || {};
+      state.ui.raiseForm.order = order || null;
+      if (orderInput !== undefined) state.ui.raiseForm.orderInput = orderInput;
+      state.ui.raiseForm.qty = {};
+      state.ui.raiseForm.requestedBy = order?.customerName || '';
+    },
+    resetRaiseForm(state) {
+      state.ui.raiseForm = { ...initialRaiseForm };
+    },
+    setReturnDetailItem(state, action) {
+      state.ui.detailItem = action.payload ?? null;
     },
   },
   extraReducers: (builder) => {
@@ -223,10 +407,47 @@ const returnsSlice = createSlice({
         state.saving = false;
         state.error = action.payload || 'Failed to delete return';
       });
+
+    builder
+      .addCase(fetchReturnsWeekReportThunk.fulfilled, (state, action) => {
+        state.ui.weekReport = action.payload || null;
+      })
+      .addCase(fetchReturnsWeekReportThunk.rejected, (state) => {
+        state.ui.weekReport = null;
+      });
+
+    builder
+      .addCase(fetchReturnHistoryThunk.pending, (state) => {
+        state.ui.detailHistory = { loading: true, rows: [], error: '' };
+      })
+      .addCase(fetchReturnHistoryThunk.fulfilled, (state, action) => {
+        state.ui.detailHistory = { loading: false, rows: action.payload || [], error: '' };
+      })
+      .addCase(fetchReturnHistoryThunk.rejected, (state, action) => {
+        state.ui.detailHistory = { loading: false, rows: [], error: action.payload || 'History unavailable' };
+      });
   },
 });
 
-export const { clearReturnableForOrder, clearSelectedReturn, clearReturnsError } = returnsSlice.actions;
+export const {
+  clearReturnableForOrder,
+  clearSelectedReturn,
+  clearReturnsError,
+  setReturnFilter,
+  clearReturnFilters,
+  setRaiseReturnOpen,
+  openReturnActionModal,
+  closeReturnActionModal,
+  setReturnActionFormField,
+  openReturnEditModal,
+  closeReturnEditModal,
+  setReturnEditFormField,
+  setRaiseFormField,
+  setRaiseLineQty,
+  setRaiseOrderResult,
+  resetRaiseForm,
+  setReturnDetailItem,
+} = returnsSlice.actions;
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
 export const selectAllReturns = (state) => state.returns?.items || [];
@@ -235,6 +456,7 @@ export const selectReturnableForOrder = (state) => state.returns?.returnableForO
 export const selectReturnsStatus = (state) => state.returns?.status || 'idle';
 export const selectReturnsSaving = (state) => Boolean(state.returns?.saving);
 export const selectReturnsError = (state) => state.returns?.error;
+export const selectReturnsUi = (state) => state.returns?.ui || initialState.ui;
 
 export const selectPendingReturns = createSelector([selectAllReturns], (items) =>
   items.filter((r) => r.status === 'Pending'),

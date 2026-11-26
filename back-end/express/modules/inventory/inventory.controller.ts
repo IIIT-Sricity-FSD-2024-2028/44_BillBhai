@@ -21,13 +21,31 @@ export class InventoryController {
     private readonly suppliers: SuppliersService = suppliersService,
   ) {}
 
-  private enrich(rows: InventoryItem[]) {
+  private enrich(rows: InventoryItem[], forCustomer = false) {
     return rows.map((row) => {
       let product;
       try {
         product = this.products.findOne(row.productId);
       } catch {
         product = undefined;
+      }
+      if (forCustomer) {
+        const inStock = row.stockAvailable > 0;
+        return {
+          id: row.id,
+          companyId: row.companyId,
+          productId: row.productId,
+          productName: product?.name ?? row.productId,
+          category: product?.category ?? 'Uncategorized',
+          price: product?.price ?? 0,
+          gstRate: product?.gstRate ?? 0,
+          barcode: product?.barcode,
+          size: product?.size,
+          active: product?.active !== false,
+          inStock,
+          stockAvailable: inStock ? 10 : 0,
+          status: inStock ? 'In Stock' : 'Out of Stock',
+        };
       }
       let supplier;
       try {
@@ -63,7 +81,9 @@ export class InventoryController {
     return row;
   }
 
-  public findAll = handle((req) => this.enrich(this.service.findAll(listScope(req, query(req, 'companyId')))));
+  public findAll = handle((req) =>
+    this.enrich(this.service.findAll(listScope(req, query(req, 'companyId'))), req.auth?.role === 'customer'),
+  );
 
   public findLowStock = handle((req) =>
     this.enrich(this.service.findLowStock(listScope(req, query(req, 'companyId')))),

@@ -20,9 +20,19 @@ export class CustomersController {
 
   public findOne = handle((req) => this.owned(req));
 
-  public findByPhone = handle((req) =>
-    this.service.findByPhone(param(req, 'phone'), listScope(req, query(req, 'companyId'))),
-  );
+  public findByPhone = handle((req) => {
+    const companyId = listScope(req, query(req, 'companyId'));
+    const phone = param(req, 'phone');
+    if (req.auth?.role === 'customer') {
+      try {
+        this.service.findByPhone(phone, companyId);
+        return { known: true };
+      } catch {
+        return { known: false };
+      }
+    }
+    return this.service.findByPhone(phone, companyId);
+  });
 
   public create = handle((req) => {
     const body = req.body as CreateCustomerDto;

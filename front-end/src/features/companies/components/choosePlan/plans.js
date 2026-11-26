@@ -1,8 +1,12 @@
+import { PLAN_DEFINITIONS } from '../../../../shared/lib/dashboard/constants.js';
+
+const { starter, pro, enterprise } = PLAN_DEFINITIONS;
+
 export const PLANS = [
   {
-    key: 'starter',
-    price: 0,
-    name: 'Starter Plan (Free)',
+    key: starter.key,
+    price: starter.price,
+    name: starter.name,
     popular: false,
     kicker: 'Free Forever',
     kickerColor: 'var(--blue)',
@@ -11,22 +15,24 @@ export const PLANS = [
     description:
       'Essential in-store POS billing and catalog for small retail shops and single counters.',
     features: [
-      { strong: '2 Staff Accounts', rest: ' (Admin + Cashier)' },
-      { strong: '1 Store Location' },
-      { strong: 'Up to 300 Products' },
+      { strong: `${starter.limits.maxUsers} Staff Accounts`, rest: ' (Owner + 1 staff)' },
+      { strong: `${starter.limits.maxStores} Store Location` },
+      { strong: `Up to ${starter.limits.maxProducts} Products` },
+      { text: `${starter.limits.maxInvoices} Bills / month` },
       { text: 'In-Store POS Scanning & Invoices' },
       { text: 'Daily Revenue & Sales Summary' },
-      { text: 'Delivery Rider Dispatch', disabled: true },
-      { text: 'Returns & Refund Management', disabled: true },
+      { text: 'Discounts & Promo Campaigns', disabled: !starter.features.discounts },
+      { text: 'Delivery Rider Dispatch', disabled: !starter.features.delivery },
+      { text: 'Returns & Refund Management', disabled: !starter.features.returns },
     ],
     buttonClass: 'btn btn-outline',
     buttonStyle: { width: '100%', justifyContent: 'center', padding: '11px', fontWeight: 600 },
     buttonLabel: 'Get Started Free',
   },
   {
-    key: 'pro',
-    price: 1999,
-    name: 'Growth / Pro Plan',
+    key: pro.key,
+    price: pro.price,
+    name: pro.name,
     popular: true,
     kicker: 'Growth Tier',
     kickerColor: 'var(--accent)',
@@ -35,12 +41,13 @@ export const PLANS = [
     description:
       'Omnichannel operations with delivery dispatches, returns handling, and promo engine.',
     features: [
-      { strong: '10 Staff Accounts', rest: ' (Custom Roles)' },
-      { strong: 'Up to 3 Store Locations' },
-      { strong: 'Up to 5,000 Products' },
-      { strong: 'Delivery Module', rest: ' & Live Dispatch' },
-      { strong: 'Returns & Refund Engine' },
-      { text: 'Discounts & Promo Campaigns' },
+      { strong: `${pro.limits.maxUsers} Staff Accounts`, rest: ' (Custom Roles)' },
+      { strong: `Up to ${pro.limits.maxStores} Store Locations` },
+      { strong: `Up to ${pro.limits.maxProducts.toLocaleString()} Products` },
+      { strong: 'Unlimited Bills / month' },
+      { strong: 'Delivery Module', rest: ' & Live Dispatch', disabled: !pro.features.delivery },
+      { strong: 'Returns & Refund Engine', disabled: !pro.features.returns },
+      { text: 'Discounts & Promo Campaigns', disabled: !pro.features.discounts },
       { text: 'Advanced Trend & Stock Analytics' },
     ],
     buttonClass: 'btn btn-primary',
@@ -48,9 +55,9 @@ export const PLANS = [
     buttonLabel: 'Choose Growth / Pro',
   },
   {
-    key: 'enterprise',
-    price: 4999,
-    name: 'Enterprise Plan',
+    key: enterprise.key,
+    price: enterprise.price,
+    name: enterprise.name,
     popular: false,
     kicker: 'Full Scale',
     kickerColor: 'var(--amber)',

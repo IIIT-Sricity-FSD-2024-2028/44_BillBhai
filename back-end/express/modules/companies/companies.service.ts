@@ -1,7 +1,10 @@
 import { seedCompanies } from '../../data/seed-data';
 import { Company } from '../../data/entities';
-import { ConflictError, NotFoundError } from '../../errors/http-error';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../errors/http-error';
+import { registerCompanyCheck } from '../../middleware/rbac.middleware';
 import { PlanKey, PLANS } from '../../utils/plans';
+import { usersService } from '../users/users.service';
+import { productsService } from '../products/products.service';
 import { bumped, checkVersion, diff, initialStamp } from '../../utils/versioning';
 import { activityService, ActivityService } from '../activity/activity.service';
 import { CreateCompanyDto, DeleteCompanyResult, UpdateCompanyDto } from './companies.schema';
@@ -132,6 +135,18 @@ export class CompaniesService {
 
   public changePlan(id: string, planKey: PlanKey, by = 'system'): Company {
     const plan = PLANS[planKey];
+    const staffCount = usersService.staffCount(id);
+    if (Number.isFinite(plan.limits.maxUsers) && staffCount > plan.limits.maxUsers) {
+      throw new ConflictError(
+        `You have ${staffCount} active staff; ${plan.name} allows ${plan.limits.maxUsers}. Deactivate extra staff first.`,
+      );
+    }
+    const productCount = productsService.findAll({ companyId: id, includeInactive: true }).length;
+    if (Number.isFinite(plan.limits.maxProducts) && productCount > plan.limits.maxProducts) {
+      throw new ConflictError(
+        `You have ${productCount} products; ${plan.name} allows ${plan.limits.maxProducts}.`,
+      );
+    }
     return this.update(
       id,
       {
@@ -168,3 +183,11 @@ export class CompaniesService {
 }
 
 export const companiesService = new CompaniesService();
+
+registerCompanyCheck((companyId) => {
+  const company = companiesService.findOne(companyId);
+  const status = String(company.status || '').toLowerCase();
+  if (status && status !== 'active') {
+    throw new ForbiddenError('This business is currently suspended. Contact BillBhai support.');
+  }
+});

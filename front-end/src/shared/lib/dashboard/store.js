@@ -311,8 +311,7 @@ function replaceBusiness(updated) {
 
 export async function switchCompanyPlan(targetPlanKey) {
   const targetPlan = PLAN_DEFINITIONS[targetPlanKey];
-  if (!targetPlan) return;
-  localStorage.setItem('activeBusinessPlan', targetPlanKey);
+  if (!targetPlan) return { ok: false, message: 'Unknown plan.' };
 
   const biz = findActiveBusiness();
   let updated = null;
@@ -332,10 +331,11 @@ export async function switchCompanyPlan(targetPlanKey) {
       updated = { ...updated, ...saved };
     } catch (err) {
       showMutationError('Plan change', err);
-      return;
+      return { ok: false, message: err?.message || 'Could not change plan.' };
     }
   }
 
+  localStorage.setItem('activeBusinessPlan', targetPlanKey);
   if (updated) replaceBusiness(updated);
   state = {
     ...state,
@@ -345,6 +345,7 @@ export async function switchCompanyPlan(targetPlanKey) {
   emit();
   showToast(`Subscription switched to ${targetPlan.name}!`);
   renderPage();
+  return { ok: true };
 }
 
 export function openPlanUpgradeModal() {

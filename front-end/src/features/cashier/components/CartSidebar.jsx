@@ -7,6 +7,7 @@ export default function CartSidebar({
   cart,
   totals,
   promo,
+  allowPromo = true,
   goFulfillmentLabel,
   goFulfillmentDisabled,
   onUpdateQty,
@@ -14,6 +15,8 @@ export default function CartSidebar({
   onRemove,
   notice,
   onGoFulfillment,
+  onBackToCustomer,
+  onCancelBill,
 }) {
   return (
     <div className="pos-sidebar">
@@ -42,7 +45,7 @@ export default function CartSidebar({
       <CartItemList cart={cart} onUpdateQty={onUpdateQty} onSetQty={onSetQty} onRemove={onRemove} />
 
       <div className="cart-footer">
-        <PromoBlock {...promo} />
+        {allowPromo && <PromoBlock {...promo} />}
 
         <CartSummary totals={totals} />
         <br />
@@ -59,6 +62,30 @@ export default function CartSidebar({
         >
           {goFulfillmentLabel}
         </button>
+        {(onBackToCustomer || onCancelBill) && (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            {onBackToCustomer && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '6px 8px' }}
+                onClick={onBackToCustomer}
+              >
+                ← Customer
+              </button>
+            )}
+            {onCancelBill && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem', padding: '6px 8px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                onClick={onCancelBill}
+              >
+                Cancel bill
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

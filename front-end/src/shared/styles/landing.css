@@ -1139,7 +1139,7 @@ img {
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 960px) {
     .nav-links {
         display: none;
     }
@@ -1172,6 +1172,9 @@ img {
         font-size: 1.2rem;
         color: var(--text-primary);
     }
+}
+
+@media (max-width: 768px) {
 
     .hero {
         padding: 140px 0 60px;

@@ -33,18 +33,79 @@ export const INACTIVE_DISCOUNT = { active: false, discount: 0 };
 
 function syncItemsWithCatalog(items, catalog) {
   const byId = new Map((catalog || []).map((p) => [p.id, p]));
-  return items
+  const changes = [];
+  const nextItems = items
     .map((line) => {
       const product = byId.get(line.id);
-      if (!product) return null;
+      if (!product) {
+        changes.push(`${line.name}: no longer available, removed`);
+        return null;
+      }
+      if (product.stock <= 0) {
+        changes.push(`${line.name}: out of stock, removed (was ${line.qty})`);
+        return null;
+      }
+      const nextQty = Math.min(line.qty, product.stock);
+      if (nextQty < line.qty) {
+        changes.push(`${line.name}: only ${product.stock} left now (was ${line.qty})`);
+      }
       return {
         ...line,
         price: product.price,
         stock: product.stock,
-        qty: Math.min(line.qty, product.stock),
+        qty: nextQty,
       };
     })
     .filter((line) => line && line.qty > 0);
+  return { items: nextItems, changes };
+}
+
+const POS_DRAFT_KEY = 'bb_pos_draft';
+
+function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem(POS_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(state) {
+  try {
+    if (state.step >= 4) {
+      sessionStorage.removeItem(POS_DRAFT_KEY);
+      return;
+    }
+    sessionStorage.setItem(
+      POS_DRAFT_KEY,
+      JSON.stringify({
+        step: state.step,
+        items: state.items,
+        customer: state.customer,
+        checkoutMode: state.checkoutMode,
+        paymentMethod: state.paymentMethod,
+        paymentRef: state.paymentRef,
+        promoCode: state.promoCode,
+        promoAppliedCode: state.promoAppliedCode,
+        discount: state.discount,
+        deliveryCharge: state.deliveryCharge,
+        partner: state.partner,
+      }),
+    );
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(POS_DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export const bootPosThunk = createAsyncThunk(
@@ -127,27 +188,30 @@ export const fetchMySalesTodayThunk = createAsyncThunk(
   },
 );
 
+const draft = loadDraft();
+
 const initialState = {
   booted: false,
   bootError: '',
   catalog: [],
-  step: 1,
-  items: [],
-  discount: INACTIVE_DISCOUNT,
-  customer: EMPTY_CUSTOMER,
+  step: draft?.step && draft.step < 4 ? draft.step : 1,
+  items: Array.isArray(draft?.items) ? draft.items : [],
+  discount: draft?.discount || INACTIVE_DISCOUNT,
+  customer: draft?.customer || EMPTY_CUSTOMER,
   errors: EMPTY_ERRORS,
-  checkoutMode: 'takeaway_now',
-  paymentMethod: 'Cash',
+  checkoutMode: draft?.checkoutMode || 'takeaway_now',
+  paymentMethod: draft?.paymentMethod || 'Cash',
+  paymentRef: draft?.paymentRef || '',
   amountTendered: '',
-  deliveryCharge: '0',
-  partner: { name: '', phone: '' },
+  deliveryCharge: draft?.deliveryCharge ?? '0',
+  partner: draft?.partner || { name: '', phone: '' },
   modeError: '',
   notice: '',
   category: 'All',
   catClassesNormalized: false,
   searchQuery: '',
-  promoCode: '',
-  promoAppliedCode: '',
+  promoCode: draft?.promoCode || '',
+  promoAppliedCode: draft?.promoAppliedCode || '',
   promoError: '',
   quote: null,
   quoting: false,
@@ -185,6 +249,7 @@ const posCartSlice = createSlice({
       }
       state.notice = '';
       recomputeStateDiscount(state);
+      saveDraft(state);
     },
     updateCartQty(state, action) {
       const { cartId, delta } = action.payload;
@@ -201,6 +266,7 @@ const posCartSlice = createSlice({
         )
         .filter((c) => c.qty > 0);
       recomputeStateDiscount(state);
+      saveDraft(state);
     },
     setCartExactQty(state, action) {
       const { cartId, qty } = action.payload;
@@ -216,17 +282,25 @@ const posCartSlice = createSlice({
           : c,
       );
       recomputeStateDiscount(state);
+      saveDraft(state);
     },
     removeFromCart(state, action) {
       const cartId = action.payload;
       state.items = state.items.filter((c) => c.cartId !== cartId);
       recomputeStateDiscount(state);
+      saveDraft(state);
     },
     setStep(state, action) {
       state.step = action.payload;
+      saveDraft(state);
     },
     setCustomerFields(state, action) {
       state.customer = { ...state.customer, ...action.payload };
+      saveDraft(state);
+    },
+    setPaymentRef(state, action) {
+      state.paymentRef = action.payload;
+      saveDraft(state);
     },
     setWalkInCustomer(state) {
       state.customer = { ...EMPTY_CUSTOMER, name: 'Walk-in Customer', walkIn: true };
@@ -308,6 +382,7 @@ const posCartSlice = createSlice({
       state.errors = EMPTY_ERRORS;
       state.checkoutMode = 'takeaway_now';
       state.paymentMethod = isCustomerTerminal ? 'UPI' : 'Cash';
+      state.paymentRef = '';
       state.amountTendered = '';
       state.deliveryCharge = '0';
       state.partner = { name: '', phone: '' };
@@ -322,6 +397,7 @@ const posCartSlice = createSlice({
       state.quoteError = '';
       state.completedOrder = null;
       state.completedTendered = undefined;
+      clearDraft();
     },
   },
   extraReducers: (builder) => {
@@ -340,7 +416,12 @@ const posCartSlice = createSlice({
       })
       .addCase(reloadCatalogThunk.fulfilled, (state, action) => {
         state.catalog = action.payload;
-        state.items = syncItemsWithCatalog(state.items, action.payload);
+        const { items, changes } = syncItemsWithCatalog(state.items, action.payload);
+        state.items = items;
+        if (changes.length) {
+          state.notice = changes.join(' · ');
+          saveDraft(state);
+        }
         recomputeStateDiscount(state);
       })
       .addCase(validatePromoThunk.fulfilled, (state, action) => {
@@ -418,6 +499,7 @@ export const {
   clearFieldError,
   setCheckoutModeAction,
   setPaymentMethod,
+  setPaymentRef,
   setAmountTendered,
   setDeliveryCharge,
   setPartnerField,
@@ -471,12 +553,19 @@ export const selectMySalesSummary = createSelector([selectMySalesList], (rows) =
   standing.forEach((o) => {
     byMethod[o.paymentMethod] = (byMethod[o.paymentMethod] || 0) + o.total;
   });
-  const refunds = standing.reduce((s, o) => s + (o.refundedAmount || 0), 0);
-  const net = standing.reduce((s, o) => s + o.total, 0) - refunds;
-  const cashInDrawer = standing
-    .filter((o) => o.paymentMethod === 'Cash')
+  const uncollectedCod = standing
+    .filter((o) => o.paymentMethod === 'COD' && o.paymentStatus === 'Pending')
     .reduce((s, o) => s + o.total, 0);
-  return { standing, byMethod, refunds, net, cashInDrawer };
+  const refunds = standing.reduce((s, o) => s + (o.refundedAmount || 0), 0);
+  const cashRefunds = standing
+    .filter((o) => o.paymentMethod === 'Cash')
+    .reduce((s, o) => s + (o.refundedAmount || 0), 0);
+  const net = standing.reduce((s, o) => s + o.total, 0) - refunds - uncollectedCod;
+  const cashInDrawer =
+    standing
+      .filter((o) => o.paymentMethod === 'Cash')
+      .reduce((s, o) => s + o.total, 0) - cashRefunds;
+  return { standing, byMethod, refunds, net, cashInDrawer, uncollectedCod };
 });
 
 export default posCartSlice.reducer;

@@ -1,6 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchReturnsThunk, selectAllReturns } from './returnsSlice.js';
+import {
+  fetchReturnsThunk,
+  selectAllReturns,
+  selectReturnsUi,
+  setReturnFilter,
+  clearReturnFilters,
+  setRaiseReturnOpen,
+  openReturnActionModal,
+  closeReturnActionModal,
+  openReturnEditModal,
+  setReturnDetailItem,
+} from './returnsSlice.js';
 import DashboardLayout from '../../shared/components/dashboard/DashboardLayout.jsx';
 import PageHeader from '../../shared/components/common/PageHeader.jsx';
 import DataTable from '../../shared/components/common/DataTable.jsx';
@@ -11,6 +22,7 @@ import ReturnStatCard from './components/ReturnStatCard.jsx';
 import RaiseReturnModal from './components/RaiseReturnModal.jsx';
 import ReturnActionModal from './components/ReturnActionModal.jsx';
 import ReturnDetailModal from './components/ReturnDetailModal.jsx';
+import ReturnEditModal from './components/ReturnEditModal.jsx';
 import { COMPACT_VALUE_STYLE, RETURN_ICONS } from './components/returnIcons.jsx';
 import {
   classifyReturnStatus,
@@ -21,6 +33,8 @@ import {
 } from './components/returnStats.js';
 import useReturnActions from './components/useReturnActions.js';
 import { useDashboard } from '../../shared/lib/dashboard/hooks.js';
+import { mapReturnRow } from '../../shared/lib/dashboard/api.js';
+import { scopedCompanyId } from '../orders/components/orderFormat.js';
 
 const STATUS_TABS = [
   { value: 'pending', label: 'Pending' },
@@ -64,23 +78,29 @@ function sorter(sortKey) {
 function ReturnsContent() {
   const dispatch = useDispatch();
   const reduxReturns = useSelector(selectAllReturns);
-  const { returns: dashReturns, orders, refreshData, showToast } = useDashboard();
-  const returns = reduxReturns.length ? reduxReturns : dashReturns;
+  const {
+    tab,
+    sortKey,
+    search,
+    reasonFilter,
+    typeFilter,
+    from,
+    to,
+    raiseOpen,
+    actionModal: action,
+    detailItem: detail,
+  } = useSelector(selectReturnsUi);
+  const { returns: dashReturns, orders, refreshData, showToast, lastSyncedAt, state } = useDashboard();
+  const companyId = scopedCompanyId(state);
+  const returns = useMemo(
+    () => (reduxReturns.length ? reduxReturns.map(mapReturnRow) : dashReturns),
+    [reduxReturns, dashReturns],
+  );
   const { canManage, transition, approve, withdraw } = useReturnActions();
 
   useEffect(() => {
-    dispatch(fetchReturnsThunk());
-  }, [dispatch]);
-  const [tab, setTab] = useState('pending');
-  const [sortKey, setSortKey] = useState('new');
-  const [search, setSearch] = useState('');
-  const [reasonFilter, setReasonFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [raiseOpen, setRaiseOpen] = useState(false);
-  const [action, setAction] = useState(null);
-  const [detail, setDetail] = useState(null);
+    dispatch(fetchReturnsThunk({ companyId }));
+  }, [dispatch, companyId, lastSyncedAt]);
 
   const counts = summarizeReturns(returns);
   const topProduct = getReturnProductCounts(returns)[0] || null;
@@ -131,7 +151,7 @@ function ReturnsContent() {
         actions={
           <>
             {canManage && (
-              <button className="btn btn-primary" id="raiseReturnBtnDyn" onClick={() => setRaiseOpen(true)}>
+              <button className="btn btn-primary" id="raiseReturnBtnDyn" onClick={() => dispatch(setRaiseReturnOpen(true))}>
                 + Raise Return
               </button>
             )}
@@ -162,23 +182,38 @@ function ReturnsContent() {
                   className={`chart-tab${tab === t.value ? ' active' : ''}`}
                   type="button"
                   data-filter={t.value}
-                  onClick={() => setTab(t.value)}
+                  onClick={() => dispatch(setReturnFilter({ key: 'tab', value: t.value }))}
                 >
                   {t.label} ({tabCount(t.value)})
+                  {t.value === 'approved' && counts.approved > 0 && (
+                    <span
+                      style={{
+                        marginLeft: '6px',
+                        padding: '1px 6px',
+                        borderRadius: '999px',
+                        fontSize: '0.7rem',
+                        background: 'var(--amber, #f59e0b)',
+                        color: '#111',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Payout due
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
-            <FilterSelect id="returnsSortSelect" value={sortKey} onChange={setSortKey} options={SORT_OPTIONS} />
+            <FilterSelect id="returnsSortSelect" value={sortKey} onChange={(value) => dispatch(setReturnFilter({ key: 'sortKey', value }))} options={SORT_OPTIONS} />
           </div>
         </div>
         <div style={TOOLBAR_STYLE}>
           <label style={{ ...FIELD_STYLE, flex: '1 1 220px' }} htmlFor="returnsSearch">
             <span className="toolbar-label">Search</span>
-            <input id="returnsSearch" className="form-control" placeholder="Order, customer or item" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input id="returnsSearch" className="form-control" placeholder="Order, customer or item" value={search} onChange={(e) => dispatch(setReturnFilter({ key: 'search', value: e.target.value }))} />
           </label>
           <label style={FIELD_STYLE} htmlFor="returnsReasonFilter">
             <span className="toolbar-label">Reason</span>
-            <select id="returnsReasonFilter" className="toolbar-select" value={reasonFilter} onChange={(e) => setReasonFilter(e.target.value)}>
+            <select id="returnsReasonFilter" className="toolbar-select" value={reasonFilter} onChange={(e) => dispatch(setReturnFilter({ key: 'reasonFilter', value: e.target.value }))}>
               <option value="all">All reasons</option>
               {reasons.map((r) => (
                 <option key={r} value={r}>{r}</option>
@@ -187,7 +222,7 @@ function ReturnsContent() {
           </label>
           <label style={FIELD_STYLE} htmlFor="returnsTypeFilter">
             <span className="toolbar-label">Type</span>
-            <select id="returnsTypeFilter" className="toolbar-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <select id="returnsTypeFilter" className="toolbar-select" value={typeFilter} onChange={(e) => dispatch(setReturnFilter({ key: 'typeFilter', value: e.target.value }))}>
               <option value="all">Refund and exchange</option>
               <option value="refund">Refund</option>
               <option value="exchange">Exchange</option>
@@ -195,23 +230,17 @@ function ReturnsContent() {
           </label>
           <label style={FIELD_STYLE} htmlFor="returnsFrom">
             <span className="toolbar-label">Raised from</span>
-            <input id="returnsFrom" type="date" className="form-control" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <input id="returnsFrom" type="date" className="form-control" value={from} onChange={(e) => dispatch(setReturnFilter({ key: 'from', value: e.target.value }))} />
           </label>
           <label style={FIELD_STYLE} htmlFor="returnsTo">
             <span className="toolbar-label">to</span>
-            <input id="returnsTo" type="date" className="form-control" value={to} onChange={(e) => setTo(e.target.value)} />
+            <input id="returnsTo" type="date" className="form-control" value={to} onChange={(e) => dispatch(setReturnFilter({ key: 'to', value: e.target.value }))} />
           </label>
           {filtersActive && (
             <button
               type="button"
               className="btn btn-outline"
-              onClick={() => {
-                setSearch('');
-                setReasonFilter('all');
-                setTypeFilter('all');
-                setFrom('');
-                setTo('');
-              }}
+              onClick={() => dispatch(clearReturnFilters())}
             >
               Clear filters
             </button>
@@ -228,9 +257,12 @@ function ReturnsContent() {
                 key={r.id}
                 item={r}
                 canManage={canManage}
-                onView={setDetail}
+                onView={(item) => dispatch(setReturnDetailItem(item))}
+                onEdit={(item) => dispatch(openReturnEditModal(item))}
                 onApprove={approve}
-                onAction={(item, status) => setAction({ item, status })}
+                onAction={(item, status) =>
+                  dispatch(openReturnActionModal({ item, status, order: orders.find((o) => o.id === item.orderId) }))
+                }
                 onWithdraw={withdraw}
               />
             )}
@@ -241,10 +273,11 @@ function ReturnsContent() {
       <RaiseReturnModal
         open={raiseOpen}
         recentOrders={recentOrders}
-        onClose={() => setRaiseOpen(false)}
+        orders={orders}
+        onClose={() => dispatch(setRaiseReturnOpen(false))}
         onCreated={(created) => {
-          setRaiseOpen(false);
-          setTab('pending');
+          dispatch(setRaiseReturnOpen(false));
+          dispatch(setReturnFilter({ key: 'tab', value: 'pending' }));
           refreshData();
           showToast(
             created.returnType === 'exchange'
@@ -257,14 +290,16 @@ function ReturnsContent() {
         <ReturnActionModal
           item={action.item}
           action={action.status}
-          onClose={() => setAction(null)}
+          order={action.order}
+          onClose={() => dispatch(closeReturnActionModal())}
           onSubmit={async (item, body) => {
             await transition(item, body);
-            setAction(null);
+            dispatch(closeReturnActionModal());
           }}
         />
       )}
-      {detail && <ReturnDetailModal item={detail} onClose={() => setDetail(null)} />}
+      <ReturnEditModal onSaved={(updated) => showToast(`Return ${updated.id} updated`)} />
+      {detail && <ReturnDetailModal item={detail} onClose={() => dispatch(setReturnDetailItem(null))} />}
     </>
   );
 }

@@ -1,8 +1,9 @@
 import Badge from '../../../shared/components/common/Badge.jsx';
-import { RETURN_NEXT, returnAge, returnBadgeType, rupees } from './returnStats.js';
+import { RETURN_NEXT, returnAge, returnBadgeType, returnRaisedAt, rupees } from './returnStats.js';
 
 const BTN = { padding: '4px 8px', fontSize: '0.75rem', marginRight: '4px', marginBottom: '2px' };
 const BTN_RED = { ...BTN, color: 'var(--red)', borderColor: 'var(--red)' };
+const SEVEN_DAYS_MS = 7 * 86400000;
 
 function ActionButton({ style = BTN, onClick, children }) {
   return (
@@ -12,9 +13,11 @@ function ActionButton({ style = BTN, onClick, children }) {
   );
 }
 
-export default function ReturnRow({ item, canManage, onView, onApprove, onAction, onWithdraw }) {
+export default function ReturnRow({ item, canManage, onView, onEdit, onApprove, onAction, onWithdraw }) {
   const next = RETURN_NEXT[item.status] || [];
   const isExchange = item.returnType === 'exchange';
+  const raisedAt = returnRaisedAt(item);
+  const isOverdue = ['Pending', 'Approved'].includes(item.status) && raisedAt > 0 && Date.now() - raisedAt > SEVEN_DAYS_MS;
   return (
     <tr>
       <td className="cell-main">
@@ -36,7 +39,12 @@ export default function ReturnRow({ item, canManage, onView, onApprove, onAction
       <td>
         <Badge status={item.status} type={returnBadgeType(item.status)} />
       </td>
-      <td title={item.createdAt || item.returnDate}>{returnAge(item)}</td>
+      <td title={item.createdAt || item.returnDate}>
+        {returnAge(item)}
+        {isOverdue && (
+          <div style={{ color: 'var(--amber, #f59e0b)', fontSize: '0.72rem', fontWeight: 600 }}>Over 7d</div>
+        )}
+      </td>
       <td>
         {!canManage || !next.length ? (
           <ActionButton onClick={() => onView(item)}>View</ActionButton>
@@ -53,6 +61,9 @@ export default function ReturnRow({ item, canManage, onView, onApprove, onAction
               <ActionButton style={BTN_RED} onClick={() => onAction(item, 'Rejected')}>
                 Reject
               </ActionButton>
+            )}
+            {item.status === 'Pending' && onEdit && (
+              <ActionButton onClick={() => onEdit(item)}>Edit</ActionButton>
             )}
             {item.status === 'Pending' && (
               <ActionButton style={BTN_RED} onClick={() => onWithdraw(item)}>

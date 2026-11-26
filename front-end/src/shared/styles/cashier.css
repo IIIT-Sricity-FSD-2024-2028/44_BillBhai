@@ -492,11 +492,12 @@ body.no-sidebar .content-area {
 .pay-method-row button.active { border-color: var(--accent); color: var(--accent); font-weight: 700; }
 .quote-note { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; }
 .sales-modal-backdrop {
-    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex;
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px); display: flex;
     align-items: center; justify-content: center; z-index: 50; padding: 16px;
 }
 .sales-modal {
-    background: var(--bg-card); color: var(--text-heading); border-radius: var(--radius);
+    background: var(--bg-card-solid, #15151b); color: var(--text-heading); border: 1px solid var(--border);
+    border-radius: var(--radius);
     width: min(760px, 100%); max-height: 86vh; overflow: auto; padding: 20px; box-shadow: var(--shadow);
 }
 .sales-modal table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }

@@ -28,6 +28,7 @@ export default function FulfillmentStep({
   quoting,
   quoteError,
   checkoutMode,
+  allowDelivery = true,
   isDelivery,
   customer,
   errors,
@@ -35,6 +36,7 @@ export default function FulfillmentStep({
   partner,
   paymentMethods,
   paymentMethod,
+  paymentRef,
   amountTendered,
   modeError,
   checkoutLabel,
@@ -44,6 +46,7 @@ export default function FulfillmentStep({
   onDeliveryChargeChange,
   onPartnerChange,
   onPaymentMethodChange,
+  onPaymentRefChange,
   onAmountTenderedChange,
   onBack,
   onCheckout,
@@ -103,7 +106,7 @@ export default function FulfillmentStep({
 
         <div className="checkout-mode-block" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
           <div className="checkout-mode-grid" id="checkoutModeGrid">
-            {MODES.map((mode) => (
+            {(allowDelivery ? MODES : MODES.filter((m) => m.value === 'takeaway_now')).map((mode) => (
               <label key={mode.value} className={`checkout-mode-card${checkoutMode === mode.value ? ' active' : ''}`}>
                 <input
                   type="radio"
@@ -189,6 +192,9 @@ export default function FulfillmentStep({
                   value={deliveryCharge}
                   onChange={(e) => onDeliveryChargeChange(e.target.value)}
                 />
+                <div className="text-sm text-muted" style={{ marginTop: '4px' }}>
+                  Allowed range: {currencySymbol()}0 to {currencySymbol()}500.
+                </div>
               </div>
             </div>
             <p className="text-muted" style={{ fontSize: '0.8rem', margin: '10px 0 0' }}>
@@ -252,6 +258,23 @@ export default function FulfillmentStep({
             <p className="text-muted" style={{ marginTop: '12px', fontSize: '0.85rem' }}>
               Payment: cash collected by the delivery partner ({formatRupees(total)}).
             </p>
+          )}
+
+          {(paymentMethod === 'UPI' || paymentMethod === 'Card') && (
+            <div className="form-group" style={{ marginTop: '8px' }}>
+              <label className="form-label" htmlFor="cPaymentRef">
+                {paymentMethod === 'UPI' ? 'UPI reference / UTR (optional)' : 'Card approval / last 4 digits (optional)'}
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                id="cPaymentRef"
+                maxLength={60}
+                placeholder={paymentMethod === 'UPI' ? 'e.g. 412345678901' : 'e.g. 4242 / auth 123456'}
+                value={paymentRef || ''}
+                onChange={(e) => onPaymentRefChange && onPaymentRefChange(e.target.value)}
+              />
+            </div>
           )}
 
           {paymentMethod === 'Cash' && (

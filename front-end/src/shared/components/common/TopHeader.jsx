@@ -97,7 +97,9 @@ const displayBusinessName = businessName ?? auth.activeBusinessName;
             <div className="dropdown-header">
               <strong>Notifications</strong>
               <div className="text-sm text-muted">
-                {unreadCount ? `You have ${unreadCount} new notifications` : 'All caught up'}
+                {unreadCount
+                  ? `You have ${unreadCount} new notification${unreadCount === 1 ? '' : 's'}`
+                  : 'All caught up'}
               </div>
             </div>
             {previewItems.length ? (

@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import { deliveriesRepo } from './deliveriesRepo.js';
+import { getState as getDashboardState } from '../../shared/lib/dashboard/store.js';
+import { scopedCompanyId } from '../orders/components/orderFormat.js';
 
 const initialState = {
   items: [],
@@ -7,6 +9,18 @@ const initialState = {
   status: 'idle',
   saving: false,
   error: null,
+  ui: {
+    group: 'open',
+    query: '',
+    partner: 'all',
+    onlyCod: false,
+    onlyLate: false,
+    sort: 'attention',
+    detailId: null,
+    tick: 0,
+    dashboardNotice: '',
+    dashboardDetailId: null,
+  },
 };
 
 export const fetchDeliveriesThunk = createAsyncThunk(
@@ -56,11 +70,23 @@ export const createDeliveryThunk = createAsyncThunk(
 
 export const transitionDeliveryThunk = createAsyncThunk(
   'deliveries/transition',
-  async ({ id, body }, { rejectWithValue }) => {
+  async ({ id, body }, { dispatch, rejectWithValue }) => {
     try {
       const updated = await deliveriesRepo.transition(id, body);
       return updated;
     } catch (err) {
+      if (err?.status === 409) {
+        const companyId = scopedCompanyId(getDashboardState());
+        const listAction = await dispatch(fetchDeliveriesThunk({ companyId }));
+        const latest = Array.isArray(listAction.payload)
+          ? listAction.payload.find((d) => String(d.id) === String(id))
+          : null;
+        const baseMsg = String(err.message || '').replace(/\s*Reload to see the latest version\.?/i, '');
+        const detail = latest?.status
+          ? ` Current status: ${latest.status}${latest.updatedBy ? ` (by ${latest.updatedBy})` : ''}.`
+          : '';
+        return rejectWithValue(`${baseMsg}${detail} List refreshed.`.trim());
+      }
       return rejectWithValue(err.message || `Failed to transition delivery ${id}`);
     }
   },
@@ -68,11 +94,23 @@ export const transitionDeliveryThunk = createAsyncThunk(
 
 export const updateDeliveryThunk = createAsyncThunk(
   'deliveries/update',
-  async ({ id, body }, { rejectWithValue }) => {
+  async ({ id, body }, { dispatch, rejectWithValue }) => {
     try {
       const updated = await deliveriesRepo.update(id, body);
       return updated;
     } catch (err) {
+      if (err?.status === 409) {
+        const companyId = scopedCompanyId(getDashboardState());
+        const listAction = await dispatch(fetchDeliveriesThunk({ companyId }));
+        const latest = Array.isArray(listAction.payload)
+          ? listAction.payload.find((d) => String(d.id) === String(id))
+          : null;
+        const baseMsg = String(err.message || '').replace(/\s*Reload to see the latest version\.?/i, '');
+        const detail = latest?.status
+          ? ` Current status: ${latest.status}${latest.updatedBy ? ` (by ${latest.updatedBy})` : ''}.`
+          : '';
+        return rejectWithValue(`${baseMsg}${detail} List refreshed.`.trim());
+      }
       return rejectWithValue(err.message || `Failed to update delivery ${id}`);
     }
   },
@@ -99,6 +137,22 @@ const deliveriesSlice = createSlice({
     },
     clearDeliveriesError(state) {
       state.error = null;
+    },
+    setDeliveryFilter(state, action) {
+      const { key, value } = action.payload || {};
+      if (key && key in state.ui) state.ui[key] = value;
+    },
+    setDeliveryDetailId(state, action) {
+      state.ui.detailId = action.payload ?? null;
+    },
+    bumpDeliveryTick(state) {
+      state.ui.tick += 1;
+    },
+    setDeliveryDashboardNotice(state, action) {
+      state.ui.dashboardNotice = action.payload || '';
+    },
+    setDeliveryDashboardDetailId(state, action) {
+      state.ui.dashboardDetailId = action.payload ?? null;
     },
   },
   extraReducers: (builder) => {
@@ -199,7 +253,15 @@ const deliveriesSlice = createSlice({
   },
 });
 
-export const { clearSelectedDelivery, clearDeliveriesError } = deliveriesSlice.actions;
+export const {
+  clearSelectedDelivery,
+  clearDeliveriesError,
+  setDeliveryFilter,
+  setDeliveryDetailId,
+  bumpDeliveryTick,
+  setDeliveryDashboardNotice,
+  setDeliveryDashboardDetailId,
+} = deliveriesSlice.actions;
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
 export const selectAllDeliveries = (state) => state.deliveries?.items || [];
@@ -207,6 +269,7 @@ export const selectSelectedDelivery = (state) => state.deliveries?.selected;
 export const selectDeliveriesStatus = (state) => state.deliveries?.status || 'idle';
 export const selectDeliveriesSaving = (state) => Boolean(state.deliveries?.saving);
 export const selectDeliveriesError = (state) => state.deliveries?.error;
+export const selectDeliveriesUi = (state) => state.deliveries?.ui || initialState.ui;
 
 export const selectActiveDeliveries = createSelector([selectAllDeliveries], (items) =>
   items.filter((d) => !['Delivered', 'Cancelled', 'Returned to Store'].includes(d.status)),

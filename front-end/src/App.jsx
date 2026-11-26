@@ -1,4 +1,6 @@
-import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { getAuthToken } from './shared/lib/http.js';
+import { homeFor } from './shared/components/common/PageHeader.jsx';
 import LandingPage from './features/landing/LandingPage.jsx';
 import LoginPage from './features/auth/LoginPage.jsx';
 import RegisterBusinessPage from './features/companies/RegisterBusinessPage.jsx';
@@ -49,6 +51,34 @@ function LegacyHtmlRedirect() {
   return <Navigate to={`${target}${window.location.search}${window.location.hash}`} replace />;
 }
 
+function NotFoundPage() {
+  const signedIn = Boolean(getAuthToken());
+  const roleKey = (typeof localStorage !== 'undefined' && localStorage.getItem('userRole')) || '';
+  const target = signedIn ? homeFor(roleKey) : '/';
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        textAlign: 'center',
+        gap: '12px',
+      }}
+    >
+      <h1 style={{ fontSize: '2rem', margin: 0 }}>Page not found</h1>
+      <p style={{ color: 'var(--text-muted, #6b7280)', margin: 0 }}>
+        The page you requested does not exist or may have moved.
+      </p>
+      <Link to={target} className="btn btn-primary" style={{ marginTop: '8px' }}>
+        {signedIn ? 'Go to my home' : 'Go to home'}
+      </Link>
+    </main>
+  );
+}
+
 export default function App() {
   const location = useLocation();
   return (
@@ -60,7 +90,7 @@ export default function App() {
           <Route key={path} path={`/${path}`} element={<Page key={location.key} />} />
         ))}
         <Route path="/:file" element={<LegacyHtmlRedirect />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   );

@@ -6,6 +6,7 @@ import DataTable from '../../../shared/components/common/DataTable.jsx';
 import Badge from '../../../shared/components/common/Badge.jsx';
 import CouponFormModal from './CouponFormModal.jsx';
 import CouponAnalytics from './CouponAnalytics.jsx';
+import { getActiveCompanyPlan } from '../../../shared/lib/dashboard/store.js';
 import { useDashboard } from '../../../shared/lib/dashboard/hooks.js';
 import {
   deleteCouponThunk,
@@ -116,6 +117,7 @@ export default function CouponsContent() {
   };
 
   const needsBusiness = !companyId;
+  const isStarterPlan = !needsBusiness && getActiveCompanyPlan().key === 'starter';
   const sorted = [...coupons].sort((a, b) => (b.usedCount || 0) - (a.usedCount || 0) || a.code.localeCompare(b.code));
 
   return (
@@ -125,14 +127,28 @@ export default function CouponsContent() {
         actions={
           <button
             className="btn btn-primary"
-            disabled={needsBusiness}
-            title={needsBusiness ? 'Open a business first (Super User -> Open dashboard)' : undefined}
+            disabled={needsBusiness || isStarterPlan}
+            title={
+              needsBusiness
+                ? 'Open a business first (Super User -> Open dashboard)'
+                : isStarterPlan
+                  ? 'Coupons require Growth / Pro or Enterprise plan'
+                  : undefined
+            }
             onClick={() => setEditing(null)}
           >
             + New coupon
           </button>
         }
       />
+      {isStarterPlan && (
+        <section className="card" style={{ marginBottom: '14px', borderColor: 'var(--amber)' }}>
+          <div className="card-bd" style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+            Coupons and promo codes are not included in the <strong>Starter Plan (Free)</strong>. Upgrade to{' '}
+            <strong>Growth / Pro</strong> or <strong>Enterprise</strong> from Profile to create coupons.
+          </div>
+        </section>
+      )}
       <section className="card" style={{ marginBottom: '14px' }}>
         <div className="card-bd">
           <DataTable

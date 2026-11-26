@@ -110,6 +110,12 @@ export class OrdersService {
       .map((order) => this.buildSnapshot(order));
   }
 
+  public countMonthlyBills(companyId: string, monthPrefix = nowIso().slice(0, 7)): number {
+    return this.bills.filter(
+      (b) => b.companyId === companyId && String(b.billDate || '').startsWith(monthPrefix),
+    ).length;
+  }
+
   public findOneOrder(id: string): OrderSnapshot {
     const order = this.orders.find((entry) => entry.id === id);
     if (!order) {
@@ -248,7 +254,10 @@ export class OrdersService {
   /* Create                                                          */
   /* -------------------------------------------------------------- */
 
-  public createOrder(dto: CreateOrderDto & { companyId: string }, actor: Actor): OrderSnapshot & { changeDue?: number } {
+  public createOrder(
+    dto: CreateOrderDto & { companyId: string; isCustomerSelfCheckout?: boolean },
+    actor: Actor,
+  ): OrderSnapshot & { changeDue?: number } {
     const isDelivery = dto.checkoutMode !== 'takeaway_now';
     const orderType = isDelivery ? 'delivery' : 'pickup';
     if (dto.orderType && dto.orderType !== orderType) {
@@ -294,16 +303,22 @@ export class OrdersService {
       actor.username,
     );
 
+    let cashReceived: number | undefined;
     let changeDue: number | undefined;
     if (paymentMethod === 'Cash' && dto.amountTendered !== undefined) {
       if (dto.amountTendered < priced.total) {
         throw new BadRequestError(`Cash received ₹${dto.amountTendered} is less than the bill ₹${priced.total}`);
       }
+      cashReceived = round2(dto.amountTendered);
       changeDue = round2(dto.amountTendered - priced.total);
     }
 
     const at = nowIso();
     const orderId = `ORD-${this.orderCounter++}`;
+    const pendingSelfCheckoutPay = Boolean(dto.isCustomerSelfCheckout && (paymentMethod === 'UPI' || paymentMethod === 'Card'));
+    const orderNotes = pendingSelfCheckoutPay
+      ? [dto.notes, 'Payment pending — show to staff'].filter(Boolean).join(' · ')
+      : dto.notes;
     const order: Order = {
       id: orderId,
       customerId: customer.id,
@@ -316,19 +331,21 @@ export class OrdersService {
       orderDate: at,
       orderType,
       checkoutMode: dto.checkoutMode,
-      // A counter sale is handed over on the spot.
-      status: isDelivery ? 'Processing' : 'Delivered',
+      // A counter sale is handed over on the spot, unless self-checkout payment is pending staff confirmation.
+      status: isDelivery || pendingSelfCheckoutPay ? 'Processing' : 'Delivered',
       subtotal: priced.subtotal,
       discountAmount: priced.discountAmount,
       deliveryCharge: priced.deliveryCharge,
       taxAmount: priced.taxAmount,
       paymentMethod,
-      paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Paid',
+      paymentStatus: paymentMethod === 'COD' || pendingSelfCheckoutPay ? 'Pending' : 'Paid',
       total: priced.total,
+      cashReceived,
+      changeDue,
       refundedAmount: 0,
       promoCode: priced.promoCode,
       itemsCount: priced.lines.reduce((sum, l) => sum + l.quantity, 0),
-      notes: dto.notes,
+      notes: orderNotes,
       version: 1,
       createdAt: at,
       updatedAt: at,
@@ -369,8 +386,11 @@ export class OrdersService {
       });
     });
 
+    const companyBills = this.bills.filter((b) => b.companyId === dto.companyId);
+    const nextCompanyBillNum = Math.max(0, ...companyBills.map((b) => extractNumericId(b.billNo))) + 1;
+    this.billCounter = Math.max(this.billCounter, nextCompanyBillNum + 1);
     const bill: Bill = {
-      billNo: `BILL-${String(this.billCounter++).padStart(4, '0')}`,
+      billNo: `BILL-${String(nextCompanyBillNum).padStart(4, '0')}`,
       orderId,
       companyId: dto.companyId,
       billDate: at,
@@ -382,7 +402,7 @@ export class OrdersService {
     };
     this.bills.push(bill);
 
-    if (paymentMethod !== 'COD') {
+    if (paymentMethod !== 'COD' && !pendingSelfCheckoutPay) {
       this.payments.push({
         id: `PAY-${String(this.paymentCounter++).padStart(4, '0')}`,
         billNo: bill.billNo,
@@ -545,6 +565,11 @@ export class OrdersService {
     return this.save(index, { ...current, status }, `Delivery status: ${status}`, by, 'status');
   }
 
+  public setDeliveryNote(id: string, deliveryNote?: string): void {
+    const index = this.indexOf(id);
+    this.orders[index] = { ...this.orders[index], deliveryNote };
+  }
+
   /** Cash collected at the door for a COD order. */
   public recordCodPayment(id: string, amount: number, by = 'system'): OrderSnapshot {
     const index = this.indexOf(id);
@@ -579,7 +604,7 @@ export class OrdersService {
     }
     return this.save(
       index,
-      { ...current, refundedAmount: refunded },
+      { ...current, refundedAmount: refunded, refundedAt: nowIso() },
       `₹${amount} refunded (total refunded ₹${refunded})`,
       by,
       'refund',

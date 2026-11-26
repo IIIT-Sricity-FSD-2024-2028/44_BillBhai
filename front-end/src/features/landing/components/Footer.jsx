@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import useTheme from '../../../shared/hooks/useTheme.js';
 import { HashLink } from './smoothScroll.jsx';
 
@@ -8,24 +9,27 @@ const FOOTER_COLUMNS = [
       { href: '#features', label: 'Features' },
       { href: '#pricing', label: 'Pricing' },
       { href: '#how-it-works', label: 'How It Works' },
-      { href: '#', label: 'Pricing' },
-      { href: '#', label: 'Integrations' },
+      { href: '#testimonials', label: 'Testimonials' },
     ],
   },
   {
-    title: 'Company',
-    links: ['About Us', 'Careers', 'Blog', 'Contact'].map((label) => ({ href: '#', label })),
+    title: 'Get Started',
+    links: [
+      { to: '/register-business', label: 'Register Business' },
+      { to: '/login', label: 'Sign In' },
+      { href: '#stats', label: 'Impact' },
+      { href: '#cta', label: 'Start Free Trial' },
+    ],
   },
   {
     title: 'Support',
-    links: ['Help Center', 'Documentation', 'API Reference', 'Status'].map((label) => ({
-      href: '#',
-      label,
-    })),
+    links: [
+      { href: 'mailto:support@billbhai.in', label: 'Contact Support' },
+      { href: '#how-it-works', label: 'Onboarding Guide' },
+      { href: '#pricing', label: 'Plan Limits' },
+    ],
   },
 ];
-
-const LEGAL_LINKS = ['Privacy', 'Terms'];
 
 export default function Footer() {
   const { logo } = useTheme();
@@ -43,11 +47,21 @@ export default function Footer() {
             {FOOTER_COLUMNS.map((column) => (
               <div className="footer-col" key={column.title}>
                 <h4>{column.title}</h4>
-                {column.links.map((link, index) => (
-                  <HashLink key={index} href={link.href}>
-                    {link.label}
-                  </HashLink>
-                ))}
+                {column.links.map((link) =>
+                  link.to ? (
+                    <Link key={link.label} to={link.to}>
+                      {link.label}
+                    </Link>
+                  ) : link.href.startsWith('#') ? (
+                    <HashLink key={link.label} href={link.href}>
+                      {link.label}
+                    </HashLink>
+                  ) : (
+                    <a key={link.label} href={link.href}>
+                      {link.label}
+                    </a>
+                  ),
+                )}
               </div>
             ))}
           </div>
@@ -55,11 +69,8 @@ export default function Footer() {
         <div className="footer-bottom">
           <p id="footerBottomText">&copy; 2026 BillBhai Systems. All rights reserved.</p>
           <div className="footer-links" id="footerLegalLinks">
-            {LEGAL_LINKS.map((label) => (
-              <HashLink key={label} href="#">
-                {label}
-              </HashLink>
-            ))}
+            <a href="mailto:support@billbhai.in?subject=Privacy%20Inquiry">Privacy</a>
+            <a href="mailto:support@billbhai.in?subject=Terms%20Inquiry">Terms</a>
           </div>
         </div>
       </div>

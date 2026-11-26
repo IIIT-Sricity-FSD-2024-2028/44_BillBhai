@@ -2,7 +2,7 @@ import { Request } from 'express';
 import { ForbiddenError } from '../../errors/http-error';
 import { handle, param, query } from '../../utils/http';
 import { actorId, actorName, assertInScope, listScope, writeScope } from '../../utils/scope';
-import { assertFeature } from '../../utils/plans';
+import { assertFeature, assertMonthlyBillLimit } from '../../utils/plans';
 import { companiesService } from '../companies/companies.service';
 import { customersService, CustomersService } from '../customers/customers.service';
 import { deliveriesService, DeliveriesService } from '../deliveries/deliveries.service';
@@ -77,10 +77,12 @@ export class OrdersController {
     const body = req.body as CreateOrderDto;
     const companyId = writeScope(req, body.companyId);
     const company = companiesService.findOne(companyId);
+    assertMonthlyBillLimit(company, this.service.countMonthlyBills(companyId));
     if (body.checkoutMode !== 'takeaway_now') assertFeature(company, 'delivery');
     if (body.promoCode) assertFeature(company, 'discounts');
     const actor = this.actor(req, body.staffId);
-    const order = this.service.createOrder({ ...body, companyId }, actor);
+    const isCustomerSelfCheckout = req.auth?.role === 'customer';
+    const order = this.service.createOrder({ ...body, companyId, isCustomerSelfCheckout }, actor);
     if (order.orderType !== 'delivery') return order;
     try {
       const delivery = this.deliveries.create(

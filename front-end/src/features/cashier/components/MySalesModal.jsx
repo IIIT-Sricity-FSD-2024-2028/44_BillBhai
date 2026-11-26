@@ -16,7 +16,7 @@ import {
 export default function MySalesModal({ open, userId, onClose, onReprint }) {
   const dispatch = useDispatch();
   const rows = useSelector(selectMySalesList);
-  const { standing, byMethod, net, cashInDrawer } = useSelector(selectMySalesSummary);
+  const { standing, byMethod, net, cashInDrawer, uncollectedCod, refunds } = useSelector(selectMySalesSummary);
   const { mySalesLoading: loading, mySalesError: error } = useSelector(selectPosState);
 
   useEffect(() => {
@@ -45,9 +45,12 @@ export default function MySalesModal({ open, userId, onClose, onReprint }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 id="mySalesTitle" style={{ margin: 0 }}>
-            My sales today
-          </h3>
+          <div>
+            <h3 id="mySalesTitle" style={{ margin: 0 }}>
+              My sales today
+            </h3>
+            <div className="text-sm text-muted">Only an admin can cancel a finished bill.</div>
+          </div>
           <button className="btn btn-outline" onClick={onClose}>
             Close
           </button>
@@ -69,6 +72,18 @@ export default function MySalesModal({ open, userId, onClose, onReprint }) {
                 <span className="text-muted">Cash in drawer</span>
                 <strong>{formatRupees(cashInDrawer)}</strong>
               </div>
+              {uncollectedCod > 0 && (
+                <div>
+                  <span className="text-muted">Uncollected COD</span>
+                  <strong>{formatRupees(uncollectedCod)}</strong>
+                </div>
+              )}
+              {refunds > 0 && (
+                <div>
+                  <span className="text-muted">Refunds</span>
+                  <strong>- {formatRupees(refunds)}</strong>
+                </div>
+              )}
               {Object.entries(byMethod).map(([method, amount]) => (
                 <div key={method}>
                   <span className="text-muted">{method}</span>

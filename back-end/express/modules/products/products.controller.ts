@@ -21,18 +21,29 @@ export class ProductsController {
     return product;
   }
 
+  private sanitizeForCustomer<T extends { costPrice?: unknown; supplierId?: unknown }>(row: T, req: Request): T {
+    if (req.auth?.role !== 'customer') return row;
+    const { costPrice: _c, supplierId: _s, ...safe } = row;
+    return safe as T;
+  }
+
   public findAll = handle((req) =>
-    this.service.findAll({
-      companyId: listScope(req, query(req, 'companyId')),
-      category: query(req, 'category'),
-      includeInactive: query(req, 'includeInactive') === 'true',
-    }),
+    this.service
+      .findAll({
+        companyId: listScope(req, query(req, 'companyId')),
+        category: query(req, 'category'),
+        includeInactive: query(req, 'includeInactive') === 'true',
+      })
+      .map((p) => this.sanitizeForCustomer(p, req)),
   );
 
-  public findOne = handle((req) => this.owned(req));
+  public findOne = handle((req) => this.sanitizeForCustomer(this.owned(req), req));
 
   public findByBarcode = handle((req) =>
-    this.service.findByBarcode(param(req, 'barcode'), listScope(req, query(req, 'companyId'))),
+    this.sanitizeForCustomer(
+      this.service.findByBarcode(param(req, 'barcode'), listScope(req, query(req, 'companyId'))),
+      req,
+    ),
   );
 
   public getCategories = handle((req) => this.service.getCategories(listScope(req, query(req, 'companyId'))));

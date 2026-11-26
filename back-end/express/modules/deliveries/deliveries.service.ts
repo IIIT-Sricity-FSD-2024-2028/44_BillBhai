@@ -171,13 +171,23 @@ export class DeliveriesService {
     if (current.status !== 'Pending' && (!next.partnerName || !next.partnerPhone)) {
       throw new BadRequestError('An assigned delivery needs a partner name and phone');
     }
+    const partnerChanged = dto.partnerName !== undefined && dto.partnerName !== current.partnerName;
+    const changeNote = partnerChanged
+      ? `Partner ${current.partnerName || 'Unassigned'} → ${next.partnerName}`
+      : 'Delivery details updated';
+    if (partnerChanged) {
+      next.history = [
+        ...(next.history ?? []),
+        { status: current.status, at: nowIso(), by, note: changeNote },
+      ];
+    }
     this.deliveries[index] = bumped(next, by);
     this.activity.log({
       companyId: current.companyId ?? '',
       entity: 'delivery',
       entityId: id,
       action: 'update',
-      summary: 'Delivery details updated',
+      summary: changeNote,
       by,
     });
     return this.clone(this.deliveries[index]);
@@ -217,13 +227,22 @@ export class DeliveriesService {
           throw new ConflictError(`Delivery ${id} has failed ${current.attempts} times. Return it to the store.`);
         }
         next.etaMinutes = next.etaMinutes ?? 45;
-        note = note ?? `Assigned to ${next.partnerName}`;
-        if (current.status === 'Failed Attempt') this.orders.setDeliveryStatus(current.orderId, 'Processing', by);
+        const partnerChange =
+          current.partnerName && current.partnerName !== next.partnerName
+            ? `Partner ${current.partnerName} → ${next.partnerName}`
+            : '';
+        note = [note, partnerChange].filter(Boolean).join(' · ') || `Assigned to ${next.partnerName}`;
+        if (current.status === 'Failed Attempt') {
+          this.orders.setDeliveryStatus(current.orderId, 'Processing', by);
+          this.orders.setDeliveryNote(current.orderId, undefined);
+        }
         break;
       }
       case 'Pending': {
         next.partnerName = '';
         next.partnerPhone = '';
+        next.partnerAgency = '';
+        next.partnerVehicle = '';
         note = note ?? 'Partner unassigned';
         break;
       }
@@ -248,6 +267,7 @@ export class DeliveriesService {
         }
         next.deliveryDate = at;
         this.orders.setDeliveryStatus(current.orderId, 'Delivered', by);
+        this.orders.setDeliveryNote(current.orderId, undefined);
         note = note ?? `Received by ${receiver}`;
         break;
       }
@@ -256,6 +276,10 @@ export class DeliveriesService {
         if (reason.length < 3) throw new BadRequestError('Say why the delivery failed');
         next.failureReason = reason;
         next.attempts = (current.attempts ?? 0) + 1;
+        this.orders.setDeliveryNote(
+          current.orderId,
+          `Delivery: failed attempt ${next.attempts}/${MAX_DELIVERY_ATTEMPTS}`,
+        );
         note = note ?? reason;
         break;
       }

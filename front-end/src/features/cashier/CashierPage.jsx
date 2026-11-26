@@ -54,6 +54,7 @@ import {
   setNotice,
   setPartnerField,
   setPaymentMethod,
+  setPaymentRef,
   setPromoCodeInput,
   setPromoError,
   setSearchQuery,
@@ -117,6 +118,7 @@ export default function CashierPage() {
     errors,
     checkoutMode,
     paymentMethod,
+    paymentRef,
     amountTendered,
     deliveryCharge,
     partner,
@@ -145,6 +147,8 @@ export default function CashierPage() {
   const [reprint, setReprint] = useState(null);
 
   const ct = booted && isCustomerTerminal;
+  const activePlanKey = String(localStorage.getItem('activeBusinessPlan') || '').toLowerCase();
+  const isStarterPlan = activePlanKey === 'starter' || activePlanKey.includes('free');
   const modeConfig = getCheckoutModeConfig(checkoutMode, isCustomerTerminal);
   const isDelivery = modeConfig.deliveryOption === 'delivery';
 
@@ -181,6 +185,27 @@ export default function CashierPage() {
     }, 30000);
     return () => clearInterval(timer);
   }, [booted, step, reloadCatalog]);
+
+  // Warn before closing/reloading if there is an active cart.
+  useEffect(() => {
+    if (!cart.length || step >= 4) return undefined;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [cart.length, step]);
+
+  // Focus the search box when entering step 2 (Walk-in or Begin).
+  useEffect(() => {
+    if (step !== 2) return undefined;
+    const timer = setTimeout(() => {
+      const el = document.getElementById('posSearch');
+      if (el) el.focus();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   useEffect(() => {
     const hide = () => setMenu((m) => (m.open ? { ...m, open: false } : m));
@@ -226,9 +251,11 @@ export default function CashierPage() {
     }
 
     let profile = null;
+    let knownOnly = false;
     try {
       const res = await dispatch(lookupCustomerByPhoneThunk(phone)).unwrap();
       profile = res ? res.profile : null;
+      knownOnly = Boolean(res && res.known && !profile);
     } catch {
       profile = null;
     }
@@ -245,6 +272,8 @@ export default function CashierPage() {
         }),
       );
       setLookupHint(hintFor('existing', copy.lookupExisting(profile.name)));
+    } else if (knownOnly) {
+      setLookupHint(hintFor('existing', 'Saved profile found. Enter your details to continue.'));
     } else {
       if (hadExistingProfile) {
         dispatch(setCustomerFields({ name: '', email: '', address: '' }));
@@ -362,6 +391,12 @@ export default function CashierPage() {
         return { errors: next, message: 'Delivery charge must be between ₹0 and ₹500.' };
       }
     }
+    if (paymentMethod === 'Cash' && checkoutMode === 'takeaway_now' && String(amountTendered).trim() === '') {
+      return {
+        errors: next,
+        message: 'Enter the cash received from the customer.',
+      };
+    }
     if (paymentMethod === 'Cash' && amountTendered !== '' && quote && Number(amountTendered) < quote.total) {
       return {
         errors: next,
@@ -384,6 +419,9 @@ export default function CashierPage() {
       return;
     }
     const payload = orderPayload();
+    if (paymentRef && (paymentMethod === 'UPI' || paymentMethod === 'Card')) {
+      payload.notes = [payload.notes, `${paymentMethod} Ref: ${paymentRef.trim()}`].filter(Boolean).join(' · ');
+    }
     if (isDelivery && customer.walkIn && customer.name === 'Walk-in Customer') {
       payload.customer.name = undefined;
     }
@@ -446,7 +484,7 @@ export default function CashierPage() {
   }, [completedOrder, completedTendered, business, modeConfig]);
 
   function handleReprint(order) {
-    setReprint(receiptFromOrder(order, business));
+    setReprint(receiptFromOrder(order, business, { isDuplicate: true }));
   }
 
   useEffect(() => {
@@ -533,12 +571,15 @@ export default function CashierPage() {
                   onApply: handleApplyPromo,
                   onRemove: () => dispatch(removePromo()),
                 }}
-                goFulfillmentLabel={ct ? 'Continue to checkout' : 'Continue to delivery & payment'}
+                allowPromo={!isStarterPlan}
+                goFulfillmentLabel={ct ? 'Continue to checkout' : isStarterPlan ? 'Continue to payment' : 'Continue to delivery & payment'}
                 goFulfillmentDisabled={!hasItems}
                 onUpdateQty={(cartId, delta) => dispatch(updateCartQty({ cartId, delta }))}
                 onSetQty={(cartId, qty) => dispatch(setCartExactQty({ cartId, qty }))}
                 onRemove={(cartId) => dispatch(removeFromCart(cartId))}
                 onGoFulfillment={handleGoFulfillment}
+                onBackToCustomer={() => dispatch(setStep(1))}
+                onCancelBill={resetPOS}
               />
             </div>
           </div>
@@ -550,6 +591,7 @@ export default function CashierPage() {
             quoting={quoting}
             quoteError={quoteError}
             checkoutMode={checkoutMode}
+            allowDelivery={!isStarterPlan}
             isDelivery={isDelivery}
             customer={customer}
             errors={errors}
@@ -557,6 +599,7 @@ export default function CashierPage() {
             partner={partner}
             paymentMethods={modeConfig.paymentMethods}
             paymentMethod={checkoutMode === 'cod_delivery' ? 'COD' : paymentMethod}
+            paymentRef={paymentRef}
             amountTendered={amountTendered}
             modeError={modeError}
             checkoutLabel={checkoutBusy ? 'Saving…' : modeConfig.buttonLabel}
@@ -566,6 +609,7 @@ export default function CashierPage() {
             onDeliveryChargeChange={(v) => dispatch(setDeliveryCharge(v))}
             onPartnerChange={(field, value) => dispatch(setPartnerField({ field, value }))}
             onPaymentMethodChange={(m) => dispatch(setPaymentMethod(m))}
+            onPaymentRefChange={(v) => dispatch(setPaymentRef(v))}
             onAmountTenderedChange={(v) => dispatch(setAmountTendered(v))}
             onBack={() => {
               dispatch(setModeError(''));

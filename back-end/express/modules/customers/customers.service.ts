@@ -109,18 +109,20 @@ export class CustomersService {
    * new; falls back to the walk-in record when no phone is given.
    */
   public resolveForSale(companyId: string, input: SaleCustomerInput, by = 'system'): Customer {
+    let index = -1;
     if (input.id) {
-      const byId = this.customers.find((c) => c.id === input.id && c.companyId === companyId);
-      if (byId) return { ...byId };
+      index = this.customers.findIndex((c) => c.id === input.id && c.companyId === companyId);
     }
-    const phone = normalisePhone(input.phone);
-    if (!phone) return this.walkIn(companyId);
-    const index = this.customers.findIndex((c) => c.companyId === companyId && c.mobileNo === phone);
     if (index === -1) {
-      return this.create(
-        { companyId, mobileNo: phone, name: input.name, email: input.email, address: input.address },
-        by,
-      );
+      const phone = normalisePhone(input.phone);
+      if (!phone) return this.walkIn(companyId);
+      index = this.customers.findIndex((c) => c.companyId === companyId && c.mobileNo === phone);
+      if (index === -1) {
+        return this.create(
+          { companyId, mobileNo: phone, name: input.name, email: input.email, address: input.address },
+          by,
+        );
+      }
     }
     const current = this.customers[index];
     const fill: Partial<Customer> = {};

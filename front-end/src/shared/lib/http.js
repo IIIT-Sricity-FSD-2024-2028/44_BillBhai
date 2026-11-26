@@ -25,16 +25,20 @@ const TOKEN_KEY = 'bb_auth_token';
 
 export function getAuthToken() {
   try {
-    return localStorage.getItem(TOKEN_KEY) || '';
+    return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || '';
   } catch {
     return '';
   }
 }
 
-export function setAuthToken(token) {
+export function setAuthToken(token, rememberMe = true) {
   try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    if (token) {
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem(TOKEN_KEY, token);
+    }
   } catch {
     /* storage blocked */
   }
@@ -55,6 +59,7 @@ export function clearStoredSession() {
   ].forEach((key) => {
     try {
       localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
     } catch {
       /* ignore */
     }
@@ -69,10 +74,10 @@ export function resetRedirectGuard() {
 }
 
 /** Saves what POST /auth/login returned. */
-export function storeLoginSession(session) {
+export function storeLoginSession(session, rememberMe = true) {
   resetRedirectGuard();
   const role = String(session.role || '').toLowerCase();
-  setAuthToken(session.accessToken);
+  setAuthToken(session.accessToken, rememberMe);
   localStorage.setItem('userRole', role);
   localStorage.setItem('userName', session.name || session.username);
   localStorage.setItem(

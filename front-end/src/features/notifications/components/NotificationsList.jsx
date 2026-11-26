@@ -56,7 +56,9 @@ export default function NotificationsList({
   const unreadCount = notifications.filter((item) => item.unread).length;
   const readCount = Math.max(0, notifications.length - unreadCount);
   const actionableCount = notifications.filter(
-    (item) => item.unread || item.priorityRank >= 3,
+    (item) =>
+      ['inventory', 'delivery', 'returns', 'payments'].includes(item.category) &&
+      item.priorityRank >= 2,
   ).length;
   const categoryOptions = Array.from(new Set(notifications.map((item) => item.category))).sort(
     (a, b) => getNotificationCategoryLabel(a).localeCompare(getNotificationCategoryLabel(b)),

@@ -20,8 +20,10 @@ export function validateCustomerStep(input, phoneArg) {
 
   if (!phone) {
     if (!customer.walkIn) errors.phone = 'Phone number is required.';
-  } else if (!/^[6-9]\d{9}$/.test(phoneDigits)) {
+  } else if (phoneDigits.length !== 10) {
     errors.phone = 'Phone must be exactly 10 digits.';
+  } else if (!/^[6-9]\d{9}$/.test(phoneDigits)) {
+    errors.phone = 'Phone number must start with 6-9.';
   }
 
   if (email && !/^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/.test(email)) {

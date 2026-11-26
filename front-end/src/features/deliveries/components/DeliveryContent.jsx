@@ -1,14 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchDeliveriesThunk,
   transitionDeliveryThunk,
   selectAllDeliveries,
+  selectDeliveriesUi,
+  setDeliveryFilter,
+  setDeliveryDetailId,
+  bumpDeliveryTick,
 } from '../deliveriesSlice.js';
 import PageHeader from '../../../shared/components/common/PageHeader.jsx';
 import DataTable from '../../../shared/components/common/DataTable.jsx';
 import FilterToolbar from '../../../shared/components/common/FilterToolbar.jsx';
 import { useDashboard } from '../../../shared/lib/dashboard/hooks.js';
+import { mapDeliveryRow } from '../../../shared/lib/dashboard/api.js';
+import { scopedCompanyId } from '../../orders/components/orderFormat.js';
 import { DeliveryStatCards } from './DeliveryStats.jsx';
 import DeliveryCharts from './DeliveryCharts.jsx';
 import DeliveryRow from './DeliveryRow.jsx';
@@ -56,36 +62,27 @@ function sorter(key) {
 
 export default function DeliveryContent() {
   const reduxDeliveries = useSelector(selectAllDeliveries);
-  const { deliveries: dashDeliveries, orders, hasActionAccess, scopedBusinessName, syncError } = useDashboard();
-  const deliveries = reduxDeliveries.length ? reduxDeliveries : dashDeliveries;
+  const { group, query, partner, onlyCod, onlyLate, sort, detailId } = useSelector(selectDeliveriesUi);
+  const { deliveries: dashDeliveries, orders, hasActionAccess, scopedBusinessName, syncError, lastSyncedAt, state } = useDashboard();
+  const companyId = scopedCompanyId(state);
+  const deliveries = useMemo(
+    () => (reduxDeliveries.length ? reduxDeliveries.map(mapDeliveryRow) : dashDeliveries),
+    [reduxDeliveries, dashDeliveries],
+  );
   const canManage = hasActionAccess('delivery');
   const dispatch = useDispatch();
-  const actions = useDeliveryActions({
-    onDone: (message, meta) => {
-      if (meta && (meta.kind === 'assign' || meta.kind === 'retry')) {
-        dispatch(transitionDeliveryThunk({ id: meta.deliveryId, body: { status: 'Assigned', rider: meta.rider } }));
-      }
-    },
-  });
+  const actions = useDeliveryActions();
 
-  // Fetch deliveries into Redux store on page mount
+  // Fetch deliveries into Redux store on mount and every background sync
   useEffect(() => {
-    dispatch(fetchDeliveriesThunk());
-  }, [dispatch]);
-  const [group, setGroup] = useState('open');
-  const [query, setQuery] = useState('');
-  const [partner, setPartner] = useState('all');
-  const [onlyCod, setOnlyCod] = useState(false);
-  const [onlyLate, setOnlyLate] = useState(false);
-  const [sort, setSort] = useState('attention');
-  const [detailId, setDetailId] = useState(null);
-  const [, setTick] = useState(0);
+    dispatch(fetchDeliveriesThunk({ companyId }));
+  }, [dispatch, companyId, lastSyncedAt]);
 
   // Re-evaluate "running late" every minute even without new data.
   useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 60000);
+    const t = setInterval(() => dispatch(bumpDeliveryTick()), 60000);
     return () => clearInterval(t);
-  }, []);
+  }, [dispatch]);
 
   const counts = getDeliveryCounts(deliveries);
   const partners = Array.from(new Set(deliveries.map((d) => d.partner).filter(Boolean))).sort();
@@ -115,7 +112,7 @@ export default function DeliveryContent() {
   }))];
 
   const runAction = (kind, d) => {
-    setDetailId(null);
+    dispatch(setDeliveryDetailId(null));
     actions.start(kind === 'retry' ? 'retry' : kind, d);
   };
 
@@ -172,7 +169,7 @@ export default function DeliveryContent() {
           <h3>Delivery queue</h3>
           <div className="chart-tabs" style={{ flexWrap: 'wrap' }}>
             {tabs.map((t) => (
-              <button key={t.key} type="button" className={group === t.key ? 'chart-tab active' : 'chart-tab'} onClick={() => setGroup(t.key)}>
+              <button key={t.key} type="button" className={group === t.key ? 'chart-tab active' : 'chart-tab'} onClick={() => dispatch(setDeliveryFilter({ key: 'group', value: t.key }))}>
                 {t.label} ({t.count})
               </button>
             ))}
@@ -184,10 +181,10 @@ export default function DeliveryContent() {
               id: 'deliveryPartnerFilter',
               label: 'Partner',
               value: partner,
-              onChange: setPartner,
+              onChange: (value) => dispatch(setDeliveryFilter({ key: 'partner', value })),
               options: [{ value: 'all', label: 'All partners' }, { value: '__none__', label: 'Not assigned' }, ...partners],
             },
-            { id: 'deliverySortSelect', label: 'Sort by', value: sort, onChange: setSort, options: SORT_OPTIONS },
+            { id: 'deliverySortSelect', label: 'Sort by', value: sort, onChange: (value) => dispatch(setDeliveryFilter({ key: 'sort', value })), options: SORT_OPTIONS },
           ]}
         >
           <div className="toolbar-group">
@@ -200,15 +197,15 @@ export default function DeliveryContent() {
               className="toolbar-select"
               placeholder="Order, customer, phone, address"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => dispatch(setDeliveryFilter({ key: 'query', value: e.target.value }))}
             />
           </div>
           <div className="toolbar-group">
             <label className="toolbar-label" htmlFor="deliveryOnlyCod">
-              <input id="deliveryOnlyCod" type="checkbox" checked={onlyCod} onChange={(e) => setOnlyCod(e.target.checked)} /> COD to collect
+              <input id="deliveryOnlyCod" type="checkbox" checked={onlyCod} onChange={(e) => dispatch(setDeliveryFilter({ key: 'onlyCod', value: e.target.checked }))} /> COD to collect
             </label>
             <label className="toolbar-label" htmlFor="deliveryOnlyLate">
-              <input id="deliveryOnlyLate" type="checkbox" checked={onlyLate} onChange={(e) => setOnlyLate(e.target.checked)} /> Running late ({counts.overdue})
+              <input id="deliveryOnlyLate" type="checkbox" checked={onlyLate} onChange={(e) => dispatch(setDeliveryFilter({ key: 'onlyLate', value: e.target.checked }))} /> Running late ({counts.overdue})
             </label>
           </div>
         </FilterToolbar>
@@ -219,7 +216,7 @@ export default function DeliveryContent() {
             pageSize={15}
             emptyMessage="No deliveries match these filters."
             emptyColSpan={COLUMNS.length}
-            renderRow={(d) => <DeliveryRow key={d.id} d={d} canManage={canManage} onAction={runAction} onOpen={(x) => setDetailId(x.id)} />}
+            renderRow={(d) => <DeliveryRow key={d.id} d={d} canManage={canManage} onAction={runAction} onOpen={(x) => dispatch(setDeliveryDetailId(x.id))} />}
           />
         </div>
       </section>
@@ -237,7 +234,7 @@ export default function DeliveryContent() {
               { header: 'Partner', key: 'partner', cellClassName: 'cell-main' },
               { header: 'Delivered today', key: 'deliveredToday' },
               { header: 'Cash collected today', render: (r) => money(r.cashToday) },
-              { header: 'COD still out', render: (r) => (r.codOut ? <strong>{money(r.codOut)}</strong> : money(0)) },
+              { header: 'With riders', render: (r) => (r.codOut ? <strong>{money(r.codOut)}</strong> : money(0)) },
               { header: 'Open COD parcels', key: 'codOutCount' },
             ]}
             rows={cod}
@@ -252,7 +249,7 @@ export default function DeliveryContent() {
         businessName={scopedBusinessName}
         canManage={canManage}
         onAction={runAction}
-        onClose={() => setDetailId(null)}
+        onClose={() => dispatch(setDeliveryDetailId(null))}
       />
       {actions.modal}
     </>

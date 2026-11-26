@@ -49,6 +49,12 @@ export function registerActorCheck(check: ActorCheck): void {
   actorCheck = check;
 }
 
+type CompanyCheck = (companyId: string) => void;
+let companyCheck: CompanyCheck | null = null;
+export function registerCompanyCheck(check: CompanyCheck): void {
+  companyCheck = check;
+}
+
 function normalise(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, '');
 }
@@ -79,6 +85,9 @@ function resolveActor(req: Request): Express.AuthenticatedActor | null {
       source: 'jwt',
     };
     if (actorCheck) actorCheck(actor);
+    if (companyCheck && actor.companyId && actor.role !== 'superuser') {
+      companyCheck(actor.companyId);
+    }
     return actor;
   }
 

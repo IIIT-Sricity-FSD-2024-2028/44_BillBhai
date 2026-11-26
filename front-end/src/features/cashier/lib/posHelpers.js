@@ -45,7 +45,9 @@ export function resolveProductVisual(product) {
 }
 
 export function sanitizePhone(value) {
-  return String(value || '').replace(/\D/g, '');
+  const digits = String(value || '').replace(/\D/g, '');
+  const stripped = digits.length > 10 && digits.startsWith('91') ? digits.slice(-10) : digits;
+  return stripped.slice(0, 10);
 }
 
 export function getTerminalCopy(isCustomerTerminal) {

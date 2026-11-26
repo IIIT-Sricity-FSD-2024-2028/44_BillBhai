@@ -73,7 +73,7 @@ export function DeliveryStatCards({ counts, money }) {
         </span>
       </StatCard>
       <StatCard icon={DELIVERY_ICONS.check} label="Delivered today" value={counts.deliveredToday} color="green" />
-      <StatCard icon={DELIVERY_ICONS.alert} label="COD cash still out" value={money(counts.codPending)} color="red">
+      <StatCard icon={DELIVERY_ICONS.alert} label="COD with riders" value={money(counts.codPending)} color="red">
         <span className="text-sm text-muted">{counts.failed} failed attempt(s) to handle</span>
       </StatCard>
     </section>

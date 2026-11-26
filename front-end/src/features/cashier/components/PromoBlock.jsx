@@ -22,6 +22,12 @@ export default function PromoBlock({
           placeholder="Coupon code"
           value={promoCode}
           onChange={(e) => onPromoCodeChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              onApply();
+            }
+          }}
         />
         <button
           className="btn btn-outline"

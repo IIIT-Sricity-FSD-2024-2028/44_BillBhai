@@ -118,7 +118,8 @@ export type StockMovementType =
   | 'cancel'
   | 'receive'
   | 'adjust'
-  | 'exchange';
+  | 'exchange'
+  | 'write-off';
 
 export interface StockMovement {
   id: string;
@@ -156,10 +157,14 @@ export interface Order extends Partial<Versioned> {
   /** Paid, Pending (COD not yet collected), Refunded, Partially Refunded, Voided. */
   paymentStatus?: string;
   total: number;
+  cashReceived?: number;
+  changeDue?: number;
   refundedAmount?: number;
+  refundedAt?: string;
   promoCode?: string | null;
   itemsCount?: number;
   notes?: string;
+  deliveryNote?: string;
   cancelReason?: string;
   deleted?: boolean;
 }
@@ -246,6 +251,7 @@ export interface ReturnRecord extends Partial<Versioned> {
   staffId: string;
   returnDate: string;
   reason: string;
+  condition?: 'good' | 'damaged';
   refundAmount: number;
   status: string;
   returnType: string;

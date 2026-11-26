@@ -35,7 +35,7 @@ export default function Header({ session, planBadge, onShowSales }) {
   return (
     <header className="top-header">
       <div className="header-left">
-        <Link to="/" className="header-logo-link">
+        <Link to="/cashier" className="header-logo-link">
           <img src={logo} alt="BillBhai" className="header-logo-img" />
         </Link>
         <div className="breadcrumb">

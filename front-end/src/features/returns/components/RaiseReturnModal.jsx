@@ -1,8 +1,16 @@
-import { useMemo, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import FormField from '../../../shared/components/common/FormField.jsx';
-import { fetchReturnableOrderThunk, createReturnThunk } from '../returnsSlice.js';
+import {
+  fetchReturnableOrderThunk,
+  createReturnThunk,
+  selectReturnsUi,
+  setRaiseFormField,
+  setRaiseLineQty,
+  setRaiseOrderResult,
+  resetRaiseForm,
+} from '../returnsSlice.js';
 import { RETURN_REASONS, rupees, shortDate } from './returnStats.js';
 
 const ROW = { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' };
@@ -27,65 +35,81 @@ const INFO_BOX = {
  *      refund or exchange. The refund is the price the customer paid, worked
  *      out by the server; nobody types an amount or a product.
  */
-export default function RaiseReturnModal({ open, onClose, onCreated, recentOrders = [] }) {
+export default function RaiseReturnModal({ open, onClose, onCreated, recentOrders = [], orders = [] }) {
   const dispatch = useDispatch();
-  const [orderInput, setOrderInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [order, setOrder] = useState(null);
-  const [qty, setQty] = useState({});
-  const [reason, setReason] = useState(RETURN_REASONS[0]);
-  const [otherReason, setOtherReason] = useState('');
-  const [returnType, setReturnType] = useState('refund');
-  const [requestedBy, setRequestedBy] = useState('');
-  const [note, setNote] = useState('');
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const { raiseForm } = useSelector(selectReturnsUi);
+  const {
+    orderInput,
+    loading,
+    order,
+    matches = [],
+    qty,
+    reason,
+    otherReason,
+    condition,
+    returnType,
+    requestedBy,
+    note,
+    error,
+    saving,
+  } = raiseForm;
 
-  const reset = () => {
-    setOrderInput('');
-    setOrder(null);
-    setQty({});
-    setReason(RETURN_REASONS[0]);
-    setOtherReason('');
-    setReturnType('refund');
-    setRequestedBy('');
-    setNote('');
-    setError('');
-    setSaving(false);
-    setLoading(false);
-  };
+  const setField = (key, value) => dispatch(setRaiseFormField({ key, value }));
+  const reset = () => dispatch(resetRaiseForm());
 
   const close = () => {
     reset();
     onClose();
   };
 
-  const lookUp = async (rawId) => {
-    const id = String(rawId || orderInput || '').trim().toUpperCase();
-    setError('');
-    if (!/^ORD-\d+$/.test(id)) {
-      setError('Enter an order number like ORD-4827 (it is printed on the bill).');
-      return;
-    }
-    setLoading(true);
+  const loadOrderById = async (id) => {
+    setField('loading', true);
+    setField('matches', []);
     try {
       const action = await dispatch(fetchReturnableOrderThunk(id));
       if (fetchReturnableOrderThunk.fulfilled.match(action)) {
-        const data = action.payload;
-        setOrder(data);
-        setOrderInput(id);
-        setQty({});
-        setRequestedBy(data?.customerName || '');
+        dispatch(setRaiseOrderResult({ order: action.payload, orderInput: id }));
       } else {
-        setOrder(null);
-        setError(action.payload || 'Could not load that order');
+        dispatch(setRaiseOrderResult({ order: null }));
+        setField('error', action.payload || 'Could not load that order');
       }
     } catch (err) {
-      setOrder(null);
-      setError(err?.message || 'Could not load that order');
+      dispatch(setRaiseOrderResult({ order: null }));
+      setField('error', err?.message || 'Could not load that order');
     } finally {
-      setLoading(false);
+      setField('loading', false);
     }
+  };
+
+  const lookUp = async (rawId) => {
+    const raw = String(rawId || orderInput || '').trim();
+    const upper = raw.toUpperCase();
+    setField('error', '');
+    setField('matches', []);
+    if (!raw) {
+      setField('error', 'Enter an order number (ORD-…), bill number (BILL-…), or 10-digit phone.');
+      return;
+    }
+    if (/^ORD-\d+$/i.test(upper)) {
+      await loadOrderById(upper);
+      return;
+    }
+    const digits = raw.replace(/\D/g, '').slice(-10);
+    const pool = orders.length ? orders : recentOrders;
+    const found = pool.filter((o) => {
+      if (/^BILL-/i.test(upper)) return String(o.billNo || '').toUpperCase() === upper;
+      if (digits.length >= 10) return String(o.customerPhone || '').replace(/\D/g, '').slice(-10) === digits;
+      return String(o.id || '').toUpperCase() === upper || String(o.billNo || '').toUpperCase() === upper;
+    });
+    if (found.length === 1) {
+      await loadOrderById(found[0].id);
+      return;
+    }
+    if (found.length > 1) {
+      setField('matches', found.slice(0, 10));
+      return;
+    }
+    setField('error', 'No order found for that order number, bill number, or phone.');
   };
 
   const lines = order ? order.lines : [];
@@ -100,29 +124,34 @@ export default function RaiseReturnModal({ open, onClose, onCreated, recentOrder
 
   const setLineQty = (line, next) => {
     const value = Math.max(0, Math.min(line.returnable, next));
-    setQty((prev) => ({ ...prev, [line.productId]: value }));
+    dispatch(setRaiseLineQty({ productId: line.productId, value }));
   };
 
   const submit = async (e) => {
     e.preventDefault();
-    setError('');
+    setField('error', '');
     if (!order || !order.eligible) return;
     if (!chosen.length) {
-      setError('Pick at least one item and how many are coming back.');
+      setField('error', 'Pick at least one item and how many are coming back.');
+      return;
+    }
+    if (!reason) {
+      setField('error', 'Choose a reason for the return.');
       return;
     }
     const finalReason = reason === 'Other' ? otherReason.trim() : reason;
     if (finalReason.length < 3) {
-      setError('Describe the reason for the return (at least 3 characters).');
+      setField('error', 'Describe the reason for the return (at least 3 characters).');
       return;
     }
-    setSaving(true);
+    setField('saving', true);
     try {
       const action = await dispatch(
         createReturnThunk({
           orderId: order.orderId,
           items: chosen.map((l) => ({ productId: l.productId, qty: qty[l.productId] })),
           reason: finalReason,
+          condition,
           returnType,
           requestedBy: requestedBy.trim() || undefined,
           note: note.trim() || undefined,
@@ -133,12 +162,12 @@ export default function RaiseReturnModal({ open, onClose, onCreated, recentOrder
         reset();
         onCreated(created);
       } else {
-        setError(action.payload || 'Could not raise the return');
-        setSaving(false);
+        setField('error', action.payload || 'Could not raise the return');
+        setField('saving', false);
       }
     } catch (err) {
-      setError(err?.message || 'Could not raise the return');
-      setSaving(false);
+      setField('error', err?.message || 'Could not raise the return');
+      setField('saving', false);
     }
   };
 
@@ -146,15 +175,15 @@ export default function RaiseReturnModal({ open, onClose, onCreated, recentOrder
     <Modal open={open} id="raiseReturnModal" title="Raise Return" onClose={close} maxWidth="720px">
       <form onSubmit={submit} noValidate>
         <div className="modal-body">
-          <FormField label="Order number" htmlFor="returnOrderId" hint="Type the order number from the bill, or pick a recent order.">
+          <FormField label="Order, bill, or phone" htmlFor="returnOrderId" hint="Type ORD-…, BILL-…, or the customer's 10-digit phone, or pick a recent order.">
             <div style={ROW}>
               <input
                 id="returnOrderId"
                 className="form-control"
                 style={{ flex: '1 1 200px' }}
-                placeholder="ORD-4827"
+                placeholder="ORD-4827, BILL-0203, or phone"
                 value={orderInput}
-                onChange={(e) => setOrderInput(e.target.value.toUpperCase())}
+                onChange={(e) => setField('orderInput', e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -167,6 +196,25 @@ export default function RaiseReturnModal({ open, onClose, onCreated, recentOrder
               </button>
             </div>
           </FormField>
+
+          {!order && matches.length > 0 && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="returnMatchedOrder">Multiple orders matched — pick one</label>
+              <select
+                id="returnMatchedOrder"
+                className="form-control"
+                value=""
+                onChange={(e) => e.target.value && loadOrderById(e.target.value)}
+              >
+                <option value="">Choose an order…</option>
+                {matches.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.id}{o.billNo ? ` (${o.billNo})` : ''} · {o.customer} · {rupees(o.total)} · {o.date}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {!order && recentOrders.length > 0 && (
             <div className="form-group">
@@ -257,7 +305,8 @@ export default function RaiseReturnModal({ open, onClose, onCreated, recentOrder
                   <div className="grid-2" style={{ marginTop: '12px' }}>
                     <div className="form-group">
                       <label className="form-label" htmlFor="returnReason">Reason</label>
-                      <select id="returnReason" className="form-control" value={reason} onChange={(e) => setReason(e.target.value)}>
+                      <select id="returnReason" className="form-control" value={reason} onChange={(e) => setField('reason', e.target.value)}>
+                        <option value="">Choose a reason…</option>
                         {RETURN_REASONS.map((r) => (
                           <option key={r} value={r}>{r}</option>
                         ))}
@@ -271,30 +320,37 @@ export default function RaiseReturnModal({ open, onClose, onCreated, recentOrder
                           placeholder="Describe the problem"
                           maxLength={120}
                           value={otherReason}
-                          onChange={(e) => setOtherReason(e.target.value)}
+                          onChange={(e) => setField('otherReason', e.target.value)}
                         />
                       )}
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="returnCondition">Item condition</label>
+                      <select id="returnCondition" className="form-control" value={condition} onChange={(e) => setField('condition', e.target.value)}>
+                        <option value="good">Good (can go back on shelf)</option>
+                        <option value="damaged">Damaged / Expired / Opened (write off)</option>
+                      </select>
                     </div>
                     <div className="form-group">
                       <span className="form-label">Customer wants</span>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '4px' }}>
                         <label style={{ ...ROW, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
-                          <input type="radio" name="returnType" value="refund" checked={returnType === 'refund'} onChange={() => setReturnType('refund')} />
+                          <input type="radio" name="returnType" value="refund" checked={returnType === 'refund'} onChange={() => setField('returnType', 'refund')} />
                           Money back
                         </label>
                         <label style={{ ...ROW, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
-                          <input type="radio" name="returnType" value="exchange" checked={returnType === 'exchange'} onChange={() => setReturnType('exchange')} />
+                          <input type="radio" name="returnType" value="exchange" checked={returnType === 'exchange'} onChange={() => setField('returnType', 'exchange')} />
                           Same item in exchange
                         </label>
                       </div>
                     </div>
                     <div className="form-group">
                       <label className="form-label" htmlFor="returnRequestedBy">Brought in by</label>
-                      <input id="returnRequestedBy" className="form-control" maxLength={80} value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)} />
+                      <input id="returnRequestedBy" className="form-control" maxLength={80} value={requestedBy} onChange={(e) => setField('requestedBy', e.target.value)} />
                     </div>
                     <div className="form-group">
                       <label className="form-label" htmlFor="returnNote">Note (optional)</label>
-                      <input id="returnNote" className="form-control" maxLength={300} placeholder="Seal, batch, condition" value={note} onChange={(e) => setNote(e.target.value)} />
+                      <input id="returnNote" className="form-control" maxLength={300} placeholder="Seal, batch, condition" value={note} onChange={(e) => setField('note', e.target.value)} />
                     </div>
                   </div>
 

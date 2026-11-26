@@ -2,6 +2,8 @@ import { Request } from 'express';
 import { round2 } from '../../utils/money';
 import { handle, param, query } from '../../utils/http';
 import { actorName, assertInScope, listScope, writeScope } from '../../utils/scope';
+import { assertFeature } from '../../utils/plans';
+import { companiesService } from '../companies/companies.service';
 import { customersService } from '../customers/customers.service';
 import { ordersService, OrdersService } from '../orders/orders.service';
 import { couponsService, CouponsService } from './coupons.service';
@@ -50,7 +52,9 @@ export class CouponsController {
 
   public create = handle((req) => {
     const body = req.body as CreateCouponDto;
-    return this.service.create({ ...body, companyId: writeScope(req, body.companyId) }, actorName(req));
+    const companyId = writeScope(req, body.companyId);
+    assertFeature(companiesService.findOne(companyId), 'discounts');
+    return this.service.create({ ...body, companyId }, actorName(req));
   }, 201);
 
   public update = handle((req) => {

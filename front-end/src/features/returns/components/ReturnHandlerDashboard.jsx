@@ -1,22 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchReturnsThunk,
-  transitionReturnThunk,
+  fetchReturnsWeekReportThunk,
+  openReturnActionModal,
+  closeReturnActionModal,
   selectAllReturns,
   selectReturnsSaving,
+  selectReturnsUi,
 } from '../returnsSlice.js';
-import { showToast } from '../../../store/uiSlice.js';
 import PageHeader from '../../../shared/components/common/PageHeader.jsx';
 import DataTable from '../../../shared/components/common/DataTable.jsx';
 import Badge from '../../../shared/components/common/Badge.jsx';
 import ReturnCharts from './ReturnCharts.jsx';
 import ReturnStatCard from './ReturnStatCard.jsx';
+import ReturnActionModal from './ReturnActionModal.jsx';
+import useReturnActions from './useReturnActions.js';
 import { COMPACT_VALUE_STYLE, RETURN_ICONS } from './returnIcons.jsx';
 import { returnAge, returnBadgeType, returnRaisedAt, rupees, summarizeReturns } from './returnStats.js';
 import { useDashboard } from '../../../shared/lib/dashboard/hooks.js';
-import { api } from '../../../shared/lib/http.js';
+import { mapReturnRow } from '../../../shared/lib/dashboard/api.js';
+import { scopedCompanyId } from '../../orders/components/orderFormat.js';
 
 const COLUMNS = ['Return', 'Order', 'Items', 'Reason', 'Refund', 'Status', 'Age', 'Action'];
 
@@ -26,42 +31,30 @@ function isoDay(ms) {
 
 export default function ReturnHandlerDashboard() {
   const reduxReturns = useSelector(selectAllReturns);
-  const { returns: dashReturns, scopedBusinessName, lastSyncedAt } = useDashboard();
-  const returns = reduxReturns.length ? reduxReturns : dashReturns;
+  const { weekReport: week, actionModal: action } = useSelector(selectReturnsUi);
+  const { returns: dashReturns, orders, scopedBusinessName, lastSyncedAt, state } = useDashboard();
+  const companyId = scopedCompanyId(state);
+  const returns = useMemo(
+    () => (reduxReturns.length ? reduxReturns.map(mapReturnRow) : dashReturns),
+    [reduxReturns, dashReturns],
+  );
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const isProcessing = useSelector(selectReturnsSaving);
-  const [week, setWeek] = useState(null);
+  const { transition } = useReturnActions();
 
   useEffect(() => {
-    dispatch(fetchReturnsThunk());
-  }, [dispatch]);
+    dispatch(fetchReturnsThunk({ companyId }));
+  }, [dispatch, companyId, lastSyncedAt]);
 
-  // Handler: process a refund via Redux transitionReturnThunk
-  const handleProcessRefund = async (r) => {
-    const result = await dispatch(
-      transitionReturnThunk({
-        id: r.id,
-        body: { status: 'Refunded', amount: r.amount, version: r.version },
-      }),
-    );
-    if (transitionReturnThunk.fulfilled.match(result)) {
-      dispatch(showToast({ message: `Refund of ${rupees(r.amount)} processed for ${r.id}`, type: 'success' }));
-    } else {
-      dispatch(showToast({ message: `Failed to process refund for ${r.id}: ${result.payload || 'Error'}`, type: 'error' }));
-    }
+  const handleProcessRefund = (r) => {
+    dispatch(openReturnActionModal({ item: r, status: 'Refunded', order: orders.find((o) => o.id === r.orderId) }));
   };
 
   useEffect(() => {
-    let alive = true;
     const now = Date.now();
-    api('/reports/returns', { query: { from: isoDay(now - 6 * 86400000), to: isoDay(now) } })
-      .then((data) => alive && setWeek(data))
-      .catch(() => alive && setWeek(null));
-    return () => {
-      alive = false;
-    };
-  }, [lastSyncedAt]);
+    dispatch(fetchReturnsWeekReportThunk({ from: isoDay(now - 6 * 86400000), to: isoDay(now) }));
+  }, [dispatch, lastSyncedAt]);
 
   const counts = summarizeReturns(returns);
   const open = returns
@@ -136,6 +129,18 @@ export default function ReturnHandlerDashboard() {
           />
         </div>
       </section>
+      {action && (
+        <ReturnActionModal
+          item={action.item}
+          action={action.status}
+          order={action.order}
+          onClose={() => dispatch(closeReturnActionModal())}
+          onSubmit={async (item, body) => {
+            await transition(item, body);
+            dispatch(closeReturnActionModal());
+          }}
+        />
+      )}
     </>
   );
 }

@@ -53,6 +53,7 @@ export const createReturnSchema = z
     product: z.string().optional(),
     qty: z.number().int().min(1).max(1000).optional(),
     reason: z.string().trim().min(3, 'Give a reason for the return').max(120),
+    condition: z.enum(['good', 'damaged']).optional(),
     returnType: z.enum(RETURN_TYPES).default('refund'),
     note: z.string().trim().max(300).optional(),
     requestedBy: z.string().trim().max(80).optional(),

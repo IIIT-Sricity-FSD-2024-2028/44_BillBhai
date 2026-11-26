@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Modal from '../../../shared/components/common/Modal.jsx';
 import Badge from '../../../shared/components/common/Badge.jsx';
-import { api } from '../../../shared/lib/http.js';
+import printReceipt from '../../../shared/lib/printReceipt.js';
+import { fetchReturnHistoryThunk, selectReturnsUi } from '../returnsSlice.js';
 import { returnBadgeType, rupees, shortDate } from './returnStats.js';
 
 const GRID = {
@@ -14,18 +16,13 @@ const GRID = {
 
 /** A return's lines, money, outcome and its full change history. */
 export default function ReturnDetailModal({ item, onClose }) {
-  const [history, setHistory] = useState({ loading: true, rows: [], error: '' });
+  const dispatch = useDispatch();
+  const { detailHistory: history } = useSelector(selectReturnsUi);
 
   useEffect(() => {
-    if (!item) return undefined;
-    let alive = true;
-    api('/activity', { query: { entity: 'return', entityId: item.id, limit: 50 } })
-      .then((rows) => alive && setHistory({ loading: false, rows: Array.isArray(rows) ? rows : [], error: '' }))
-      .catch((err) => alive && setHistory({ loading: false, rows: [], error: err.message }));
-    return () => {
-      alive = false;
-    };
-  }, [item]);
+    if (!item) return;
+    dispatch(fetchReturnHistoryThunk(item.id));
+  }, [dispatch, item]);
 
   if (!item) return null;
   const lines = Array.isArray(item.items) ? item.items : [];
@@ -92,9 +89,43 @@ export default function ReturnDetailModal({ item, onClose }) {
         </ul>
       </div>
       <div className="modal-footer">
+        <button type="button" className="btn btn-outline" onClick={() => printReceipt()}>
+          Print credit note
+        </button>
         <button type="button" className="btn btn-outline" onClick={onClose}>
           Close
         </button>
+      </div>
+      <div className="receipt" aria-hidden="true">
+        <h2>CREDIT NOTE / RETURN RECEIPT</h2>
+        <p className="receipt-row"><span>Return</span><span>{item.id}</span></p>
+        <p className="receipt-row"><span>Order</span><span>{item.orderId}</span></p>
+        <p>Date: {shortDate(item.resolvedAt || item.createdAt || item.returnDate)}</p>
+        <p>Customer: {item.customer || '—'}{item.customerPhone ? ` (${item.customerPhone})` : ''}</p>
+        <p>Reason: {item.reason}</p>
+        <table>
+          <thead>
+            <tr><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th></tr>
+          </thead>
+          <tbody>
+            {lines.map((l) => (
+              <tr key={l.productId}>
+                <td>{l.productName}</td>
+                <td>{l.qty}</td>
+                <td>{rupees(l.unitPrice)}</td>
+                <td>{rupees(l.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="receipt-row receipt-total">
+          <span>{item.returnType === 'exchange' ? 'Exchange' : 'Credit / Refund'}</span>
+          <span>{item.returnType === 'exchange' ? 'Replaced' : rupees(item.amount)}</span>
+        </p>
+        {item.refundMethod && (
+          <p className="receipt-row"><span>Refunded by</span><span>{item.refundMethod}</span></p>
+        )}
+        <p className="receipt-foot">Status: {item.status}. Thank you!</p>
       </div>
     </Modal>
   );

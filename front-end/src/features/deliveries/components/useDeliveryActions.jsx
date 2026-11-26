@@ -31,7 +31,7 @@ export function actionsFor(d) {
   if (next.includes('Failed Attempt')) list.push({ kind: 'fail', label: 'Failed attempt' });
   if (d.status === 'Failed Attempt') {
     if ((d.attempts || 0) < MAX_ATTEMPTS) list.push({ kind: 'retry', label: `Retry (${d.attempts}/${MAX_ATTEMPTS})`, primary: true });
-    list.push({ kind: 'return', label: 'Return to store' });
+    list.push({ kind: 'return', label: 'Return to store', primary: (d.attempts || 0) >= MAX_ATTEMPTS });
   }
   if (d.status === 'Assigned') list.push({ kind: 'unassign', label: 'Unassign' });
   if (next.includes('Cancelled')) list.push({ kind: 'cancel', label: 'Cancel', danger: true });
@@ -65,6 +65,8 @@ function initialForm(kind, d) {
     etaMin: String((d && d.etaMin) || DEFAULT_ETA_MIN),
     receiverName: kind === 'deliver' && d ? d.customer || '' : '',
     cashCollected: kind === 'deliver' && d && d.codAmount ? String(d.codAmount) : '',
+    collectedLess: false,
+    shortfallReason: '',
     failureReason: FAILURE_REASONS[0],
     failureDetails: '',
     note: '',
@@ -137,7 +139,14 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
       if (d && d.codAmount > 0) {
         const cash = form.cashCollected.trim();
         if (!/^\d+(\.\d{1,2})?$/.test(cash)) e.cashCollected = 'Enter the cash collected.';
-        else if (Math.abs(Number(cash) - d.codAmount) > 0.009) e.cashCollected = `Collect exactly ${money(d.codAmount)}.`;
+        else if (!form.collectedLess && Math.abs(Number(cash) - d.codAmount) > 0.009) {
+          e.cashCollected = `Collect exactly ${money(d.codAmount)}, or tick "Collected less".`;
+        } else if (form.collectedLess && Number(cash) > d.codAmount) {
+          e.cashCollected = `Cannot exceed ${money(d.codAmount)}.`;
+        }
+        if (form.collectedLess && form.shortfallReason.trim().length < 3) {
+          e.shortfallReason = 'Explain why less cash was collected.';
+        }
       }
     }
     if (kind === 'fail' && form.failureReason === 'Other' && form.failureDetails.trim().length < 3) {
@@ -191,9 +200,15 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
         message = `${d.id} is out for delivery.`;
       } else if (kind === 'deliver') {
         const body = { status: 'Delivered', receiverName: form.receiverName.trim() };
-        if (d.codAmount > 0) body.cashCollected = Number(form.cashCollected);
+        if (d.codAmount > 0) {
+          body.cashCollected = Number(form.cashCollected);
+          if (form.collectedLess) {
+            const diff = Math.max(0, d.codAmount - body.cashCollected);
+            body.note = `COD shortfall ${money(diff)}: ${form.shortfallReason.trim()}`;
+          }
+        }
         await status(body);
-        message = `${d.id} delivered${d.codAmount > 0 ? `, ${money(d.codAmount)} cash collected` : ''}.`;
+        message = `${d.id} delivered${d.codAmount > 0 ? `, ${money(body.cashCollected)} cash collected` : ''}.`;
       } else if (kind === 'fail') {
         const reason = form.failureDetails.trim()
           ? `${form.failureReason}: ${form.failureDetails.trim()}`
@@ -322,7 +337,25 @@ function DeliveryActionModal({ request, partners, onClose, onDone }) {
             <>
               {field('receiverName', 'Received by *', { maxLength: 60, hint: 'Name of the person who took the parcel.' })}
               {d.codAmount > 0 ? (
-                field('cashCollected', `Cash collected (COD ${money(d.codAmount)}) *`, { inputMode: 'decimal' })
+                <>
+                  {field('cashCollected', `Cash collected (COD ${money(d.codAmount)}) *`, { inputMode: 'decimal' })}
+                  <label className="text-sm" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.collectedLess)}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, collectedLess: e.target.checked }));
+                        setErrors((p) => ({ ...p, cashCollected: undefined, shortfallReason: undefined }));
+                      }}
+                    />
+                    Collected less (record shortfall)
+                  </label>
+                  {form.collectedLess &&
+                    field('shortfallReason', 'Shortfall reason *', {
+                      maxLength: 150,
+                      placeholder: 'e.g. Customer paid ₹20 short, approved by manager',
+                    })}
+                </>
               ) : (
                 <p className="text-sm text-muted">Prepaid order ({d.paymentMethod}): no cash to collect.</p>
               )}

@@ -5,7 +5,10 @@ import { registerCompanyThunk } from "../companies/companiesSlice.js";
 
 const readStorage = (key) => {
   try {
-    return typeof localStorage !== "undefined" ? localStorage.getItem(key) : null;
+    return (
+      (typeof sessionStorage !== "undefined" ? sessionStorage.getItem(key) : null) ||
+      (typeof localStorage !== "undefined" ? localStorage.getItem(key) : null)
+    );
   } catch {
     return null;
   }
@@ -76,7 +79,7 @@ const authSlice = createSlice({
       })
       .addCase(loginThunk.fulfilled, (state, action) => {
         const session = action.payload;
-        storeLoginSession(session);
+        storeLoginSession(session, Boolean(action.meta?.arg?.rememberMe));
         const role = String(session.role || "").toLowerCase();
         state.user = session;
         state.token = session.accessToken || null;

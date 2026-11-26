@@ -89,7 +89,7 @@ export default function ChoosePlanPage() {
             to="/business-welcome"
             style={{ color: 'var(--text-muted)', fontSize: '0.88rem', textDecoration: 'none', transition: 'color 0.2s' }}
           >
-            Skip for now &mdash; keep the plan chosen at sign-up &rarr;
+            Skip for now &mdash; continue with Starter Plan (Free) &rarr;
           </Link>
         </div>
       </main>

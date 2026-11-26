@@ -45,14 +45,21 @@ export class ReportsService {
       const day = istDay(iso);
       return (!query.from || day >= query.from) && (!query.to || day <= query.to);
     };
-    const all = this.orders.findAllOrders(query.companyId).filter((o) => inRange(o.orderDate));
+    const allOrders = this.orders.findAllOrders(query.companyId);
+    const all = allOrders.filter((o) => inRange(o.orderDate));
     const live = all.filter((o) => o.status !== 'Cancelled');
+    const refundedInRange = allOrders.filter(
+      (o) =>
+        o.status !== 'Cancelled' &&
+        (o.refundedAmount ?? 0) > 0 &&
+        inRange(o.refundedAt || o.updatedAt || o.orderDate),
+    );
     const categoryOf = new Map(this.products.findAll({ companyId: query.companyId, includeInactive: true }).map((p) => [p.id, p.category]));
 
     const grossSales = round2(live.reduce((s, o) => s + o.total, 0));
-    const refunds = round2(live.reduce((s, o) => s + (o.refundedAmount ?? 0), 0));
+    const refunds = round2(refundedInRange.reduce((s, o) => s + (o.refundedAmount ?? 0), 0));
     const netSales = round2(grossSales - refunds);
-    // Money in the drawer: payments taken on bills still standing, less refunds paid out.
+    // Money in the drawer: payments taken on bills still standing, less refunds paid out in range.
     const collected = round2(
       live.reduce((s, o) => s + (o.payments ?? []).reduce((p, pay) => p + (pay.paymentStatus === 'Paid' ? pay.amountPaid : 0), 0), 0) -
         refunds,
@@ -68,26 +75,24 @@ export class ReportsService {
     const products = new Map<string, { productId: string; productName: string; quantity: number; sales: number }>();
 
     live.forEach((o) => {
-      const net = o.total - (o.refundedAmount ?? 0);
       const day = istDay(o.orderDate);
       const d = days.get(day) ?? { day, orders: 0, gross: 0, refunds: 0, net: 0, discount: 0 };
       d.orders += 1;
       d.gross = round2(d.gross + o.total);
-      d.refunds = round2(d.refunds + (o.refundedAmount ?? 0));
-      d.net = round2(d.net + net);
+      d.net = round2(d.net + o.total);
       d.discount = round2(d.discount + o.discountAmount);
       days.set(day, d);
 
       const hour = istHour(o.orderDate);
       const h = hours.get(hour) ?? { hour, orders: 0, net: 0 };
       h.orders += 1;
-      h.net = round2(h.net + net);
+      h.net = round2(h.net + o.total);
       hours.set(hour, h);
 
       const staff = o.staffName || o.staffId || 'Unknown';
       const c = cashiers.get(staff) ?? { staff, orders: 0, net: 0 };
       c.orders += 1;
-      c.net = round2(c.net + net);
+      c.net = round2(c.net + o.total);
       cashiers.set(staff, c);
 
       const keep = (o.subtotal ?? 0) > 0 ? (o.subtotal! - o.discountAmount) / o.subtotal! : 1;
@@ -103,6 +108,15 @@ export class ReportsService {
         p.sales = round2(p.sales + sales);
         products.set(item.productId, p);
       });
+    });
+
+    refundedInRange.forEach((o) => {
+      const day = istDay(o.refundedAt || o.updatedAt || o.orderDate);
+      const d = days.get(day) ?? { day, orders: 0, gross: 0, refunds: 0, net: 0, discount: 0 };
+      const amt = o.refundedAmount ?? 0;
+      d.refunds = round2(d.refunds + amt);
+      d.net = round2(d.net - amt);
+      days.set(day, d);
     });
 
     return {

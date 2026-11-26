@@ -17,12 +17,13 @@ export default function ProductCard({ product, inCart = 0, onAddToCart, onShowOp
   const unavailable = stock.tone === 'out';
 
   return (
-    <div
+    <button
+      type="button"
       className={`prod-card${unavailable ? ' prod-card-disabled' : ''}`}
-      aria-disabled={unavailable}
+      disabled={unavailable}
       title={unavailable ? stock.text : `Add ${product.name}`}
-      onClick={(event) => {
-        if (event.button === 0 && !unavailable) onAddToCart(product);
+      onClick={() => {
+        if (!unavailable) onAddToCart(product);
       }}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -44,6 +45,6 @@ export default function ProductCard({ product, inCart = 0, onAddToCart, onShowOp
         <div className="prod-price">{formatRupees(defaultOpt.price)}</div>
         <div className={`prod-stock prod-stock-${stock.tone}`}>{stock.text}</div>
       </div>
-    </div>
+    </button>
   );
 }

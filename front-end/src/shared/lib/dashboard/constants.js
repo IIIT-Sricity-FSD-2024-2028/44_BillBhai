@@ -212,7 +212,6 @@ export const ROLE_NOTIFICATION_CONFIG = {
   cashier: [
     { key: 'orders', label: 'Order Alerts', defaultEnabled: true },
     { key: 'payments', label: 'Payment Alerts', defaultEnabled: true },
-    { key: 'returns', label: 'Return Updates', defaultEnabled: true },
   ],
   inventorymanager: [
     { key: 'inventory', label: 'Inventory Alerts', defaultEnabled: true },

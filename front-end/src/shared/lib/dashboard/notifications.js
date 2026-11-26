@@ -540,7 +540,6 @@ export function getDerivedNotifications(s) {
     case 'cashier':
       return [
         ...stockNotifications(s.inventory, { outOfStockOnly: true }),
-        ...returnNotifications(s.returns, now),
         ...couponNotifications(s.coupons, now),
       ];
     case 'inventorymanager':

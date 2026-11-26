@@ -60,7 +60,7 @@ export default function LoginPage() {
       });
       return;
     }
-    if (!password.trim()) {
+    if (!password) {
       setFieldStatus({
         username: { error: false, shake: false },
         password: { error: true, shake: true },
@@ -74,7 +74,7 @@ export default function LoginPage() {
       let userData;
       try {
         userData = await dispatch(
-          loginThunk({ username: username.trim(), password: password.trim() }),
+          loginThunk({ username: username.trim(), password, rememberMe }),
         ).unwrap();
       } catch (err) {
         setFieldStatus((prev) => ({
@@ -133,7 +133,7 @@ export default function LoginPage() {
         onToggleRemember={() => setRememberMe(!rememberMe)}
         onForgotClick={() =>
           setErrorMessage(
-            "Password reset is backend-managed. Please contact system admin.",
+            "Ask your shop admin to reset your password in Users, or if you are the business owner, contact support@billbhai.in from your registered email.",
           )
         }
         onFieldFocus={handleFieldFocus}

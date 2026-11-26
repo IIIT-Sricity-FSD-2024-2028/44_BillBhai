@@ -9,6 +9,11 @@ export default function Receipt({ receipt }) {
   const r = receipt;
   return (
     <div className="receipt" id="printReceipt">
+      {r.isDuplicate && (
+        <p style={{ textAlign: 'center', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>
+          *** DUPLICATE ***
+        </p>
+      )}
       <h2>{r.shopName}</h2>
       {r.address && <p className="receipt-meta">{r.address}</p>}
       {r.gstNo && <p className="receipt-meta">GSTIN: {r.gstNo}</p>}
@@ -22,6 +27,7 @@ export default function Receipt({ receipt }) {
         Customer: {r.customer}
         {r.phone ? ` (${r.phone})` : ''}
       </p>
+      {r.deliveryAddress && <p>Deliver to: {r.deliveryAddress}</p>}
       <table>
         <thead>
           <tr>
@@ -114,7 +120,9 @@ export function receiptFromOrder(order, business, extras = {}) {
     tax: Number(order.taxAmount ?? order.tax) || 0,
     payment: order.paymentMethod || order.payment || '',
     paymentStatus: order.paymentStatus || '',
-    tendered: extras.tendered,
-    change: extras.change,
+    tendered: extras.tendered ?? order.cashReceived,
+    change: extras.change ?? order.changeDue,
+    deliveryAddress: order.customerAddress || order.address || '',
+    isDuplicate: Boolean(extras.isDuplicate),
   };
 }

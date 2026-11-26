@@ -39,6 +39,7 @@ export default function OrderRow({ order, canEdit, isManager, onViewBill, onEdit
       </td>
       <td>
         <Badge status={order.status} type={statusColour(order.status)} />
+        {order.deliveryNote && <span style={{ ...SUB, color: 'var(--amber)' }}>{order.deliveryNote}</span>}
       </td>
       <td className="nowrap">
         {order.date}
